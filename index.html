@@ -407,6 +407,73 @@
       font-size:18px; line-height:1; color:#1565c0;
       margin-left:8px;
     }
+
+    /* ======= BACKUP BANNER ======= */
+    .backup-banner {
+      background:#fff8e1; border:1px solid #ffe0b2;
+      border-radius:14px; padding:10px 14px;
+      margin-bottom:10px; font-size:12px;
+      color:#e65100; line-height:1.5; display:none;
+    }
+    .backup-banner.show { display:block; }
+    .backup-banner-row {
+      display:flex; align-items:center;
+      justify-content:space-between; gap:8px;
+    }
+    .backup-banner-text { flex:1; }
+    .backup-banner strong { font-weight:800; }
+    .backup-now-btn {
+      padding:7px 14px; font-size:12px; font-weight:800;
+      border-radius:999px; border:none;
+      background:#f57c00; color:#fff;
+      cursor:pointer; white-space:nowrap;
+      font-family:inherit;
+    }
+    .backup-dismiss {
+      cursor:pointer; font-size:16px; opacity:.6;
+      margin-left:4px; user-select:none;
+    }
+
+    /* ======= STATS BAR ======= */
+    .stats-bar {
+      display:flex; gap:6px; flex-wrap:wrap;
+      padding:7px 2px 4px;
+      border-bottom:1px solid var(--border-soft);
+      margin-bottom:6px;
+    }
+    .stat-chip {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:3px 10px; border-radius:999px;
+      font-size:11px; font-weight:700;
+      border:1px solid transparent;
+    }
+    .stat-chip b { font-size:13px; }
+    .stat-office  { background:#e3f2fd; color:#1565c0; border-color:#bbdefb; }
+    .stat-home    { background:#e8f5e9; color:#2e7d32; border-color:#c8e6c9; }
+    .stat-off     { background:#fff8e1; color:#ef6c00; border-color:#ffe0b2; }
+    .stat-hours   { background:#f3e5f5; color:#6a1b9a; border-color:#e1bee7; }
+
+    /* ======= FLOATING TODAY BUTTON ======= */
+    .fab-today {
+      position:fixed;
+      right: calc(max(env(safe-area-inset-right), 16px));
+      bottom: calc(max(env(safe-area-inset-bottom), 20px) + 56px);
+      width:52px; height:52px;
+      border-radius:999px;
+      background:var(--accent-blue);
+      color:#fff; font-size:11px; font-weight:900;
+      border:none; cursor:pointer;
+      box-shadow:0 4px 16px rgba(79,141,253,0.45);
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      gap:1px; z-index:900;
+      font-family:inherit;
+      transition:opacity 0.2s;
+    }
+    .fab-today:active { transform:scale(0.95); }
+    .fab-today .fab-day { font-size:18px; font-weight:900; line-height:1; }
+    .fab-today .fab-label { font-size:9px; opacity:.85; }
+    .fab-today.hidden { opacity:0; pointer-events:none; }
   </style>
 </head>
 
@@ -418,10 +485,30 @@
     Safari の <strong>共有ボタン（↑）→「ホーム画面に追加」</strong> をタップ
   </div>
 
+  <!-- Auto-backup reminder banner -->
+  <div class="backup-banner" id="backup-banner">
+    <div class="backup-banner-row">
+      <div class="backup-banner-text">
+        <strong>⚠️ バックアップをお勧めします</strong><br>
+        <span id="backup-days-msg">前回のバックアップから7日以上経過しています</span>
+      </div>
+      <button class="backup-now-btn" id="btn-backup-now">一括バックアップ</button>
+      <span class="backup-dismiss" id="backup-dismiss">×</span>
+    </div>
+  </div>
+
   <div class="card" id="calendar-card">
     <div class="overlay" id="overlay"><div class="spinner"></div></div>
 
     <div class="card-title">勤怠カレンダー（メモ付き）</div>
+
+    <!-- Monthly stats bar -->
+    <div class="stats-bar" id="stats-bar">
+      <span class="stat-chip stat-office">出社 <b id="stat-office">0</b>日</span>
+      <span class="stat-chip stat-home">在宅 <b id="stat-home">0</b>日</span>
+      <span class="stat-chip stat-off">休暇 <b id="stat-off">0</b>日</span>
+      <span class="stat-chip stat-hours">勤務 <b id="stat-hours">0h</b></span>
+    </div>
 
     <div class="header-bar">
       <div class="header-left">
@@ -534,6 +621,12 @@
       </div>
     </div>
   </div>
+
+  <!-- Floating today button -->
+  <button class="fab-today" id="fab-today">
+    <span class="fab-day" id="fab-day">--</span>
+    <span class="fab-label">今日</span>
+  </button>
 
   <div class="toast" id="toast"></div>
 
@@ -829,6 +922,7 @@
         attendanceData = data;
         holidaysData   = holidays;
         renderCalendar(year, month);
+        renderStats(year, month);
       } finally {
         setLoading(false);
       }
@@ -1142,14 +1236,10 @@
        IMPORT / EXPORT
        ===================================================== */
     document.getElementById('btn-export').addEventListener('click', () => {
-      const store = loadStore();
-      const blob  = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' });
-      const a     = document.createElement('a');
-      a.href      = URL.createObjectURL(blob);
-      a.download  = `kintai_backup_${new Date().toISOString().slice(0,10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      toast('バックアップをダウンロードしました');
+      exportJSON();
+      markBackedUp();
+      document.getElementById('backup-banner').classList.remove('show');
+      toast('💾 JSONバックアップを保存しました');
     });
 
     document.getElementById('btn-import').addEventListener('click', () => {
@@ -1313,6 +1403,155 @@
     });
 
     /* =====================================================
+       MONTHLY STATS
+       ===================================================== */
+    function calcMonthStats(year, month) {
+      const ym   = `${year}-${String(month).padStart(2,'0')}`;
+      const raw  = loadStore().months[ym] || {};
+      let office = 0, home = 0, off = 0, totalMin = 0;
+
+      Object.values(raw).forEach(rec => {
+        const { data } = applyAutoRules({ [rec.date]: rec });
+        const st = data[rec.date]?.status || '未';
+        if (st === '出社')                           office++;
+        else if (st === '在宅')                      home++;
+        else if (['休み','休日','祝日'].includes(st)) off++;
+
+        if (rec.start && rec.end) {
+          const [sh, sm] = rec.start.split(':').map(Number);
+          const [eh, em] = rec.end.split(':').map(Number);
+          const d = (eh * 60 + em) - (sh * 60 + sm);
+          if (d > 0) totalMin += d;
+        }
+      });
+
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return { office, home, off, hours: h, mins: m };
+    }
+
+    function renderStats(year, month) {
+      const s = calcMonthStats(year, month);
+      document.getElementById('stat-office').textContent = s.office;
+      document.getElementById('stat-home').textContent   = s.home;
+      document.getElementById('stat-off').textContent    = s.off;
+      document.getElementById('stat-hours').textContent  =
+        s.hours > 0 ? `${s.hours}h${s.mins > 0 ? s.mins + 'm' : ''}` : '0h';
+    }
+
+    /* =====================================================
+       AUTO BACKUP SYSTEM
+       ===================================================== */
+    const BACKUP_KEY           = 'kintai_last_backup';
+    const BACKUP_INTERVAL_DAYS = 7;
+
+    function daysSinceBackup() {
+      const last = localStorage.getItem(BACKUP_KEY);
+      if (!last) return 999;
+      return Math.floor((Date.now() - parseInt(last)) / 86400000);
+    }
+
+    function markBackedUp() {
+      localStorage.setItem(BACKUP_KEY, Date.now().toString());
+    }
+
+    function checkBackupReminder() {
+      const days = daysSinceBackup();
+      if (days >= BACKUP_INTERVAL_DAYS) {
+        const msg = days >= 999
+          ? 'まだバックアップが作成されていません'
+          : `前回のバックアップから <strong>${days}日</strong> 経過しています`;
+        document.getElementById('backup-days-msg').innerHTML = msg;
+        document.getElementById('backup-banner').classList.add('show');
+      }
+    }
+
+    // JSON ダウンロード（単体）
+    function exportJSON() {
+      const store = loadStore();
+      const blob  = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' });
+      const a     = document.createElement('a');
+      a.href      = URL.createObjectURL(blob);
+      a.download  = `kintai_backup_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // JSON + xlsx を連続ダウンロード（一括バックアップ）
+    function oneClickBackup() {
+      exportJSON();
+      setTimeout(() => exportXlsx(), 800); // iOS で同時DLが詰まらないよう少し間隔を置く
+      markBackedUp();
+      document.getElementById('backup-banner').classList.remove('show');
+      toast('✅ JSON + xlsx を保存しました');
+    }
+
+    document.getElementById('btn-backup-now').addEventListener('click', oneClickBackup);
+    document.getElementById('backup-dismiss').addEventListener('click', () => {
+      document.getElementById('backup-banner').classList.remove('show');
+    });
+
+    // アプリが前面に来るたびにチェック
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkBackupReminder();
+    });
+
+    /* =====================================================
+       SWIPE GESTURE（左右スワイプで月切り替え）
+       ===================================================== */
+    let _swipeX = 0, _swipeY = 0;
+    document.getElementById('calendar-card').addEventListener('touchstart', e => {
+      _swipeX = e.touches[0].clientX;
+      _swipeY = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.getElementById('calendar-card').addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - _swipeX;
+      const dy = e.changedTouches[0].clientY - _swipeY;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.2) return; // 縦スクロールを除外
+      if (dx < 0) {
+        // 左スワイプ → 次月
+        let y = currentYear, m = currentMonth + 1;
+        if (m === 13) { m = 1; y++; }
+        loadMonth(y, m);
+      } else {
+        // 右スワイプ → 前月
+        let y = currentYear, m = currentMonth - 1;
+        if (m === 0) { m = 12; y--; }
+        loadMonth(y, m);
+      }
+    }, { passive: true });
+
+    /* =====================================================
+       FLOATING TODAY BUTTON
+       ===================================================== */
+    (function initFab() {
+      const t   = new Date();
+      const fab = document.getElementById('fab-today');
+      document.getElementById('fab-day').textContent = t.getDate();
+
+      fab.addEventListener('click', () => {
+        const today = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+        // 今月でなければ今月へ移動してからモーダルを開く
+        if (currentYear !== t.getFullYear() || currentMonth !== t.getMonth() + 1) {
+          loadMonth(t.getFullYear(), t.getMonth() + 1);
+          setTimeout(() => openModal(today), 150);
+        } else {
+          openModal(today);
+        }
+      });
+
+      // モーダルが開いているときは隠す
+      const observer = new MutationObserver(() => {
+        const modalOpen = document.getElementById('memo-modal').classList.contains('show')
+                       || document.getElementById('settings-modal').classList.contains('show');
+        fab.classList.toggle('hidden', modalOpen);
+      });
+      observer.observe(document.getElementById('memo-modal'),     { attributes: true });
+      observer.observe(document.getElementById('settings-modal'), { attributes: true });
+    })();
+
+    /* =====================================================
        GENERATE APP ICON (canvas → apple-touch-icon)
        ===================================================== */
     (function generateIcon() {
@@ -1341,10 +1580,13 @@
        ===================================================== */
     (async function init() {
       const t = new Date();
-      // IndexedDB からの復元を試みてからカレンダーを表示
       const restored = await restoreFromIDBIfNeeded();
       loadMonth(t.getFullYear(), t.getMonth() + 1);
-      if (restored) renderCalendar(t.getFullYear(), t.getMonth() + 1);
+      if (restored) {
+        renderCalendar(t.getFullYear(), t.getMonth() + 1);
+        renderStats(t.getFullYear(), t.getMonth() + 1);
+      }
+      checkBackupReminder();
     })();
 
     /* =====================================================
