@@ -1,9 +1,10 @@
 /* =====================================================
    Service Worker — 勤怠カレンダー PWA
+   ※ CACHE バージョンを上げると全クライアントのキャッシュが更新される
    ===================================================== */
 
-const CACHE = 'kintai-v1';
-const PRECACHE = ['./index.html', './manifest.json'];
+const CACHE = 'kintai-v3';
+const PRECACHE = ['./index.html', './manifest.json', './icon-apple.png', './icon-192.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));
@@ -19,16 +20,18 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
+// ネットワーク優先（更新があれば即反映）、失敗時のみキャッシュ
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-        return res;
-      }).catch(() => caches.match('./index.html'));
-    })
+    fetch(e.request).then(res => {
+      // 正常レスポンスをキャッシュに上書き保存
+      const clone = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, clone));
+      return res;
+    }).catch(() =>
+      // オフライン時のみキャッシュから返す
+      caches.match(e.request).then(cached => cached || caches.match('./index.html'))
+    )
   );
 });
