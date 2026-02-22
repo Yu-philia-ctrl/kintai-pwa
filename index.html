@@ -14,6 +14,7 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#4f8dfd">
   <link rel="manifest" href="manifest.json">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <style>
     :root {
@@ -458,9 +459,10 @@
         日曜→休日 / 土曜→休み / 祝日は自動判定。メモあり＝<span style="color:#ff9800;font-weight:800;">●</span>
       </div>
       <div class="data-actions">
-        <button class="data-btn" id="btn-migrate">🔄 iSH版データを取り込む</button>
-        <button class="data-btn" id="btn-export">📤 データ書き出し</button>
-        <button class="data-btn" id="btn-import">📥 データ読み込み</button>
+        <button class="data-btn" id="btn-xlsx">📊 xlsx書き出し</button>
+        <button class="data-btn" id="btn-export">💾 JSONバックアップ</button>
+        <button class="data-btn" id="btn-import">📥 JSON読み込み</button>
+        <button class="data-btn" id="btn-migrate">🔄 iSH版を取り込む</button>
         <button class="data-btn" id="btn-settings">⚙️ 設定</button>
       </div>
       <input type="file" id="file-import" accept=".json" style="display:none">
@@ -636,8 +638,50 @@
     }
 
     /* =====================================================
-       DATA STORAGE (localStorage)
+       DATA STORAGE — IndexedDB（主）+ localStorage（高速キャッシュ）
+       書き込み: 両方に同期
+       読み込み: localStorage（高速）
+       復元:     localStorage が空の場合 IndexedDB から自動復元
        ===================================================== */
+    const IDB_NAME    = 'kintai_idb';
+    const IDB_VERSION = 1;
+    const IDB_STORE   = 'attendance';
+
+    function _openIDB() {
+      return new Promise((resolve) => {
+        try {
+          const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+          req.onupgradeneeded = e => {
+            e.target.result.createObjectStore(IDB_STORE, { keyPath: 'id' });
+          };
+          req.onsuccess = e => resolve(e.target.result);
+          req.onerror   = () => resolve(null);
+        } catch (_) { resolve(null); }
+      });
+    }
+
+    async function idbSave(data) {
+      const db = await _openIDB();
+      if (!db) return;
+      try {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put({ id: 'main', data, saved_at: new Date().toISOString() });
+      } catch (_) {}
+    }
+
+    async function idbLoad() {
+      const db = await _openIDB();
+      if (!db) return null;
+      return new Promise(resolve => {
+        try {
+          const req = db.transaction(IDB_STORE).objectStore(IDB_STORE).get('main');
+          req.onsuccess = () => resolve(req.result?.data || null);
+          req.onerror   = () => resolve(null);
+        } catch (_) { resolve(null); }
+      });
+    }
+
+    // localStorage から読む（高速・同期）
     function loadStore() {
       try {
         const r = localStorage.getItem(STORE_KEY);
@@ -647,8 +691,24 @@
       } catch { return { months: {} }; }
     }
 
+    // 両方に書く
     function saveStore(store) {
       localStorage.setItem(STORE_KEY, JSON.stringify(store));
+      idbSave(store); // 非同期ミラー（fire-and-forget）
+    }
+
+    // 起動時: localStorage が空なら IndexedDB から復元
+    async function restoreFromIDBIfNeeded() {
+      const ls = localStorage.getItem(STORE_KEY);
+      const isEmpty = !ls || ls === '{"months":{}}';
+      if (!isEmpty) return false;
+      const idbData = await idbLoad();
+      if (idbData && Object.keys(idbData.months || {}).length > 0) {
+        localStorage.setItem(STORE_KEY, JSON.stringify(idbData));
+        toast('💾 IndexedDBからデータを復元しました');
+        return true;
+      }
+      return false;
     }
 
     function buildSkeleton(ym) {
@@ -990,6 +1050,65 @@
     }
 
     /* =====================================================
+       xlsx 書き出し（SheetJS）
+       ===================================================== */
+    function exportXlsx() {
+      if (typeof XLSX === 'undefined') { alert('xlsx ライブラリの読み込みが完了していません。\nしばらく待ってから再試行してください。'); return; }
+      const store  = loadStore();
+      const months = Object.keys(store.months).sort();
+      if (months.length === 0) { alert('エクスポートするデータがありません'); return; }
+
+      const wb    = XLSX.utils.book_new();
+      const wdays = ['日','月','火','水','木','金','土'];
+
+      for (const ym of months) {
+        const monthData = store.months[ym];
+        const header = ['日付','曜日','ステータス','開始','終了','勤務時間','祝日','メモ'];
+        const rows   = [header];
+
+        Object.keys(monthData).sort().forEach(d => {
+          const rec = monthData[d];
+          const dt  = new Date(d + 'T00:00:00');
+          const wd  = wdays[dt.getDay()];
+
+          // 勤務時間を計算
+          let workHours = '';
+          if (rec.start && rec.end) {
+            const [sh, sm] = rec.start.split(':').map(Number);
+            const [eh, em] = rec.end.split(':').map(Number);
+            const diff = (eh * 60 + em) - (sh * 60 + sm);
+            if (diff > 0) workHours = `${Math.floor(diff / 60)}:${String(diff % 60).padStart(2, '0')}`;
+          }
+
+          rows.push([
+            d,
+            wd,
+            rec.status  || '未',
+            rec.start   || '',
+            rec.end     || '',
+            workHours,
+            holidayName(d) || '',
+            rec.memo    || ''
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        // 列幅
+        ws['!cols'] = [
+          {wch:12},{wch:4},{wch:8},{wch:6},{wch:6},{wch:8},{wch:14},{wch:60}
+        ];
+        // ヘッダー行のスタイル（背景色など）は xlsx.full では別途要設定のため省略
+        XLSX.utils.book_append_sheet(wb, ws, ym);
+      }
+
+      const fname = `kintai_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(wb, fname);
+      toast(`📊 ${fname} を書き出しました`);
+    }
+
+    document.getElementById('btn-xlsx').addEventListener('click', exportXlsx);
+
+    /* =====================================================
        iSH版データ移行（PWA内から同一オリジンfetch）
        ===================================================== */
     document.getElementById('btn-migrate').addEventListener('click', async () => {
@@ -1220,9 +1339,12 @@
     /* =====================================================
        INIT
        ===================================================== */
-    (function init() {
+    (async function init() {
       const t = new Date();
+      // IndexedDB からの復元を試みてからカレンダーを表示
+      const restored = await restoreFromIDBIfNeeded();
       loadMonth(t.getFullYear(), t.getMonth() + 1);
+      if (restored) renderCalendar(t.getFullYear(), t.getMonth() + 1);
     })();
 
     /* =====================================================
