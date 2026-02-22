@@ -458,6 +458,7 @@
         日曜→休日 / 土曜→休み / 祝日は自動判定。メモあり＝<span style="color:#ff9800;font-weight:800;">●</span>
       </div>
       <div class="data-actions">
+        <button class="data-btn" id="btn-migrate">🔄 iSH版データを取り込む</button>
         <button class="data-btn" id="btn-export">📤 データ書き出し</button>
         <button class="data-btn" id="btn-import">📥 データ読み込み</button>
         <button class="data-btn" id="btn-settings">⚙️ 設定</button>
@@ -987,6 +988,36 @@
       const file   = encodeURIComponent(`${subdir}/${dateStr}.md`);
       location.href = `obsidian://open?vault=${encodeURIComponent(vault)}&file=${file}`;
     }
+
+    /* =====================================================
+       iSH版データ移行（PWA内から同一オリジンfetch）
+       ===================================================== */
+    document.getElementById('btn-migrate').addEventListener('click', async () => {
+      if (!confirm('iSH版の全データ（4ヶ月・73件の記録）をこのアプリに取り込みます。\n既存のデータとマージします。よろしいですか？')) return;
+      setLoading(true);
+      try {
+        const res = await fetch('./kintai_backup_2026-02-22.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data || !data.months) throw new Error('データ形式が正しくありません');
+
+        // 既存データとマージ（既存を優先）
+        const existing = loadStore();
+        const merged = { months: { ...data.months, ...existing.months } };
+        saveStore(merged);
+
+        // 月ごとの件数集計
+        const months = Object.keys(data.months);
+        const total  = months.reduce((s, m) => s + Object.values(data.months[m]).filter(v => v.status && v.status !== '未').length, 0);
+
+        loadMonth(currentYear, currentMonth);
+        toast(`✅ 移行完了！${months.length}ヶ月・${total}件の記録を取り込みました`);
+      } catch (e) {
+        alert(`取り込みに失敗しました: ${e.message}`);
+      } finally {
+        setLoading(false);
+      }
+    });
 
     /* =====================================================
        IMPORT / EXPORT
