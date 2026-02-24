@@ -1,10 +1,12 @@
 /* =====================================================
-   Service Worker — 勤怠カレンダー PWA
+   Service Worker — 勤怠カレンダー PWA  (GAFA-grade)
    ※ CACHE バージョンを上げると全クライアントのキャッシュが更新される
    ===================================================== */
 
-const CACHE = 'kintai-v5';
-const PRECACHE = ['./index.html', './manifest.json', './recover.html', './icon-apple.png', './icon-192.png'];
+const CACHE      = 'kintai-v6';
+const CACHE_STATIC = 'kintai-static-v1'; // アイコン等の静的アセット
+const PRECACHE   = ['./index.html', './manifest.json', './recover.html', './icon-apple.png', './icon-192.png', './icon-512.png'];
+const STATIC_EXT = ['.png', '.jpg', '.svg', '.ico', '.woff2'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));
@@ -14,24 +16,48 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter(k => k !== CACHE && k !== CACHE_STATIC)
+          .map(k => caches.delete(k))
+      )
     )
   );
   self.clients.claim();
 });
 
-// ネットワーク優先（更新があれば即反映）、失敗時のみキャッシュ
+// Fetch 戦略:
+//   静的アセット(.png等) → Stale-While-Revalidate（高速表示 + バックグラウンド更新）
+//   HTML / JS / JSON     → Network-First（常に最新コードを使用）
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    fetch(e.request).then(res => {
-      // 正常レスポンスをキャッシュに上書き保存
-      const clone = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, clone));
-      return res;
-    }).catch(() =>
-      // オフライン時のみキャッシュから返す
-      caches.match(e.request).then(cached => cached || caches.match('./index.html'))
-    )
-  );
+  const url = new URL(e.request.url);
+  const isStatic = STATIC_EXT.some(ext => url.pathname.endsWith(ext));
+
+  if (isStatic) {
+    // Stale-While-Revalidate
+    e.respondWith(
+      caches.open(CACHE_STATIC).then(async cache => {
+        const cached = await cache.match(e.request);
+        const fetchPromise = fetch(e.request).then(res => {
+          if (res.ok) cache.put(e.request, res.clone());
+          return res;
+        }).catch(() => null);
+        return cached || fetchPromise;
+      })
+    );
+  } else {
+    // Network-First
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      }).catch(() =>
+        caches.match(e.request).then(cached => cached || caches.match('./index.html'))
+      )
+    );
+  }
 });

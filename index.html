@@ -12,9 +12,11 @@
   <link rel="apple-touch-icon" href="icon-apple.png">
 
   <!-- Android / General PWA -->
-  <meta name="theme-color" content="#4f8dfd">
+  <meta name="theme-color" content="#7c5fe6">
   <link rel="manifest" href="manifest.json">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self';"> 
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self';">
+  <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
 
   <style>
@@ -455,6 +457,21 @@
     }
     @keyframes spin { to { transform:rotate(360deg); } }
 
+    /* ======= NETWORK STATUS BANNER ======= */
+    .net-banner {
+      position: fixed; top: calc(max(var(--safe-top), 0px));
+      left: 0; right: 0; z-index: 4000;
+      background: rgba(30,30,30,0.92);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      color: #fff; font-size: 13px; font-weight: 700;
+      padding: 10px 16px; text-align: center;
+      transform: translateY(-100%);
+      transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+    }
+    .net-banner.show  { transform: translateY(0); }
+    .net-banner.online  { background: rgba(34,136,56,0.92); }
+    .net-banner.offline { background: rgba(180,30,30,0.92); }
+
     /* ======= INSTALL BANNER ======= */
     .install-banner {
       background:#eef3ff; border:1px solid #c5d2ff;
@@ -614,6 +631,9 @@
 </head>
 
 <body>
+  <!-- Network status banner -->
+  <div class="net-banner" id="net-banner" role="status" aria-live="polite"></div>
+
   <!-- Install banner (iOS) -->
   <div class="install-banner" id="install-banner">
     <span class="install-close" id="install-close">×</span>
@@ -849,12 +869,24 @@
       throw new Error('RECOVERY_MODE'); // 以降のスクリプトを一切実行しない
     }
 
-    // ③ グローバルエラーハンドラ（未捕捉エラーをコンソールに記録）
+    // ③ エラーテレメトリ（ローカル ring buffer — 最新20件をlocalStorageに保存）
+    const _ERR_KEY  = '_kintai_errors';
+    const _ERR_MAX  = 20;
+    function _logError(type, detail) {
+      try {
+        const log = JSON.parse(localStorage.getItem(_ERR_KEY) || '[]');
+        log.unshift({ ts: new Date().toISOString(), type, detail: String(detail).slice(0, 200) });
+        if (log.length > _ERR_MAX) log.length = _ERR_MAX;
+        localStorage.setItem(_ERR_KEY, JSON.stringify(log));
+      } catch(_) {}
+    }
     window.addEventListener('error', ev => {
       console.error('[GLOBAL ERROR]', ev.message, ev.filename, ev.lineno);
+      _logError('js_error', `${ev.message} @ ${ev.filename}:${ev.lineno}`);
     });
     window.addEventListener('unhandledrejection', ev => {
       console.error('[UNHANDLED REJECTION]', ev.reason);
+      _logError('unhandled_rejection', ev.reason);
       ev.preventDefault(); // iOS Safari の強制クラッシュを抑制
     });
 
@@ -2075,6 +2107,54 @@
         console.error('[init] 致命的エラー:', fatal);
       }
     })();
+
+    /* =====================================================
+       NETWORK STATUS MONITOR（オフライン/オンライン通知）
+       ===================================================== */
+    (function initNetworkMonitor() {
+      const banner = document.getElementById('net-banner');
+      let hideTimer = null;
+
+      function showBanner(msg, type, autohide = true) {
+        banner.textContent = msg;
+        banner.className = `net-banner show ${type}`;
+        clearTimeout(hideTimer);
+        if (autohide) hideTimer = setTimeout(() => banner.classList.remove('show'), 2800);
+      }
+
+      window.addEventListener('online',  () => showBanner('✅ オンラインに復帰しました', 'online'));
+      window.addEventListener('offline', () => showBanner('📵 オフラインです — ローカルデータで動作中', 'offline', false));
+
+      // 初期状態がオフラインの場合
+      if (!navigator.onLine) showBanner('📵 オフラインです — ローカルデータで動作中', 'offline', false);
+    })();
+
+    /* =====================================================
+       KEYBOARD SHORTCUTS（パワーユーザー向け）
+       ===================================================== */
+    document.addEventListener('keydown', e => {
+      // モーダル・入力中は無効
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      const memoOpen  = document.getElementById('memo-modal')?.classList.contains('show');
+      const taskOpen  = document.getElementById('task-modal')?.classList.contains('show');
+      const setsOpen  = document.getElementById('settings-modal')?.classList.contains('show');
+      const anyModal  = memoOpen || taskOpen || setsOpen;
+
+      if (e.key === 'Escape' && anyModal) {
+        // ESC でモーダルを閉じる
+        if (memoOpen) document.getElementById('memo-modal').classList.remove('show');
+        if (taskOpen) document.getElementById('task-modal').classList.remove('show');
+        if (setsOpen) document.getElementById('settings-modal').classList.remove('show');
+        return;
+      }
+      if (anyModal) return;
+
+      if (e.key === 'ArrowLeft'  && !e.metaKey) { e.preventDefault(); document.getElementById('prev-month')?.click(); }
+      if (e.key === 'ArrowRight' && !e.metaKey) { e.preventDefault(); document.getElementById('next-month')?.click(); }
+      if (e.key === 't' || e.key === 'T')        document.getElementById('today-button')?.click();
+    });
 
     /* =====================================================
        TASK MANAGEMENT

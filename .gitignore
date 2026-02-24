@@ -1,0 +1,21 @@
+# 認証情報・秘密情報
+.env
+.env.*
+config.local.py
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+._*
+
+# 一時ファイル
+*.tmp
+*.bak
+*~
+
+# ローカル生成ファイル（iCloudにも保存されるため除外不要だが念のため）
+# jinjer_sync_*.json  ← コミットしたい場合はコメントアウト

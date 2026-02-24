@@ -1,13 +1,30 @@
 {
   "name": "勤怠カレンダー",
   "short_name": "勤怠",
-  "description": "勤怠カレンダー（メモ付き）—サーバー不要PWA版",
+  "description": "勤怠カレンダー（メモ付き）— サーバー不要のオフライン対応PWA",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f5f5f7",
-  "theme_color": "#4f8dfd",
+  "background_color": "#dce8ff",
+  "theme_color": "#7c5fe6",
   "lang": "ja",
+  "categories": ["productivity", "business"],
+  "shortcuts": [
+    {
+      "name": "今月を開く",
+      "short_name": "今月",
+      "description": "当月のカレンダーを開く",
+      "url": "./index.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "緊急復旧",
+      "short_name": "復旧",
+      "description": "PWAがクラッシュした場合の緊急復旧ページ",
+      "url": "./recover.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ],
   "icons": [
     {
       "src": "icon-192.png",

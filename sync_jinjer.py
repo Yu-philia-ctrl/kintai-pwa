@@ -16,18 +16,31 @@ PWAの「🏢 jinjer同期」ボタンからインポートしてください。
 """
 import asyncio
 import json
+import os
 import sys
 import re
 from pathlib import Path
 from datetime import date
 
 
-# ===== 認証情報 =====
+# ===== 認証情報（.envから読み込み、なければデフォルト値を使用）=====
+def _load_env():
+    """標準ライブラリのみで .env を読み込む（python-dotenv不要）"""
+    env_path = Path(__file__).parent / '.env'
+    if env_path.exists():
+        for line in env_path.read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, _, val = line.partition('=')
+                os.environ.setdefault(key.strip(), val.strip())
+
+_load_env()
+
 JINJER_SIGN_IN = 'https://kintai.jinjer.biz/staffs/sign_in'
-COMPANY_CODE   = '15733'
-EMPLOYEE_CODE  = '191'
-PASSWORD       = 'philia1904rops'
-# ====================
+COMPANY_CODE   = os.environ.get('JINJER_COMPANY_CODE', '15733')
+EMPLOYEE_CODE  = os.environ.get('JINJER_EMPLOYEE_CODE', '191')
+PASSWORD       = os.environ.get('JINJER_PASSWORD', 'philia1904rops')
+# ================================================================
 
 
 def parse_actual(actual_str):
