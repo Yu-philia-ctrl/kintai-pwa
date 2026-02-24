@@ -392,6 +392,40 @@
     }
     .toast.show { display:block; }
 
+    /* ======= PROGRESS OVERLAY ======= */
+    .progress-overlay {
+      position:fixed; inset:0; z-index:3000;
+      background:rgba(0,0,0,0.55);
+      display:none; align-items:center; justify-content:center;
+    }
+    .progress-overlay.show { display:flex; }
+    .progress-box {
+      background:var(--bg-card); border-radius:18px;
+      padding:24px 28px; min-width:260px; max-width:90vw;
+      box-shadow:0 8px 32px rgba(0,0,0,0.25);
+      display:flex; flex-direction:column; gap:14px; align-items:center;
+    }
+    .progress-title { font-size:15px; font-weight:800; color:var(--text-main); }
+    .progress-step  { font-size:13px; color:var(--text-muted); text-align:center; line-height:1.6; }
+    .progress-bar-wrap {
+      width:100%; height:8px; background:var(--border-color);
+      border-radius:999px; overflow:hidden;
+    }
+    .progress-bar-fill {
+      height:100%; background:var(--accent-blue);
+      border-radius:999px;
+      transition:width 0.3s ease;
+      width:0%;
+    }
+    .progress-spinner {
+      width:32px; height:32px;
+      border:3px solid var(--border-color);
+      border-top-color:var(--accent-blue);
+      border-radius:50%;
+      animation:spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
     /* ======= INSTALL BANNER ======= */
     .install-banner {
       background:#eef3ff; border:1px solid #c5d2ff;
@@ -687,6 +721,18 @@
 
   <!-- Task FAB -->
   <button class="fab-task" id="fab-task">📋</button>
+
+  <!-- Progress overlay（jinjer同期・重い処理用） -->
+  <div class="progress-overlay" id="progress-overlay">
+    <div class="progress-box">
+      <div class="progress-spinner" id="progress-spinner"></div>
+      <div class="progress-title" id="progress-title">処理中...</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+      <div class="progress-step" id="progress-step"></div>
+    </div>
+  </div>
 
   <div class="toast" id="toast"></div>
 
@@ -1327,6 +1373,31 @@
     });
 
     /* =====================================================
+       PROGRESS OVERLAY ヘルパー
+       ===================================================== */
+    const _overlay  = document.getElementById('progress-overlay');
+    const _progBar  = document.getElementById('progress-bar');
+    const _progStep = document.getElementById('progress-step');
+    const _progTitle= document.getElementById('progress-title');
+
+    function showProgress(title) {
+      _progTitle.textContent = title || '処理中...';
+      _progBar.style.width   = '0%';
+      _progStep.textContent  = '';
+      _overlay.classList.add('show');
+      console.log(`[Progress] ${title}`);
+    }
+    function updateProgress(pct, stepMsg) {
+      _progBar.style.width  = `${Math.min(pct, 100)}%`;
+      _progStep.textContent = stepMsg || '';
+      console.log(`[Progress] ${pct}% — ${stepMsg}`);
+    }
+    function hideProgress() {
+      _overlay.classList.remove('show');
+      console.log('[Progress] 完了');
+    }
+
+    /* =====================================================
        JINJER 同期（マージインポート）
        ===================================================== */
     document.getElementById('btn-jinjer').addEventListener('click', () => {
@@ -1336,16 +1407,32 @@
     document.getElementById('file-jinjer').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
+
+      showProgress('🏢 jinjer同期');
+      updateProgress(10, '📂 ファイルを読み込み中...');
+
       const reader = new FileReader();
       reader.onload = ev => {
         try {
+          updateProgress(25, '🔍 データを解析中...');
+          console.log('[jinjer] ファイル読み込み完了:', file.name, file.size, 'bytes');
+
           const jinjer = JSON.parse(ev.target.result);
-          if (!jinjer || !jinjer.months) throw new Error('invalid');
+          if (!jinjer || !jinjer.months) throw new Error('invalid format');
 
-          const store  = loadStore();
-          let updated  = 0;
+          const monthKeys = Object.keys(jinjer.months);
+          console.log('[jinjer] 対象月:', monthKeys);
 
-          // jinjerの月を既存データにマージ（メモは保持、start/end/statusのみ上書き）
+          updateProgress(45, `📅 ${monthKeys.join(', ')} のデータを確認中...`);
+
+          const store   = loadStore();
+          let updated   = 0;
+          let totalDays = Object.values(jinjer.months).reduce((s, d) => s + Object.keys(d).length, 0);
+
+          console.log(`[jinjer] 処理対象: ${totalDays}日分`);
+          updateProgress(60, `🔄 ${totalDays}日分をマージ中...`);
+
+          // マージ処理（メモは保持、start/end/statusのみ上書き）
           for (const [monthKey, days] of Object.entries(jinjer.months)) {
             if (!store.months[monthKey]) store.months[monthKey] = {};
             for (const [dateKey, jd] of Object.entries(days)) {
@@ -1354,18 +1441,38 @@
                 status: jd.status || existing.status || '未',
                 start:  jd.start  || existing.start  || '',
                 end:    jd.end    || existing.end    || '',
-                memo:   existing.memo || '',   // 既存メモを優先
+                memo:   existing.memo || '',
               };
               updated++;
+              console.log(`[jinjer]   ${dateKey}: ${jd.status} ${jd.start}~${jd.end}`);
             }
           }
 
+          updateProgress(80, '💾 データを保存中...');
+          console.log(`[jinjer] saveStore開始 (${updated}日分)`);
           saveStore(store);
+
+          updateProgress(95, '🗓 カレンダーを更新中...');
           loadMonth(currentYear, currentMonth);
-          toast(`✅ jinjerデータを同期しました（${updated}日分）`);
-        } catch {
-          alert('jinjer同期ファイルの形式が正しくありません');
+
+          updateProgress(100, `✅ ${updated}日分の同期が完了しました`);
+          console.log(`[jinjer] 完了: ${updated}日分`);
+
+          setTimeout(() => {
+            hideProgress();
+            toast(`✅ jinjer同期完了（${updated}日分）`);
+          }, 800);
+
+        } catch(err) {
+          console.error('[jinjer] エラー:', err);
+          hideProgress();
+          alert(`jinjer同期ファイルの読み込みに失敗しました\n\n${err.message}`);
         }
+      };
+      reader.onerror = () => {
+        console.error('[jinjer] FileReader エラー');
+        hideProgress();
+        alert('ファイルの読み込みに失敗しました');
       };
       reader.readAsText(file);
       e.target.value = '';
