@@ -487,6 +487,28 @@
     .stat-off     { background:#fff8e1; color:#ef6c00; border-color:#ffe0b2; }
     .stat-hours   { background:#f3e5f5; color:#6a1b9a; border-color:#e1bee7; }
 
+    /* ======= WEEKLY STATS ======= */
+    .weekly-stats {
+      font-size: 12px;
+      margin-bottom: 6px;
+      border-top: 1px solid var(--border-soft);
+      padding-top: 6px;
+    }
+    .weekly-stats table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .weekly-stats td {
+      padding: 3px 4px;
+      vertical-align: middle;
+    }
+    .weekly-stats .w-label { color: var(--text-muted); min-width: 110px; }
+    .weekly-stats .w-hours { font-weight: 600; min-width: 68px; }
+    .weekly-stats .w-pm    { color: #6a1b9a; font-weight: 700; text-align: right; }
+    .weekly-stats .w-bar-cell { width: 100%; padding-left: 8px; }
+    .w-bar-bg  { background: #f0e6f8; border-radius: 4px; height: 6px; overflow: hidden; }
+    .w-bar-fill{ background: #9c27b0; height: 100%; border-radius: 4px; transition: width .3s; }
+
     /* ======= TASK FAB ======= */
     .fab-task {
       position:fixed;
@@ -581,6 +603,8 @@
       <span class="stat-chip stat-off">休暇 <b id="stat-off">0</b>日</span>
       <span class="stat-chip stat-hours">勤務 <b id="stat-hours">0h</b></span>
     </div>
+    <!-- Weekly person-month breakdown -->
+    <div class="weekly-stats" id="weekly-stats"></div>
 
     <div class="header-bar">
       <div class="header-left">
@@ -1542,11 +1566,10 @@
             for (const { mk, dk, jd } of chunk) {
               const ex = store.months[mk][dk] || {};
               store.months[mk][dk] = {
-                ...ex,                                           // memo・updated_at 等を全て保持
-                status: jd.status || ex.status || '未',
-                start:  jd.start  !== undefined ? jd.start  : (ex.start  || ''),
-                end:    jd.end    !== undefined ? jd.end    : (ex.end    || ''),
-                // memo は ...ex から引き継ぐ（jinjer は上書きしない）
+                ...ex,                           // status・memo・updated_at 等を全て保持
+                start: jd.start || ex.start || '', // 出勤時間のみ上書き
+                end:   jd.end   || ex.end   || '', // 退勤時間のみ上書き
+                // status と memo は jinjer では上書きしない
               };
               done++;
             }
@@ -1783,6 +1806,65 @@
       document.getElementById('stat-off').textContent    = s.off;
       document.getElementById('stat-hours').textContent  =
         s.hours > 0 ? `${s.hours}h${s.mins > 0 ? s.mins + 'm' : ''}` : '0h';
+      renderWeeklyStats(year, month);
+    }
+
+    /* =====================================================
+       WEEKLY PERSON-MONTH STATS  (1人月 = 8h)
+       ===================================================== */
+    function calcWeeklyStats(year, month) {
+      const ym      = `${year}-${String(month).padStart(2,'0')}`;
+      const raw     = loadStore().months[ym] || {};
+      const lastDay = new Date(year, month, 0).getDate();
+      const firstWd = new Date(year, month - 1, 1).getDay(); // 0=Sun
+      const pad2    = n => String(n).padStart(2,'0');
+      const weeks   = [];
+      let wStart = 1, wMin = 0;
+
+      for (let day = 1; day <= lastDay; day++) {
+        const dk  = `${ym}-${pad2(day)}`;
+        const rec = raw[dk];
+        if (rec && rec.start && rec.end) {
+          const [sh, sm] = rec.start.split(':').map(Number);
+          const [eh, em] = rec.end.split(':').map(Number);
+          const d = (eh * 60 + em) - (sh * 60 + sm);
+          if (d > 0) wMin += d;
+        }
+        const gridPos = (firstWd + day - 1) % 7; // 0=Sun … 6=Sat
+        if (gridPos === 6 || day === lastDay) {
+          weeks.push({ start: wStart, end: day, minutes: wMin });
+          wStart = day + 1;
+          wMin   = 0;
+        }
+      }
+      return weeks;
+    }
+
+    function renderWeeklyStats(year, month) {
+      const el    = document.getElementById('weekly-stats');
+      const weeks = calcWeeklyStats(year, month);
+      const pad2  = n => String(n).padStart(2,'0');
+      const mm    = String(month).padStart(2,'0');
+      // 最大分数（バー比率用）
+      const maxMin = Math.max(...weeks.map(w => w.minutes), 1);
+
+      let html = '<table>';
+      weeks.forEach((w, i) => {
+        const h   = Math.floor(w.minutes / 60);
+        const m   = w.minutes % 60;
+        const pm  = (w.minutes / 60 / 8).toFixed(2);
+        const pct = Math.round(w.minutes / maxMin * 100);
+        const lbl = `W${i+1} ${mm}/${pad2(w.start)}〜${mm}/${pad2(w.end)}`;
+        const hStr = w.minutes > 0 ? `${h}h${m > 0 ? m+'m' : ''}` : '—';
+        html += `<tr>
+          <td class="w-label">${lbl}</td>
+          <td class="w-hours">${hStr}</td>
+          <td class="w-bar-cell"><div class="w-bar-bg"><div class="w-bar-fill" style="width:${pct}%"></div></div></td>
+          <td class="w-pm">${w.minutes > 0 ? pm+'人月' : '—'}</td>
+        </tr>`;
+      });
+      html += '</table>';
+      el.innerHTML = html;
     }
 
     /* =====================================================

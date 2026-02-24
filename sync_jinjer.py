@@ -3,14 +3,16 @@
 jinjer勤怠データを自動取得し、PWAインポート用JSONを生成するスクリプト。
 
 使い方:
-  python3 sync_jinjer.py [YYYY-MM]   (省略時は今月)
+  python3 sync_jinjer.py                     # 今月1ヶ月
+  python3 sync_jinjer.py 2026-02             # 指定月1ヶ月
+  python3 sync_jinjer.py 2025-10 2026-02     # 範囲指定（開始月〜終了月）
 
 必要なパッケージ:
   pip install playwright
   playwright install chromium
 
-出力: jinjer_sync_YYYY-MM.json
-このファイルをPWAの「🔄 jinjer同期」ボタンからインポートしてください。
+出力: jinjer_sync_YYYY-MM.json（単月）または jinjer_sync_YYYY-MM_to_YYYY-MM.json（複数月）
+PWAの「🏢 jinjer同期」ボタンからインポートしてください。
 """
 import asyncio
 import json
@@ -19,11 +21,12 @@ import re
 from pathlib import Path
 from datetime import date
 
+
 # ===== 認証情報 =====
-JINJER_SIGN_IN    = 'https://kintai.jinjer.biz/staffs/sign_in'
-COMPANY_CODE      = '15733'
-EMPLOYEE_CODE     = '191'
-PASSWORD          = 'philia1904rops'
+JINJER_SIGN_IN = 'https://kintai.jinjer.biz/staffs/sign_in'
+COMPANY_CODE   = '15733'
+EMPLOYEE_CODE  = '191'
+PASSWORD       = 'philia1904rops'
 # ====================
 
 
@@ -84,66 +87,106 @@ JS_EXTRACT = """() => {
 }"""
 
 
-async def scrape(target_month: str) -> list:
+def months_in_range(start: str, end: str) -> list:
+    """'2025-10' 〜 '2026-02' の月リストを返す"""
+    sy, sm = map(int, start.split('-'))
+    ey, em = map(int, end.split('-'))
+    result = []
+    y, m = sy, sm
+    while (y, m) <= (ey, em):
+        result.append(f'{y}-{m:02d}')
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+    return result
+
+
+async def scrape_months(target_months: list) -> dict:
+    """複数月をまとめてスクレイプ（ログイン1回で節約）"""
     from playwright.async_api import async_playwright
-    year, month = target_month.split('-')
+    all_rows = {}
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page    = await browser.new_page()
 
-        print('[1/3] jinjerにログイン中...')
+        print('[ログイン] jinjerにサインイン中...')
         await page.goto(JINJER_SIGN_IN)
         await page.fill('input[name="company_code"]', COMPANY_CODE)
         await page.fill('input[name="email"]',        EMPLOYEE_CODE)
         await page.fill('input[name="password"]',     PASSWORD)
         await page.click('button[type="submit"]')
         await page.wait_for_url('**/staffs/top')
+        print('      ✅ ログイン成功')
 
-        print(f'[2/3] {target_month} の実績ページを取得中...')
-        url = f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{int(month)}'
-        await page.goto(url, wait_until='domcontentloaded')
-        # テーブルが描画されるまで待つ（最大15秒）
-        await page.wait_for_selector('table tbody tr', timeout=15000)
+        for i, ym in enumerate(target_months):
+            year, month = ym.split('-')
+            print(f'[{i+1}/{len(target_months)}] {ym} を取得中...')
+            url = f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{int(month)}'
+            await page.goto(url, wait_until='domcontentloaded')
+            await page.wait_for_selector('table tbody tr', timeout=15000)
+            rows = await page.evaluate(JS_EXTRACT)
+            all_rows[ym] = rows
+            print(f'      → {len(rows)} 行取得')
 
-        print('[3/3] テーブルデータを抽出中...')
-        rows = await page.evaluate(JS_EXTRACT)
         await browser.close()
-        return rows
+
+    return all_rows
 
 
-def convert(rows: list, target_month: str) -> dict:
-    year, month = target_month.split('-')
-    month_data = {}
-
-    for row in rows:
-        dk = to_date_key(row['date'], year, month)
-        if not dk:
-            continue
-        status = to_pwa_status(row)
-        start, end = parse_actual(row.get('actual'))
-        month_data[dk] = {
-            'status': status,
-            'start':  start or '',
-            'end':    end   or '',
-            'memo':   ''   # メモはPWA側のものを優先するため空
-        }
-
-    return {'months': {f'{year}-{month}': month_data}}
+def convert_all(all_rows: dict) -> dict:
+    """全月データをPWA形式に変換"""
+    months_data = {}
+    for ym, rows in all_rows.items():
+        year, month = ym.split('-')
+        month_data  = {}
+        for row in rows:
+            dk = to_date_key(row['date'], year, month)
+            if not dk:
+                continue
+            status = to_pwa_status(row)
+            start, end = parse_actual(row.get('actual'))
+            month_data[dk] = {
+                'status': status,
+                'start':  start or '',
+                'end':    end   or '',
+                'memo':   ''     # メモはPWA側を優先するため空
+            }
+        months_data[ym] = month_data
+    return {'months': months_data}
 
 
 ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
 
 
 def main():
-    target = sys.argv[1] if len(sys.argv) > 1 else date.today().strftime('%Y-%m')
-    print(f'=== jinjer同期スクリプト ({target}) ===')
+    args = sys.argv[1:]
+    today = date.today().strftime('%Y-%m')
 
-    rows     = asyncio.run(scrape(target))
-    pwa_data = convert(rows, target)
+    if len(args) == 0:
+        target_months = [today]
+    elif len(args) == 1:
+        target_months = [args[0]]
+    elif len(args) == 2:
+        target_months = months_in_range(args[0], args[1])
+    else:
+        print('使い方: python3 sync_jinjer.py [開始月 [終了月]]')
+        print('例: python3 sync_jinjer.py 2025-10 2026-02')
+        sys.exit(1)
 
-    filename = f'jinjer_sync_{target}.json'
-    content  = json.dumps(pwa_data, ensure_ascii=False, indent=2)
+    print(f'=== jinjer同期スクリプト ({" / ".join(target_months)}) ===')
+
+    all_rows = asyncio.run(scrape_months(target_months))
+    pwa_data = convert_all(all_rows)
+
+    # ファイル名
+    if len(target_months) == 1:
+        filename = f'jinjer_sync_{target_months[0]}.json'
+    else:
+        filename = f'jinjer_sync_{target_months[0]}_to_{target_months[-1]}.json'
+
+    content = json.dumps(pwa_data, ensure_ascii=False, indent=2)
 
     # ローカルに保存
     local = Path(__file__).parent / filename
@@ -159,7 +202,8 @@ def main():
     except Exception as e:
         print(f'⚠️  iCloud Driveへのコピー失敗: {e}')
 
-    print('\n   iPhoneのファイルアプリ → iCloud Drive → kintai フォルダ')
+    print(f'\n   対象月: {", ".join(target_months)}')
+    print('   iPhoneのファイルアプリ → iCloud Drive → kintai フォルダ')
     print('   → PWAの「🏢 jinjer同期」からインポートしてください。')
 
 
