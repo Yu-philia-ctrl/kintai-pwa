@@ -102,8 +102,9 @@ async def scrape(target_month: str) -> list:
 
         print(f'[2/3] {target_month} の実績ページを取得中...')
         url = f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{int(month)}'
-        await page.goto(url)
-        await page.wait_for_load_state('networkidle')
+        await page.goto(url, wait_until='domcontentloaded')
+        # テーブルが描画されるまで待つ（最大15秒）
+        await page.wait_for_selector('table tbody tr', timeout=15000)
 
         print('[3/3] テーブルデータを抽出中...')
         rows = await page.evaluate(JS_EXTRACT)
@@ -131,6 +132,9 @@ def convert(rows: list, target_month: str) -> dict:
     return {'months': {f'{year}-{month}': month_data}}
 
 
+ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
+
+
 def main():
     target = sys.argv[1] if len(sys.argv) > 1 else date.today().strftime('%Y-%m')
     print(f'=== jinjer同期スクリプト ({target}) ===')
@@ -138,10 +142,25 @@ def main():
     rows     = asyncio.run(scrape(target))
     pwa_data = convert(rows, target)
 
-    out = Path(__file__).parent / f'jinjer_sync_{target}.json'
-    out.write_text(json.dumps(pwa_data, ensure_ascii=False, indent=2), encoding='utf-8')
-    print(f'\n✅ 保存完了 → {out}')
-    print('   PWAの「🔄 jinjer同期」ボタンからインポートしてください。')
+    filename = f'jinjer_sync_{target}.json'
+    content  = json.dumps(pwa_data, ensure_ascii=False, indent=2)
+
+    # ローカルに保存
+    local = Path(__file__).parent / filename
+    local.write_text(content, encoding='utf-8')
+    print(f'\n✅ ローカル保存 → {local}')
+
+    # iCloud Driveにもコピー
+    try:
+        ICLOUD_DIR.mkdir(parents=True, exist_ok=True)
+        icloud = ICLOUD_DIR / filename
+        icloud.write_text(content, encoding='utf-8')
+        print(f'☁️  iCloud Drive → {icloud}')
+    except Exception as e:
+        print(f'⚠️  iCloud Driveへのコピー失敗: {e}')
+
+    print('\n   iPhoneのファイルアプリ → iCloud Drive → kintai フォルダ')
+    print('   → PWAの「🏢 jinjer同期」からインポートしてください。')
 
 
 if __name__ == '__main__':
