@@ -738,6 +738,58 @@
 
   <script>
     /* =====================================================
+       HIGH-AVAILABILITY: 緊急リセット / クラッシュ検出 / グローバルエラー捕捉
+       ===================================================== */
+
+    // ① URLパラメータによる緊急リセット (?reset)
+    if (location.search.includes('reset')) {
+      (async () => {
+        try { const r = await navigator.serviceWorker.getRegistrations(); for(const s of r) await s.unregister(); } catch(_){}
+        try { const k = await caches.keys(); await Promise.all(k.map(c => caches.delete(c))); } catch(_){}
+        try { localStorage.clear(); } catch(_){}
+        try { indexedDB.deleteDatabase('kintai_idb'); } catch(_){}
+        location.replace(location.pathname); // ?reset を除いてリロード
+      })();
+    }
+
+    // ② クラッシュループ検出（3回連続でクラッシュしたら復旧UIを表示）
+    const _CRASH_KEY = '_kintai_crash';
+    const _crashes   = Number(sessionStorage.getItem(_CRASH_KEY) || 0);
+    sessionStorage.setItem(_CRASH_KEY, _crashes + 1);
+    window.addEventListener('load', () => sessionStorage.setItem(_CRASH_KEY, '0'));
+
+    if (_crashes >= 3) {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.body.innerHTML = `
+          <div style="font-family:-apple-system,sans-serif;max-width:360px;margin:60px auto;padding:24px;
+               background:#fff;border-radius:18px;box-shadow:0 4px 24px rgba(0,0,0,0.12);text-align:center;">
+            <div style="font-size:40px;">🚨</div>
+            <h2 style="margin:8px 0 6px;font-size:18px;">クラッシュを繰り返しています</h2>
+            <p style="font-size:13px;color:#666;line-height:1.6;margin:0 0 20px">
+              データが破損している可能性があります。<br>復旧ページで修復してください。
+            </p>
+            <a href="./recover.html" style="display:block;background:#4f8dfd;color:#fff;
+               padding:13px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;
+               margin-bottom:10px;">🛠 復旧ページへ</a>
+            <button onclick="sessionStorage.setItem('${_CRASH_KEY}','0');location.reload()"
+              style="width:100%;background:#fff;border:1.5px solid #ddd;color:#555;
+              padding:11px;border-radius:12px;font-size:14px;cursor:pointer;font-family:inherit;">
+              ⚡ このまま起動を再試行
+            </button>
+          </div>`;
+      });
+    }
+
+    // ③ グローバルエラーハンドラ（未捕捉エラーをコンソールに記録）
+    window.addEventListener('error', ev => {
+      console.error('[GLOBAL ERROR]', ev.message, ev.filename, ev.lineno);
+    });
+    window.addEventListener('unhandledrejection', ev => {
+      console.error('[UNHANDLED REJECTION]', ev.reason);
+      ev.preventDefault(); // iOS Safari の強制クラッシュを抑制
+    });
+
+    /* =====================================================
        CONSTANTS
        ===================================================== */
     const STATUS_LIST = ["未", "出社", "在宅", "休日", "休み", "祝日"];
@@ -890,9 +942,23 @@
       } catch { return { months: {} }; }
     }
 
-    // 両方に書く
+    // 両方に書く（localStorage 書き込み失敗時は IDB のみ）
     function saveStore(store) {
-      localStorage.setItem(STORE_KEY, JSON.stringify(store));
+      const json = JSON.stringify(store);
+      try {
+        localStorage.setItem(STORE_KEY, json);
+      } catch(e) {
+        console.warn('[saveStore] localStorage 書き込み失敗 (quota?):', e);
+        // Quota超過なら古い月を削除して再試行
+        try {
+          const months = Object.keys(store.months || {}).sort();
+          if (months.length > 3) {
+            delete store.months[months[0]]; // 最古月を削除
+            localStorage.setItem(STORE_KEY, JSON.stringify(store));
+            console.warn('[saveStore] 最古月を削除して保存しました:', months[0]);
+          }
+        } catch(_) { console.error('[saveStore] 保存完全失敗'); }
+      }
       idbSave(store); // 非同期ミラー（fire-and-forget）
     }
 
@@ -1844,14 +1910,23 @@
        INIT
        ===================================================== */
     (async function init() {
-      const t = new Date();
-      const restored = await restoreFromIDBIfNeeded();
-      loadMonth(t.getFullYear(), t.getMonth() + 1);
-      if (restored) {
-        renderCalendar(t.getFullYear(), t.getMonth() + 1);
-        renderStats(t.getFullYear(), t.getMonth() + 1);
+      try {
+        const t = new Date();
+        // IDB復元（失敗しても続行）
+        let restored = false;
+        try { restored = await restoreFromIDBIfNeeded(); } catch(e) { console.warn('[init] IDB復元スキップ:', e); }
+        // カレンダー描画（失敗しても続行）
+        try { loadMonth(t.getFullYear(), t.getMonth() + 1); } catch(e) { console.warn('[init] loadMonth失敗:', e); }
+        if (restored) {
+          try { renderCalendar(t.getFullYear(), t.getMonth() + 1); } catch(e) {}
+          try { renderStats(t.getFullYear(), t.getMonth() + 1); }  catch(e) {}
+        }
+        try { checkBackupReminder(); } catch(e) {}
+        // 起動成功 → クラッシュカウンタをリセット
+        sessionStorage.setItem(_CRASH_KEY, '0');
+      } catch(fatal) {
+        console.error('[init] 致命的エラー:', fatal);
       }
-      checkBackupReminder();
     })();
 
     /* =====================================================

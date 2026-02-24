@@ -3,8 +3,8 @@
    ※ CACHE バージョンを上げると全クライアントのキャッシュが更新される
    ===================================================== */
 
-const CACHE = 'kintai-v3';
-const PRECACHE = ['./index.html', './manifest.json', './icon-apple.png', './icon-192.png'];
+const CACHE = 'kintai-v4';
+const PRECACHE = ['./index.html', './manifest.json', './recover.html', './icon-apple.png', './icon-192.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));

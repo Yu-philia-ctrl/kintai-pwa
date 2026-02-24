@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>勤怠PWA — 緊急復旧</title>
+<style>
+  body { font-family:-apple-system,sans-serif; background:#f5f5f5; display:flex;
+         align-items:center; justify-content:center; min-height:100vh; margin:0; }
+  .box { background:#fff; border-radius:18px; padding:28px 24px; max-width:340px;
+         width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.12); text-align:center; }
+  h1   { font-size:20px; margin:0 0 8px; color:#1a1a1a; }
+  p    { font-size:13px; color:#666; line-height:1.6; margin:0 0 20px; }
+  .btn { display:block; width:100%; padding:13px; border:none; border-radius:12px;
+         font-size:15px; font-weight:700; cursor:pointer; margin-bottom:10px; font-family:inherit; }
+  .btn-danger  { background:#ff3b30; color:#fff; }
+  .btn-safe    { background:#4f8dfd; color:#fff; }
+  .btn-outline { background:#fff; color:#555; border:1.5px solid #ddd; }
+  .status { font-size:13px; color:#2e7d32; margin-top:16px; min-height:20px; font-weight:600; }
+  .warn   { font-size:12px; color:#ef6c00; background:#fff8e1; border-radius:8px;
+            padding:8px 12px; margin-bottom:16px; text-align:left; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>🚨 緊急復旧ページ</h1>
+  <p>勤怠PWAがクラッシュループに入った場合、このページで復旧できます。</p>
+
+  <div class="warn">
+    ⚠️ 「データも全部消す」を選ぶと勤怠データが消えます。<br>
+    「キャッシュだけ消す」を先に試してください。
+  </div>
+
+  <button class="btn btn-safe" onclick="clearCacheOnly()">🗂 キャッシュ・SWだけ消す（データは保持）</button>
+  <button class="btn btn-danger" onclick="clearAll()">🗑 データも全部消す（完全リセット）</button>
+  <button class="btn btn-outline" onclick="goHome()">← PWAに戻る（復旧せず）</button>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const STATUS = document.getElementById('status');
+const ORIGIN = location.origin + '/kintai-pwa';
+
+function log(msg) { STATUS.textContent = msg; console.log(msg); }
+
+async function clearCacheOnly() {
+  log('⏳ Service Worker を登録解除中...');
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const r of regs) await r.unregister();
+    log('✅ SW解除完了');
+  } catch(e) { log('SW解除スキップ: ' + e.message); }
+
+  try {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+    log('✅ キャッシュ削除完了');
+  } catch(e) { log('キャッシュ削除スキップ'); }
+
+  log('✅ 完了！PWAに戻ります...');
+  setTimeout(goHome, 1200);
+}
+
+async function clearAll() {
+  if (!confirm('勤怠データも含めて全て削除します。本当によいですか？')) return;
+
+  await clearCacheOnly();
+
+  // localStorage を全消去
+  try {
+    localStorage.clear();
+    log('✅ localStorage 消去完了');
+  } catch(e) {}
+
+  // IndexedDB を削除
+  try {
+    indexedDB.deleteDatabase('kintai_idb');
+    log('✅ IndexedDB 削除完了');
+  } catch(e) {}
+
+  log('✅ 全リセット完了！PWAに戻ります...');
+  setTimeout(goHome, 1200);
+}
+
+function goHome() {
+  location.href = '/kintai-pwa/';
+}
+</script>
+</body>
+</html>
