@@ -3,7 +3,7 @@
    ※ CACHE バージョンを上げると全クライアントのキャッシュが更新される
    ===================================================== */
 
-const CACHE = 'kintai-v4';
+const CACHE = 'kintai-v5';
 const PRECACHE = ['./index.html', './manifest.json', './recover.html', './icon-apple.png', './icon-192.png'];
 
 self.addEventListener('install', e => {

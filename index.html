@@ -14,7 +14,7 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#4f8dfd">
   <link rel="manifest" href="manifest.json">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
 
   <style>
     :root {
@@ -753,10 +753,11 @@
     }
 
     // ② クラッシュループ検出（3回連続でクラッシュしたら復旧UIを表示）
+    //    sessionStorage はiOSがプロセスをkillすると消えるため localStorage を使う
     const _CRASH_KEY = '_kintai_crash';
-    const _crashes   = Number(sessionStorage.getItem(_CRASH_KEY) || 0);
-    sessionStorage.setItem(_CRASH_KEY, _crashes + 1);
-    window.addEventListener('load', () => sessionStorage.setItem(_CRASH_KEY, '0'));
+    const _crashes   = Number(localStorage.getItem(_CRASH_KEY) || 0);
+    localStorage.setItem(_CRASH_KEY, _crashes + 1);
+    window.addEventListener('load', () => localStorage.setItem(_CRASH_KEY, '0'));
 
     if (_crashes >= 3) {
       document.addEventListener('DOMContentLoaded', () => {
@@ -771,13 +772,14 @@
             <a href="./recover.html" style="display:block;background:#4f8dfd;color:#fff;
                padding:13px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;
                margin-bottom:10px;">🛠 復旧ページへ</a>
-            <button onclick="sessionStorage.setItem('${_CRASH_KEY}','0');location.reload()"
+            <button onclick="localStorage.setItem('${_CRASH_KEY}','0');location.reload()"
               style="width:100%;background:#fff;border:1.5px solid #ddd;color:#555;
               padding:11px;border-radius:12px;font-size:14px;cursor:pointer;font-family:inherit;">
               ⚡ このまま起動を再試行
             </button>
           </div>`;
       });
+      throw new Error('RECOVERY_MODE'); // 以降のスクリプトを一切実行しない
     }
 
     // ③ グローバルエラーハンドラ（未捕捉エラーをコンソールに記録）
@@ -1316,10 +1318,22 @@
     }
 
     /* =====================================================
-       xlsx 書き出し（SheetJS）
+       xlsx 書き出し（SheetJS）— 遅延ロード版
        ===================================================== */
-    function exportXlsx() {
-      if (typeof XLSX === 'undefined') { alert('xlsx ライブラリの読み込みが完了していません。\nしばらく待ってから再試行してください。'); return; }
+    const XLSX_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    function loadXlsxLib() {
+      if (typeof XLSX !== 'undefined') return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = XLSX_CDN;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('xlsx の読み込みに失敗しました'));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function exportXlsx() {
+      try { await loadXlsxLib(); } catch(e) { alert(e.message); return; }
       const store  = loadStore();
       const months = Object.keys(store.months).sort();
       if (months.length === 0) { alert('エクスポートするデータがありません'); return; }
@@ -1809,12 +1823,13 @@
     }
 
     // JSON + xlsx を連続ダウンロード（一括バックアップ）
-    function oneClickBackup() {
+    async function oneClickBackup() {
       exportJSON();
-      setTimeout(() => exportXlsx(), 800); // iOS で同時DLが詰まらないよう少し間隔を置く
       markBackedUp();
       document.getElementById('backup-banner').classList.remove('show');
-      toast('✅ JSON + xlsx を保存しました');
+      toast('✅ JSON + xlsx を保存します...');
+      await new Promise(r => setTimeout(r, 800)); // iOS で同時DLが詰まらないよう少し間隔を置く
+      await exportXlsx();
     }
 
     document.getElementById('btn-backup-now').addEventListener('click', oneClickBackup);
@@ -1923,7 +1938,7 @@
         }
         try { checkBackupReminder(); } catch(e) {}
         // 起動成功 → クラッシュカウンタをリセット
-        sessionStorage.setItem(_CRASH_KEY, '0');
+        localStorage.setItem(_CRASH_KEY, '0');
       } catch(fatal) {
         console.error('[init] 致命的エラー:', fatal);
       }
