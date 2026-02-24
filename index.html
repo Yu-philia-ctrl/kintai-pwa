@@ -453,6 +453,44 @@
     .stat-off     { background:#fff8e1; color:#ef6c00; border-color:#ffe0b2; }
     .stat-hours   { background:#f3e5f5; color:#6a1b9a; border-color:#e1bee7; }
 
+    /* ======= TASK FAB ======= */
+    .fab-task {
+      position:fixed;
+      right: calc(max(env(safe-area-inset-right), 16px) + 60px);
+      bottom: calc(max(env(safe-area-inset-bottom), 20px) + 56px);
+      width:52px; height:52px;
+      border-radius:999px;
+      background:#ff9800;
+      color:#fff; font-size:22px;
+      border:none; cursor:pointer;
+      box-shadow:0 4px 16px rgba(255,152,0,0.45);
+      display:flex; align-items:center; justify-content:center;
+      z-index:900;
+      font-family:inherit;
+      transition:opacity 0.2s;
+    }
+    .fab-task:active { transform:scale(0.95); }
+    .fab-task.hidden { opacity:0; pointer-events:none; }
+
+    /* ======= TASK MODAL ======= */
+    .task-add-form { padding:12px 16px 4px; display:flex; flex-direction:column; gap:8px; }
+    .task-add-input { padding:8px 10px; border:1.5px solid var(--border-color); border-radius:8px; font-size:15px; font-family:inherit; background:var(--bg-card); color:var(--text-main); outline:none; }
+    .task-add-input:focus { border-color:var(--accent-blue); }
+    .task-add-textarea { height:60px; resize:none; }
+    .task-add-submit { background:var(--accent-blue); color:#fff; border:none; border-radius:8px; padding:9px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .task-section-title { font-size:11px; font-weight:700; color:var(--text-muted); padding:8px 16px 2px; text-transform:uppercase; letter-spacing:.05em; }
+    .task-list { padding:0 16px; }
+    .task-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--border-color); }
+    .task-item:last-child { border-bottom:none; }
+    .task-check { width:20px; height:20px; flex-shrink:0; margin-top:2px; cursor:pointer; accent-color:var(--accent-blue); }
+    .task-body { flex:1; min-width:0; }
+    .task-title { font-size:15px; font-weight:700; word-break:break-all; }
+    .task-memo { font-size:12px; color:var(--text-muted); margin-top:3px; white-space:pre-wrap; word-break:break-all; }
+    .task-item.done .task-title { text-decoration:line-through; opacity:0.5; }
+    .task-item.done .task-memo { opacity:0.4; }
+    .task-del { background:none; border:none; color:#e57373; font-size:18px; cursor:pointer; padding:0 4px; align-self:center; line-height:1; }
+    .task-empty { text-align:center; color:var(--text-muted); padding:24px 0; font-size:14px; line-height:1.8; }
+
     /* ======= FLOATING TODAY BUTTON ======= */
     .fab-today {
       position:fixed;
@@ -622,11 +660,31 @@
     </div>
   </div>
 
+  <!-- Task modal -->
+  <div class="modal-backdrop" id="task-modal">
+    <div class="modal-sheet" style="max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div>📋 タスク</div>
+        <div class="modal-close" id="task-modal-close">×</div>
+      </div>
+      <div class="task-add-form">
+        <input id="task-title-input" class="task-add-input" type="text" placeholder="タスク名を入力">
+        <textarea id="task-memo-input" class="task-add-input task-add-textarea" placeholder="メモ（任意）"></textarea>
+        <button class="task-add-submit" id="task-add-btn">＋ 追加</button>
+      </div>
+      <div id="task-list-container" style="overflow-y:auto;flex:1;padding-bottom:16px;"></div>
+    </div>
+  </div>
+
   <!-- Floating today button -->
   <button class="fab-today" id="fab-today">
     <span class="fab-day" id="fab-day">--</span>
     <span class="fab-label">今日</span>
   </button>
+
+  <!-- Task FAB -->
+  <button class="fab-task" id="fab-task">📋</button>
 
   <div class="toast" id="toast"></div>
 
@@ -1587,6 +1645,121 @@
         renderStats(t.getFullYear(), t.getMonth() + 1);
       }
       checkBackupReminder();
+    })();
+
+    /* =====================================================
+       TASK MANAGEMENT
+       ===================================================== */
+    const TASKS_KEY = 'kintai_tasks_v1';
+
+    function loadTasks() {
+      try { return JSON.parse(localStorage.getItem(TASKS_KEY) || '[]'); } catch { return []; }
+    }
+
+    function saveTasks(tasks) {
+      localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    }
+
+    function _esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function taskItemHTML(t) {
+      const memoHTML = t.memo ? `<div class="task-memo">${_esc(t.memo)}</div>` : '';
+      return `<div class="task-item${t.done ? ' done' : ''}">
+        <input type="checkbox" class="task-check" data-id="${t.id}" ${t.done ? 'checked' : ''}>
+        <div class="task-body">
+          <div class="task-title">${_esc(t.title)}</div>${memoHTML}
+        </div>
+        <button class="task-del" data-id="${t.id}" title="削除">🗑</button>
+      </div>`;
+    }
+
+    function renderTaskList() {
+      const tasks     = loadTasks();
+      const container = document.getElementById('task-list-container');
+      const todo      = tasks.filter(t => !t.done);
+      const done      = tasks.filter(t => t.done);
+      let html = '';
+      if (!todo.length && !done.length) {
+        html = '<div class="task-empty">タスクはまだありません<br>上のフォームから追加できます</div>';
+      } else {
+        if (todo.length) html += '<div class="task-section-title">未完了</div><div class="task-list">' + todo.map(taskItemHTML).join('') + '</div>';
+        if (done.length) html += '<div class="task-section-title">完了済み</div><div class="task-list">' + done.map(taskItemHTML).join('') + '</div>';
+      }
+      container.innerHTML = html;
+
+      container.querySelectorAll('.task-check').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const ts = loadTasks();
+          const idx = ts.findIndex(t => t.id === cb.dataset.id);
+          if (idx !== -1) { ts[idx].done = cb.checked; saveTasks(ts); renderTaskList(); }
+        });
+      });
+      container.querySelectorAll('.task-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (!confirm('このタスクを削除しますか？')) return;
+          saveTasks(loadTasks().filter(t => t.id !== btn.dataset.id));
+          renderTaskList();
+        });
+      });
+    }
+
+    (function initTaskModal() {
+      const modal    = document.getElementById('task-modal');
+      const fab      = document.getElementById('fab-task');
+      const closeBtn = document.getElementById('task-modal-close');
+      const addBtn   = document.getElementById('task-add-btn');
+      const titleIn  = document.getElementById('task-title-input');
+      const memoIn   = document.getElementById('task-memo-input');
+
+      function openTaskModal() {
+        modal.classList.add('show');
+        renderTaskList();
+        setTimeout(() => titleIn.focus(), 100);
+      }
+      function closeTaskModal() {
+        modal.classList.remove('show');
+        titleIn.value = '';
+        memoIn.value  = '';
+      }
+
+      fab.addEventListener('click', openTaskModal);
+      closeBtn.addEventListener('click', closeTaskModal);
+      modal.addEventListener('click', e => { if (e.target === modal) closeTaskModal(); });
+
+      addBtn.addEventListener('click', () => {
+        const title = titleIn.value.trim();
+        if (!title) { toast('タスク名を入力してください'); titleIn.focus(); return; }
+        const ts = loadTasks();
+        ts.unshift({ id: Date.now().toString(), title, memo: memoIn.value.trim(), done: false, created: new Date().toISOString() });
+        saveTasks(ts);
+        titleIn.value = '';
+        memoIn.value  = '';
+        renderTaskList();
+        toast('✅ タスクを追加しました');
+      });
+
+      titleIn.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addBtn.click(); }
+      });
+
+      // fab-task は memo-modal / settings-modal が開いているとき隠す
+      const fabToday = document.getElementById('fab-today');
+      const hideOnOtherModal = new MutationObserver(() => {
+        const anyOther = document.getElementById('memo-modal').classList.contains('show')
+                      || document.getElementById('settings-modal').classList.contains('show');
+        fab.classList.toggle('hidden', anyOther);
+      });
+      hideOnOtherModal.observe(document.getElementById('memo-modal'),     { attributes: true });
+      hideOnOtherModal.observe(document.getElementById('settings-modal'), { attributes: true });
+
+      // fab-today は task-modal が開いているとき隠す
+      new MutationObserver(() => {
+        const open = modal.classList.contains('show');
+        fabToday.classList.toggle('hidden', open);
+        fab.classList.toggle('hidden', open);
+      }).observe(modal, { attributes: true });
     })();
 
     /* =====================================================
