@@ -588,9 +588,11 @@
         <button class="data-btn" id="btn-export">💾 JSONバックアップ</button>
         <button class="data-btn" id="btn-import">📥 JSON読み込み</button>
         <button class="data-btn" id="btn-migrate">🔄 iSH版を取り込む</button>
+        <button class="data-btn" id="btn-jinjer">🏢 jinjer同期</button>
         <button class="data-btn" id="btn-settings">⚙️ 設定</button>
       </div>
-      <input type="file" id="file-import" accept=".json" style="display:none">
+      <input type="file" id="file-import"  accept=".json" style="display:none">
+      <input type="file" id="file-jinjer" accept=".json" style="display:none">
     </div>
   </div>
 
@@ -1318,6 +1320,51 @@
           toast('データを読み込みました');
         } catch {
           alert('ファイルの形式が正しくありません');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    /* =====================================================
+       JINJER 同期（マージインポート）
+       ===================================================== */
+    document.getElementById('btn-jinjer').addEventListener('click', () => {
+      document.getElementById('file-jinjer').click();
+    });
+
+    document.getElementById('file-jinjer').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const jinjer = JSON.parse(ev.target.result);
+          if (!jinjer || !jinjer.months) throw new Error('invalid');
+
+          const store  = loadStore();
+          let updated  = 0;
+
+          // jinjerの月を既存データにマージ（メモは保持、start/end/statusのみ上書き）
+          for (const [monthKey, days] of Object.entries(jinjer.months)) {
+            if (!store.months[monthKey]) store.months[monthKey] = {};
+            for (const [dateKey, jd] of Object.entries(days)) {
+              const existing = store.months[monthKey][dateKey] || {};
+              store.months[monthKey][dateKey] = {
+                status: jd.status || existing.status || '未',
+                start:  jd.start  || existing.start  || '',
+                end:    jd.end    || existing.end    || '',
+                memo:   existing.memo || '',   // 既存メモを優先
+              };
+              updated++;
+            }
+          }
+
+          saveStore(store);
+          loadMonth(currentYear, currentMonth);
+          toast(`✅ jinjerデータを同期しました（${updated}日分）`);
+        } catch {
+          alert('jinjer同期ファイルの形式が正しくありません');
         }
       };
       reader.readAsText(file);
