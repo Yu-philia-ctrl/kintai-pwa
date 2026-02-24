@@ -14,17 +14,22 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#4f8dfd">
   <link rel="manifest" href="manifest.json">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self';"> 
   <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
 
   <style>
     :root {
-      --bg-page: #f5f5f7;
-      --bg-card: #ffffff;
-      --border-soft: #e0e3ea;
+      --bg-page: #eef1fb;
+      --bg-card: rgba(255,255,255,0.82);
+      --bg-card-solid: #ffffff;
+      --border-soft: rgba(180,190,220,0.5);
       --accent-blue: #4f8dfd;
-      --text-main: #1d1d1f;
-      --text-muted: #8e8e93;
-      --radius-card: 24px;
+      --accent-purple: #7c5fe6;
+      --text-main: #1a1c2e;
+      --text-muted: #8890a0;
+      --radius-card: 28px;
+      --glass-blur: blur(22px) saturate(1.4);
+      --shadow-card: 0 8px 40px rgba(60,80,200,0.09), 0 1px 0 rgba(255,255,255,0.7) inset;
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
@@ -35,7 +40,7 @@
       margin: 0;
       padding: calc(max(var(--safe-top), 12px)) 12px calc(max(var(--safe-bottom), 12px));
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-      background: var(--bg-page);
+      background: linear-gradient(145deg, #d8e8ff 0%, #e8ddff 45%, #ffd8f0 100%) fixed;
       color: var(--text-main);
       min-height: 100dvh;
     }
@@ -45,18 +50,23 @@
       max-width: 960px;
       margin: 0 auto;
       background: var(--bg-card);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
       border-radius: var(--radius-card);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-      padding: 14px 14px 10px;
+      border: 1px solid rgba(255,255,255,0.65);
+      box-shadow: var(--shadow-card);
+      padding: 16px 16px 12px;
       position: relative;
       overflow: hidden;
     }
 
     .card-title {
-      font-size: 15px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      letter-spacing: .02em;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+      color: var(--text-muted);
     }
 
     /* ======= HEADER ======= */
@@ -76,14 +86,17 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 6px 12px;
+      padding: 7px 14px;
       font-size: 13px;
       border-radius: 999px;
-      border: 1px solid var(--border-soft);
-      background: #f8f9fc;
+      border: 1px solid rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       cursor: pointer;
       user-select: none;
       font-family: inherit;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
     .pill-button .icon { margin-right: 5px; font-size: 13px; }
     .pill-button-primary {
@@ -98,27 +111,32 @@
       color: #f57c00;
       font-weight: 800;
     }
-    .month-label { font-size: 16px; font-weight: 700; }
+    .month-label { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
     .nav-arrow {
-      width: 30px; height: 30px;
+      width: 32px; height: 32px;
       border-radius: 999px;
-      border: 1px solid var(--border-soft);
-      background: #f8f9fc;
+      border: 1px solid rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 17px;
       user-select: none;
       font-family: inherit;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
     }
+    .nav-arrow:active { transform: scale(0.93); }
 
     /* ======= CALENDAR ======= */
     .calendar-wrapper {
       margin-top: 8px;
-      border-radius: 18px;
+      border-radius: 20px;
       overflow: hidden;
-      border: 1px solid var(--border-soft);
+      border: 1px solid rgba(180,190,220,0.35);
+      box-shadow: 0 2px 12px rgba(60,80,200,0.06);
     }
     table.calendar {
       width: 100%;
@@ -127,11 +145,13 @@
       font-size: 11px;
     }
     table.calendar th {
-      background: #f5f6fb;
+      background: rgba(245,246,251,0.7);
       text-align: center;
-      padding: 6px 0;
+      padding: 7px 0;
       color: var(--text-muted);
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: .02em;
     }
     table.calendar td {
       padding: 3px;
@@ -254,18 +274,21 @@
       flex-wrap: wrap;
     }
     .data-btn {
-      padding: 6px 12px;
+      padding: 7px 13px;
       font-size: 12px;
       border-radius: 999px;
-      border: 1px solid var(--border-soft);
-      background: #f4f5f9;
+      border: 1px solid rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       cursor: pointer;
       user-select: none;
-      font-weight: 600;
+      font-weight: 700;
       font-family: inherit;
       color: var(--text-main);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .data-btn:active { transform: scale(0.97); }
+    .data-btn:active { transform: scale(0.96); }
 
     /* ======= MODAL ======= */
     .modal-backdrop {
@@ -280,10 +303,13 @@
     .modal-sheet {
       width: 100%;
       max-width: 560px;
-      background: #fff;
-      border-radius: 20px 20px 0 0;
-      padding: 12px 14px calc(max(var(--safe-bottom), 14px));
-      box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(28px) saturate(1.4);
+      -webkit-backdrop-filter: blur(28px) saturate(1.4);
+      border-radius: 26px 26px 0 0;
+      border-top: 1px solid rgba(255,255,255,0.8);
+      padding: 12px 16px calc(max(var(--safe-bottom), 14px));
+      box-shadow: 0 -8px 36px rgba(60,80,200,0.13);
     }
     .modal-handle {
       width: 34px; height: 4px;
@@ -344,12 +370,15 @@
       font-weight:700; font-family:inherit;
     }
     .btn-primary {
-      padding:10px 18px; font-size:13px;
+      padding:10px 20px; font-size:13px;
       border-radius:999px; border:none;
-      background:var(--accent-blue); color:#fff;
+      background:linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+      color:#fff;
       font-weight:900; cursor:pointer; user-select:none;
       font-family:inherit;
+      box-shadow: 0 4px 14px rgba(79,141,253,0.38);
     }
+    .btn-primary:active { transform: scale(0.97); }
 
     /* ======= SETTINGS MODAL ======= */
     .settings-body { display:flex; flex-direction:column; gap:12px; }
@@ -470,62 +499,75 @@
 
     /* ======= STATS BAR ======= */
     .stats-bar {
-      display:flex; gap:6px; flex-wrap:wrap;
-      padding:7px 2px 4px;
-      border-bottom:1px solid var(--border-soft);
-      margin-bottom:6px;
+      display:flex; gap:5px; flex-wrap:wrap;
+      padding:6px 0 8px;
+      margin-bottom:4px;
     }
     .stat-chip {
       display:inline-flex; align-items:center; gap:4px;
-      padding:3px 10px; border-radius:999px;
+      padding:4px 11px; border-radius:999px;
       font-size:11px; font-weight:700;
-      border:1px solid transparent;
+      border:1px solid rgba(255,255,255,0.65);
+      box-shadow:0 1px 4px rgba(0,0,0,0.06);
     }
     .stat-chip b { font-size:13px; }
-    .stat-office  { background:#e3f2fd; color:#1565c0; border-color:#bbdefb; }
-    .stat-home    { background:#e8f5e9; color:#2e7d32; border-color:#c8e6c9; }
-    .stat-off     { background:#fff8e1; color:#ef6c00; border-color:#ffe0b2; }
-    .stat-hours   { background:#f3e5f5; color:#6a1b9a; border-color:#e1bee7; }
+    .stat-office  { background:rgba(227,242,253,0.92); color:#1565c0; border-color:#bbdefb; }
+    .stat-home    { background:rgba(232,245,233,0.92); color:#2e7d32; border-color:#c8e6c9; }
+    .stat-off     { background:rgba(255,248,225,0.92); color:#ef6c00; border-color:#ffe0b2; }
+    .stat-hours   { background:rgba(243,229,245,0.92); color:#6a1b9a; border-color:#e1bee7; }
+    .stat-weekly-toggle {
+      background:rgba(237,231,246,0.92); color:#5e35b1; border-color:#d1c4e9;
+      cursor:pointer; font-family:inherit;
+      transition:background 0.15s;
+    }
+    .stat-weekly-toggle:active { background:rgba(220,208,240,1); transform:scale(0.97); }
 
-    /* ======= WEEKLY STATS ======= */
+    /* ======= WEEKLY STATS (折りたたみ) ======= */
     .weekly-stats {
       font-size: 12px;
-      margin-bottom: 6px;
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.38s cubic-bezier(0.4,0,0.2,1), padding 0.2s;
+      padding: 0;
+    }
+    .weekly-stats.open {
+      max-height: 320px;
+      padding: 8px 0 4px;
       border-top: 1px solid var(--border-soft);
-      padding-top: 6px;
+      margin-bottom: 4px;
     }
     .weekly-stats table {
       width: 100%;
       border-collapse: collapse;
     }
     .weekly-stats td {
-      padding: 3px 4px;
+      padding: 4px 4px;
       vertical-align: middle;
     }
-    .weekly-stats .w-label { color: var(--text-muted); min-width: 110px; }
-    .weekly-stats .w-hours { font-weight: 600; min-width: 68px; }
-    .weekly-stats .w-pm    { color: #6a1b9a; font-weight: 700; text-align: right; }
+    .weekly-stats .w-label { color: var(--text-muted); min-width: 112px; font-size:11px; }
+    .weekly-stats .w-hours { font-weight: 700; min-width: 60px; color: var(--text-main); }
+    .weekly-stats .w-pm    { color: var(--accent-purple); font-weight: 800; text-align: right; white-space:nowrap; }
     .weekly-stats .w-bar-cell { width: 100%; padding-left: 8px; }
-    .w-bar-bg  { background: #f0e6f8; border-radius: 4px; height: 6px; overflow: hidden; }
-    .w-bar-fill{ background: #9c27b0; height: 100%; border-radius: 4px; transition: width .3s; }
+    .w-bar-bg  { background: rgba(124,95,230,0.12); border-radius: 4px; height: 7px; overflow: hidden; }
+    .w-bar-fill{ background: linear-gradient(90deg,#7c5fe6,#a78bfa); height: 100%; border-radius: 4px; transition: width .45s ease; }
 
     /* ======= TASK FAB ======= */
     .fab-task {
       position:fixed;
-      right: calc(max(env(safe-area-inset-right), 16px) + 60px);
+      right: calc(max(env(safe-area-inset-right), 16px) + 62px);
       bottom: calc(max(env(safe-area-inset-bottom), 20px) + 56px);
       width:52px; height:52px;
       border-radius:999px;
-      background:#ff9800;
+      background:linear-gradient(135deg,#ff9800,#f06000);
       color:#fff; font-size:22px;
       border:none; cursor:pointer;
-      box-shadow:0 4px 16px rgba(255,152,0,0.45);
+      box-shadow:0 4px 18px rgba(255,140,0,0.52);
       display:flex; align-items:center; justify-content:center;
       z-index:900;
       font-family:inherit;
-      transition:opacity 0.2s;
+      transition:opacity 0.2s, transform 0.15s;
     }
-    .fab-task:active { transform:scale(0.95); }
+    .fab-task:active { transform:scale(0.93); }
     .fab-task.hidden { opacity:0; pointer-events:none; }
 
     /* ======= TASK MODAL ======= */
@@ -554,17 +596,17 @@
       bottom: calc(max(env(safe-area-inset-bottom), 20px) + 56px);
       width:52px; height:52px;
       border-radius:999px;
-      background:var(--accent-blue);
+      background:linear-gradient(135deg,#4f8dfd,#7c5fe6);
       color:#fff; font-size:11px; font-weight:900;
       border:none; cursor:pointer;
-      box-shadow:0 4px 16px rgba(79,141,253,0.45);
+      box-shadow:0 4px 18px rgba(79,141,253,0.52);
       display:flex; flex-direction:column;
       align-items:center; justify-content:center;
       gap:1px; z-index:900;
       font-family:inherit;
-      transition:opacity 0.2s;
+      transition:opacity 0.2s, transform 0.15s;
     }
-    .fab-today:active { transform:scale(0.95); }
+    .fab-today:active { transform:scale(0.93); }
     .fab-today .fab-day { font-size:18px; font-weight:900; line-height:1; }
     .fab-today .fab-label { font-size:9px; opacity:.85; }
     .fab-today.hidden { opacity:0; pointer-events:none; }
@@ -602,8 +644,9 @@
       <span class="stat-chip stat-home">在宅 <b id="stat-home">0</b>日</span>
       <span class="stat-chip stat-off">休暇 <b id="stat-off">0</b>日</span>
       <span class="stat-chip stat-hours">勤務 <b id="stat-hours">0h</b></span>
+      <button class="stat-chip stat-weekly-toggle" id="weekly-toggle">週次人月 <span id="weekly-arrow">▾</span></button>
     </div>
-    <!-- Weekly person-month breakdown -->
+    <!-- Weekly person-month breakdown (折りたたみ) -->
     <div class="weekly-stats" id="weekly-stats"></div>
 
     <div class="header-bar">
@@ -1916,6 +1959,12 @@
     }
 
     document.getElementById('btn-backup-now').addEventListener('click', oneClickBackup);
+    document.getElementById('weekly-toggle').addEventListener('click', () => {
+      const el    = document.getElementById('weekly-stats');
+      const arrow = document.getElementById('weekly-arrow');
+      const open  = el.classList.toggle('open');
+      arrow.textContent = open ? '▴' : '▾';
+    });
     document.getElementById('backup-dismiss').addEventListener('click', () => {
       document.getElementById('backup-banner').classList.remove('show');
     });
