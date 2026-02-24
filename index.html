@@ -1406,77 +1406,130 @@
 
     document.getElementById('file-jinjer').addEventListener('change', e => {
       const file = e.target.files[0];
-      if (!file) return;
+      if (!file) { e.target.value = ''; return; }
+      e.target.value = '';
 
       showProgress('🏢 jinjer同期');
-      updateProgress(10, '📂 ファイルを読み込み中...');
+      updateProgress(5, '📂 ファイルを読み込み中...');
+      console.log('[jinjer] 開始:', file.name, file.size, 'bytes');
 
       const reader = new FileReader();
-      reader.onload = ev => {
-        try {
-          updateProgress(25, '🔍 データを解析中...');
-          console.log('[jinjer] ファイル読み込み完了:', file.name, file.size, 'bytes');
 
-          const jinjer = JSON.parse(ev.target.result);
-          if (!jinjer || !jinjer.months) throw new Error('invalid format');
+      reader.onload = async ev => {
+        try {
+          // ① JSON解析（UI をブロックしないよう yield）
+          await tick();
+          updateProgress(15, '🔍 データを解析中...');
+          let jinjer;
+          try {
+            jinjer = JSON.parse(ev.target.result);
+          } catch(parseErr) {
+            throw new Error('JSONの解析に失敗しました: ' + parseErr.message);
+          }
+          if (!jinjer || typeof jinjer.months !== 'object') throw new Error('months フィールドがありません');
 
           const monthKeys = Object.keys(jinjer.months);
+          if (!monthKeys.length) throw new Error('対象データがありません');
           console.log('[jinjer] 対象月:', monthKeys);
+          updateProgress(25, `📅 対象: ${monthKeys.join(', ')}`);
 
-          updateProgress(45, `📅 ${monthKeys.join(', ')} のデータを確認中...`);
-
-          const store   = loadStore();
-          let updated   = 0;
-          let totalDays = Object.values(jinjer.months).reduce((s, d) => s + Object.keys(d).length, 0);
-
-          console.log(`[jinjer] 処理対象: ${totalDays}日分`);
-          updateProgress(60, `🔄 ${totalDays}日分をマージ中...`);
-
-          // マージ処理（メモは保持、start/end/statusのみ上書き）
-          for (const [monthKey, days] of Object.entries(jinjer.months)) {
-            if (!store.months[monthKey]) store.months[monthKey] = {};
-            for (const [dateKey, jd] of Object.entries(days)) {
-              const existing = store.months[monthKey][dateKey] || {};
-              store.months[monthKey][dateKey] = {
-                status: jd.status || existing.status || '未',
-                start:  jd.start  || existing.start  || '',
-                end:    jd.end    || existing.end    || '',
-                memo:   existing.memo || '',
-              };
-              updated++;
-              console.log(`[jinjer]   ${dateKey}: ${jd.status} ${jd.start}~${jd.end}`);
-            }
+          // ② 既存ストアを読む
+          await tick();
+          updateProgress(35, '📖 既存データを読み込み中...');
+          let store;
+          try {
+            store = loadStore();
+          } catch(storeErr) {
+            console.warn('[jinjer] loadStore失敗、空ストアで続行:', storeErr);
+            store = { months: {} };
           }
 
-          updateProgress(80, '💾 データを保存中...');
-          console.log(`[jinjer] saveStore開始 (${updated}日分)`);
-          saveStore(store);
+          // ③ チャンク処理（7日ずつ、各チャンク間でUIに制御を返す）
+          const allDays = [];
+          for (const [mk, days] of Object.entries(jinjer.months)) {
+            if (!store.months[mk]) store.months[mk] = {};
+            for (const [dk, jd] of Object.entries(days)) {
+              allDays.push({ mk, dk, jd });
+            }
+          }
+          const total = allDays.length;
+          console.log(`[jinjer] 処理対象: ${total}日分`);
 
-          updateProgress(95, '🗓 カレンダーを更新中...');
-          loadMonth(currentYear, currentMonth);
+          const CHUNK = 7;
+          let done = 0;
+          for (let i = 0; i < allDays.length; i += CHUNK) {
+            const chunk = allDays.slice(i, i + CHUNK);
+            for (const { mk, dk, jd } of chunk) {
+              const ex = store.months[mk][dk] || {};
+              store.months[mk][dk] = {
+                status: jd.status || ex.status || '未',
+                start:  jd.start  !== undefined ? jd.start  : (ex.start  || ''),
+                end:    jd.end    !== undefined ? jd.end    : (ex.end    || ''),
+                memo:   ex.memo   || '',
+              };
+              done++;
+            }
+            const pct = 35 + Math.round((done / total) * 45); // 35→80%
+            updateProgress(pct, `🔄 ${done} / ${total} 日を処理中...`);
+            await tick(); // UIに制御を返す
+          }
 
-          updateProgress(100, `✅ ${updated}日分の同期が完了しました`);
-          console.log(`[jinjer] 完了: ${updated}日分`);
+          // ④ localStorage に保存（IDB は非同期fire-and-forget）
+          await tick();
+          updateProgress(85, '💾 localStorage に保存中...');
+          try {
+            localStorage.setItem(STORE_KEY, JSON.stringify(store));
+            console.log('[jinjer] localStorage 保存完了');
+          } catch(lsErr) {
+            console.error('[jinjer] localStorage 保存失敗:', lsErr);
+            throw new Error('ストレージへの保存に失敗しました。空き容量を確認してください。');
+          }
 
-          setTimeout(() => {
-            hideProgress();
-            toast(`✅ jinjer同期完了（${updated}日分）`);
-          }, 800);
+          // ⑤ IDB ミラー（失敗しても続行）
+          updateProgress(90, '💾 IndexedDB をバックアップ中...');
+          try {
+            await idbSave(store);
+            console.log('[jinjer] IDB 保存完了');
+          } catch(idbErr) {
+            console.warn('[jinjer] IDB 保存失敗（無視）:', idbErr);
+          }
+
+          // ⑥ カレンダー再描画
+          await tick();
+          updateProgress(97, '🗓 カレンダーを更新中...');
+          try {
+            loadMonth(currentYear, currentMonth);
+          } catch(renderErr) {
+            console.warn('[jinjer] カレンダー再描画失敗:', renderErr);
+          }
+
+          updateProgress(100, `✅ ${done}日分の同期が完了しました！`);
+          console.log(`[jinjer] 完了: ${done}日分`);
+
+          await new Promise(r => setTimeout(r, 900));
+          hideProgress();
+          toast(`✅ jinjer同期完了（${done}日分）`);
 
         } catch(err) {
-          console.error('[jinjer] エラー:', err);
+          console.error('[jinjer] 致命的エラー:', err);
           hideProgress();
-          alert(`jinjer同期ファイルの読み込みに失敗しました\n\n${err.message}`);
+          toast(`❌ ${err.message || 'jinjer同期に失敗しました'}`);
         }
       };
+
       reader.onerror = () => {
         console.error('[jinjer] FileReader エラー');
         hideProgress();
-        alert('ファイルの読み込みに失敗しました');
+        toast('❌ ファイルの読み込みに失敗しました');
       };
-      reader.readAsText(file);
-      e.target.value = '';
+
+      reader.readAsText(file, 'utf-8');
     });
+
+    // UIに制御を返す小さなヘルパー
+    function tick() {
+      return new Promise(r => setTimeout(r, 0));
+    }
 
     /* =====================================================
        SETTINGS MODAL
