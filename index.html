@@ -1542,10 +1542,11 @@
             for (const { mk, dk, jd } of chunk) {
               const ex = store.months[mk][dk] || {};
               store.months[mk][dk] = {
+                ...ex,                                           // memo・updated_at 等を全て保持
                 status: jd.status || ex.status || '未',
                 start:  jd.start  !== undefined ? jd.start  : (ex.start  || ''),
                 end:    jd.end    !== undefined ? jd.end    : (ex.end    || ''),
-                memo:   ex.memo   || '',
+                // memo は ...ex から引き継ぐ（jinjer は上書きしない）
               };
               done++;
             }
