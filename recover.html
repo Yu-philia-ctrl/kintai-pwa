@@ -88,6 +88,12 @@
   <h1>🚨 緊急復旧ページ</h1>
   <p class="subtitle">勤怠PWAに問題が発生した場合、このページで復旧できます。<br>上から順に試してください。</p>
 
+  <!-- PIN status notice -->
+  <div id="pin-notice" style="display:none;background:#fff8e1;border:1px solid #ffe0b2;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#e65100;line-height:1.6;">
+    ⚠️ <strong>セキュリティPINが未設定</strong>です。全データ消去は「DELETE」入力で代替確認します。<br>
+    アプリの <strong>⚙️設定 → セキュリティPIN</strong> から事前にPINを設定することを強く推奨します。
+  </div>
+
   <!-- Diagnostics -->
   <div class="card">
     <div class="card-title">📊 診断情報</div>
@@ -96,6 +102,9 @@
       <div class="diag-item"><div class="diag-label">IDB</div><div class="diag-value" id="d-idb">--</div><div class="diag-sub" id="d-idb-sub"></div></div>
       <div class="diag-item"><div class="diag-label">スナップショット</div><div class="diag-value" id="d-snap">--</div><div class="diag-sub" id="d-snap-sub"></div></div>
       <div class="diag-item"><div class="diag-label">エラーログ</div><div class="diag-value" id="d-err">--</div><div class="diag-sub" id="d-err-sub"></div></div>
+    </div>
+    <div class="diag-grid" style="margin-top:8px;">
+      <div class="diag-item"><div class="diag-label">PINロック</div><div class="diag-value" id="d-pin">--</div><div class="diag-sub" id="d-pin-sub"></div></div>
     </div>
     <div class="section-status" id="diag-status">診断中...</div>
   </div>
@@ -261,6 +270,18 @@ async function runDiag() {
   errEl.className = 'diag-value ' + (errs.length === 0 ? 'diag-ok' : errs.length < 5 ? 'diag-warn' : 'diag-error');
   errSubEl.textContent = errs.length > 0 ? '最新: ' + errs[0].type : 'エラーなし';
 
+  // PIN status
+  const pinSet = !!localStorage.getItem(PIN_HASH_KEY);
+  const pinEl    = document.getElementById('d-pin');
+  const pinSubEl = document.getElementById('d-pin-sub');
+  const pinNotice = document.getElementById('pin-notice');
+  if (pinEl) {
+    pinEl.textContent = pinSet ? '✓ 設定済' : '未設定';
+    pinEl.className   = 'diag-value ' + (pinSet ? 'diag-ok' : 'diag-warn');
+    if (pinSubEl) pinSubEl.textContent = pinSet ? 'DEL操作保護あり' : '「DELETE」入力で代替';
+    if (pinNotice) pinNotice.style.display = pinSet ? 'none' : '';
+  }
+
   document.getElementById('diag-status').textContent = '診断完了 — ' + new Date().toLocaleTimeString('ja');
 
   // Render snapshots
@@ -321,7 +342,11 @@ async function sha256(text) {
 function isPinSet() { return !!localStorage.getItem(PIN_HASH_KEY); }
 
 async function verifyPinPrompt(purpose) {
-  if (!isPinSet()) return true;
+  if (!isPinSet()) {
+    // PINが未設定 → "DELETE"入力で代替確認
+    const input = prompt(`🔐 PIN未設定\n\n「${purpose}」\n\n⚠️ セキュリティPINが未設定のため文字確認に切り替えます。\n\n続行するには「DELETE」と入力してください：`);
+    return input === 'DELETE';
+  }
   // ロックアウト確認
   const lockUntil = Number(localStorage.getItem(PIN_LOCK_KEY) || 0);
   if (lockUntil > Date.now()) {
@@ -391,10 +416,11 @@ function restoreSnap(slot) {
 }
 
 async function clearAll() {
+  // ① まずPIN/DELETE認証（最初の壁）
+  const pinOk = await verifyPinPrompt('全データ消去してリセット');
+  if (!pinOk) { log('status-3', '❌ 認証失敗 — リセットを中止しました', true); return; }
+  // ② 認証後に確認ポップアップ
   if (!confirm('⚠️ 勤怠データも含めて全て削除します。\nバックアップは取りましたか？')) return;
-  // PIN認証（設定されている場合）
-  const pinOk = await verifyPinPrompt('全データ消去の認証');
-  if (!pinOk) { log('status-3', '❌ PIN認証失敗 — リセットを中止しました', true); return; }
   if (!confirm('最終確認：本当にすべて削除しますか？')) return;
 
   log('status-3', '⏳ 全データを削除中...');

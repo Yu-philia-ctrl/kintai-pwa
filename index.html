@@ -963,14 +963,18 @@
     <div class="card">
       <div class="card-title">🚀 クイックランチャー</div>
       <!-- jinjer 打刻ボタン（大） -->
-      <a href="https://kintai.jinjer.biz/staff/top" target="_blank" rel="noopener" class="jinjer-card" id="jinjer-link">
+      <a href="https://kintai.jinjer.biz/staffs/top" target="_blank" rel="noopener" class="jinjer-card" id="jinjer-link">
         <div class="jinjer-icon">🏢</div>
         <div class="jinjer-info">
           <div class="jinjer-label">jinjer 打刻</div>
-          <div class="jinjer-sub">出勤・退勤を記録する ↗</div>
+          <div class="jinjer-sub" id="jinjer-card-sub">出勤・退勤を記録する ↗</div>
         </div>
         <div class="jinjer-arrow">⏱</div>
       </a>
+      <div id="jinjer-today-bar" style="background:#e3f2fd;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:12px;display:none;">
+        <span style="font-weight:800;color:#1565c0;">📍 今日の打刻状況</span>
+        <span id="jinjer-today-status" style="margin-left:10px;"></span>
+      </div>
       <div class="card-title" style="margin-top:4px;">マイアプリ・リンク</div>
       <div class="links-grid" id="links-grid"></div>
       <div style="font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:4px;">
@@ -981,6 +985,11 @@
 
   <!-- ===== TAB: 資格・学習進捗 ===== -->
   <div id="page-study" class="tab-page">
+    <!-- 今週の学習サマリー -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">📈 今週の学習</div>
+      <div id="study-week-summary" style="display:flex;gap:8px;flex-wrap:wrap;padding:2px 0 4px;"></div>
+    </div>
     <div class="card">
       <div class="card-title">📚 資格・学習進捗</div>
       <div id="study-list"></div>
@@ -990,8 +999,12 @@
 
   <!-- ===== TAB: プロジェクト進捗 ===== -->
   <div id="page-project" class="tab-page">
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">📊 サマリー</div>
+      <div id="project-summary" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    </div>
     <div class="card">
-      <div class="card-title">📊 プロジェクト進捗</div>
+      <div class="card-title">📋 プロジェクト一覧</div>
       <div id="project-list"></div>
       <button class="data-btn" id="btn-add-project" style="width:100%;text-align:center;margin-top:4px;">＋ プロジェクトを追加</button>
     </div>
@@ -1090,6 +1103,12 @@
           <div class="settings-label">Obsidian サブフォルダ</div>
           <input id="settings-subdir" class="settings-input" type="text" placeholder="例: 【業務】/勤怠">
           <div class="settings-hint">VaultのどのフォルダにMDファイルを開くかのパス。</div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
+        <div class="settings-row">
+          <div class="settings-label">🏢 jinjer 打刻URL</div>
+          <input id="settings-jinjer-url" class="settings-input" type="url" placeholder="https://kintai.jinjer.biz/staffs/top">
+          <div class="settings-hint">ハブの「jinjer打刻」ボタンの遷移先URL。会社によっては異なるドメインの場合があります。</div>
         </div>
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
@@ -2199,8 +2218,9 @@
        ===================================================== */
     document.getElementById('btn-settings').addEventListener('click', () => {
       const cfg = loadConfig();
-      document.getElementById('settings-vault').value  = cfg.vault  || 'Phi_Memo';
-      document.getElementById('settings-subdir').value = cfg.subdir || '【業務】/勤怠';
+      document.getElementById('settings-vault').value     = cfg.vault     || 'Phi_Memo';
+      document.getElementById('settings-subdir').value   = cfg.subdir   || '【業務】/勤怠';
+      document.getElementById('settings-jinjer-url').value = cfg.jinjerUrl || 'https://kintai.jinjer.biz/staffs/top';
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
@@ -2212,11 +2232,16 @@
       document.getElementById('settings-modal').classList.remove('show');
     });
     document.getElementById('settings-save').addEventListener('click', () => {
+      const rawJinjer = document.getElementById('settings-jinjer-url').value.trim();
       const cfg = {
-        vault:  document.getElementById('settings-vault').value.trim()  || 'Phi_Memo',
-        subdir: document.getElementById('settings-subdir').value.trim() || '【業務】/勤怠',
+        vault:     document.getElementById('settings-vault').value.trim()  || 'Phi_Memo',
+        subdir:    document.getElementById('settings-subdir').value.trim() || '【業務】/勤怠',
+        jinjerUrl: (rawJinjer && rawJinjer.startsWith('http')) ? rawJinjer : 'https://kintai.jinjer.biz/staffs/top',
       };
       saveConfig(cfg);
+      // jinjerカードのhrefをリアルタイム更新
+      const jinjerLink = document.getElementById('jinjer-link');
+      if (jinjerLink) jinjerLink.href = cfg.jinjerUrl;
       document.getElementById('settings-modal').classList.remove('show');
       toast('設定を保存しました');
     });
@@ -2865,11 +2890,13 @@
         } catch(e) { toast('復元失敗: ' + e.message); }
       });
 
-      // 全データ消去リセット（PIN認証必須）
+      // 全データ消去リセット（PIN認証 → confirm の順）
       document.getElementById('em-full-reset').addEventListener('click', async () => {
+        // ① まずPIN/DELETE認証（最初に壁を設ける）
+        const pinOk = await requirePin('全データ消去してリセット');
+        if (!pinOk) { toast('❌ 認証失敗 — リセットを中止しました'); return; }
+        // ② 認証後に最終確認ポップアップ
         if (!confirm('⚠️ 勤怠データを含む全データを削除してリセットします。\n本当によいですか？\n\nこの操作は取り消せません。')) return;
-        const pinOk = await requirePin('⚠️ 全データ消去にはPIN認証が必要です');
-        if (!pinOk) { toast('❌ 認証キャンセル — リセットを中止しました'); return; }
         if (!confirm('最終確認：本当にすべて削除しますか？')) return;
         try {
           const regs = await navigator.serviceWorker.getRegistrations();
@@ -2917,9 +2944,15 @@
     function getPinLockUntil() { return Number(localStorage.getItem(PIN_LOCK_KEY) || 0); }
     function getPinFails() { return Number(localStorage.getItem(PIN_FAIL_KEY) || 0); }
 
-    // Returns Promise<boolean>: true=authenticated/no-PIN, false=cancelled
+    // Returns Promise<boolean>: true=authenticated, false=cancelled/failed
     function requirePin(purpose) {
-      if (!isPinSet()) return Promise.resolve(true);
+      if (!isPinSet()) {
+        // PINが未設定 → "DELETE"入力で代替確認（設定を促す）
+        const label = purpose || 'この危険な操作';
+        const msg = `🔐 PIN未設定\n\n「${label}」\n\n⚠️ セキュリティPINが未設定のため、\n文字確認に切り替えます。\n\n続行するには「DELETE」と入力してください。\n（設定 ⚙️ → セキュリティPIN で事前設定を推奨）`;
+        const input = prompt(msg);
+        return Promise.resolve(input === 'DELETE');
+      }
       return new Promise(resolve => {
         const modal    = document.getElementById('pin-modal');
         const purposeEl = document.getElementById('pin-purpose');
@@ -3097,6 +3130,34 @@
     function renderLauncher() {
       const grid = document.getElementById('links-grid');
       if (!grid) return;
+
+      // jinjer カードのURLをconfigから動的設定
+      const cfg = loadConfig();
+      const jinjerUrl = cfg.jinjerUrl || 'https://kintai.jinjer.biz/staffs/top';
+      const jinjerLink = document.getElementById('jinjer-link');
+      if (jinjerLink) jinjerLink.href = jinjerUrl;
+
+      // 今日の打刻状況をPWAデータから表示
+      const bar = document.getElementById('jinjer-today-bar');
+      const statusEl = document.getElementById('jinjer-today-status');
+      if (bar && statusEl) {
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          const store = loadStore();
+          const ym = today.slice(0, 7);
+          const day = store.months?.[ym]?.[today];
+          if (day) {
+            const stStr = day.start ? `🟢 ${day.start}` : '打刻なし';
+            const edStr = day.end   ? ` 〜 🔴 ${day.end}` : '';
+            const stLabel = day.status && day.status !== '未' ? `【${day.status}】 ` : '';
+            statusEl.textContent = stLabel + stStr + edStr;
+            bar.style.display = '';
+          } else {
+            bar.style.display = 'none';
+          }
+        } catch(_) { bar.style.display = 'none'; }
+      }
+
       const links = loadLinks();
       grid.innerHTML = links.map(l => `
         <div class="link-tile-wrap">
@@ -3147,6 +3208,48 @@
     function renderStudy() {
       const container = document.getElementById('study-list');
       if (!container) return;
+
+      // 今週サマリー
+      const weekSummary = document.getElementById('study-week-summary');
+      if (weekSummary) {
+        const today = new Date();
+        const dow   = today.getDay(); // 0=Sun
+        const weekDates = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(today);
+          d.setDate(today.getDate() - dow + i);
+          return d.toISOString().slice(0, 10);
+        });
+        const allStudy = loadStudy();
+        let weekTotal = 0;
+        weekDates.forEach(dt => {
+          allStudy.forEach(s => {
+            weekTotal += (s.logs || []).filter(l => l.date === dt).reduce((a, l) => a + l.hours, 0);
+          });
+        });
+        const dayTotals = weekDates.map(dt => {
+          let h = 0;
+          allStudy.forEach(s => { h += (s.logs || []).filter(l => l.date === dt).reduce((a, l) => a + l.hours, 0); });
+          return { dt, h };
+        });
+        const dayNames = ['日','月','火','水','木','金','土'];
+        const maxH = Math.max(...dayTotals.map(d => d.h), 1);
+        weekSummary.innerHTML = `
+          <div style="width:100%;">
+            <div style="display:flex;align-items:flex-end;gap:4px;height:48px;margin-bottom:4px;">
+              ${dayTotals.map(({ dt, h }, i) => {
+                const isToday = dt === today.toISOString().slice(0,10);
+                const barH = Math.round((h / maxH) * 40);
+                return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                  <div style="font-size:9px;color:var(--text-muted);font-weight:700;">${h > 0 ? h + 'h' : ''}</div>
+                  <div style="width:100%;height:${Math.max(barH,2)}px;background:${isToday ? 'var(--accent-purple)' : 'var(--accent-blue)'};border-radius:3px;opacity:${h > 0 ? 1 : 0.15};"></div>
+                  <div style="font-size:9px;color:${isToday ? 'var(--accent-blue)' : 'var(--text-muted)'};font-weight:${isToday ? '900' : '600'};">${dayNames[new Date(dt+'T00:00:00').getDay()]}</div>
+                </div>`;
+              }).join('')}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);text-align:right;">今週合計: <strong style="color:var(--accent-purple);">${weekTotal.toFixed(1)}h</strong></div>
+          </div>`;
+      }
+
       const data = loadStudy();
       if (!data.length) {
         container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px 0 16px;font-size:13px;line-height:1.8;">資格・学習目標を追加してください<br>試験日・目標時間・進捗を管理できます</div>';
@@ -3237,6 +3340,25 @@
       const container = document.getElementById('project-list');
       if (!container) return;
       const projects = loadProjects();
+
+      // サマリーカード
+      const summaryEl = document.getElementById('project-summary');
+      if (summaryEl) {
+        const counts = { 未着手: 0, 進行中: 0, 完了: 0, 保留: 0 };
+        let avgPct = 0;
+        projects.forEach(p => { counts[p.status || '未着手']++; avgPct += (p.progress || 0); });
+        if (projects.length) avgPct = Math.round(avgPct / projects.length);
+        const chips = [
+          { label: '進行中', val: counts['進行中'], cls: 'stat-office' },
+          { label: '完了',   val: counts['完了'],   cls: 'stat-home' },
+          { label: '未着手', val: counts['未着手'],  cls: 'stat-weekly-toggle' },
+          { label: '保留',   val: counts['保留'],    cls: 'stat-off' },
+          { label: '平均進捗', val: avgPct + '%',   cls: 'stat-hours' },
+        ];
+        summaryEl.innerHTML = chips.map(c =>
+          `<span class="stat-chip ${c.cls}">${c.label} <b>${c.val}</b></span>`
+        ).join('');
+      }
       if (!projects.length) {
         container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px 0 16px;font-size:13px;line-height:1.8;">プロジェクトを追加してください<br>進捗・ステータス・期限を一元管理できます</div>';
         return;
