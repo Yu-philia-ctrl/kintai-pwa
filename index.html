@@ -627,6 +627,80 @@
     .fab-today .fab-day { font-size:18px; font-weight:900; line-height:1; }
     .fab-today .fab-label { font-size:9px; opacity:.85; }
     .fab-today.hidden { opacity:0; pointer-events:none; }
+
+    /* ======= HEALTH INDICATOR ======= */
+    .health-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      padding: 6px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(180,190,220,0.3);
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+    .health-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .health-dot-ok     { background: #4caf50; box-shadow: 0 0 4px rgba(76,175,80,0.6); }
+    .health-dot-warn   { background: #ff9800; box-shadow: 0 0 4px rgba(255,152,0,0.6); }
+    .health-dot-error  { background: #f44336; box-shadow: 0 0 4px rgba(244,67,54,0.6); }
+    .health-item { display: flex; align-items: center; gap: 4px; }
+
+    /* ======= EMERGENCY FAB ======= */
+    .fab-recover {
+      position: fixed;
+      left: calc(max(env(safe-area-inset-left), 16px));
+      bottom: calc(max(env(safe-area-inset-bottom), 20px) + 56px);
+      width: 52px; height: 52px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #f44336, #b71c1c);
+      color: #fff; font-size: 20px;
+      border: none; cursor: pointer;
+      box-shadow: 0 4px 18px rgba(244,67,54,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 900;
+      font-family: inherit;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .fab-recover:active { transform: scale(0.93); }
+    .fab-recover.hidden { opacity: 0; pointer-events: none; }
+
+    /* ======= EMERGENCY MODAL ======= */
+    .emergency-modal-body {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .emergency-section-title {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .06em;
+      margin-top: 4px;
+    }
+    .emergency-btn {
+      display: block; width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px; border: none;
+      font-size: 14px; font-weight: 700;
+      cursor: pointer; text-align: left;
+      font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    .emergency-btn:active { opacity: 0.8; }
+    .emergency-btn-safe   { background: #e3f2fd; color: #1565c0; }
+    .emergency-btn-warn   { background: #fff8e1; color: #e65100; }
+    .emergency-btn-danger { background: #ffebee; color: #c62828; }
+    .emergency-btn-link   { background: #f4f5f9; color: var(--text-main); }
+    .emergency-diag {
+      background: #f4f5f9; border-radius: 10px;
+      padding: 10px 12px; font-size: 11px;
+      color: var(--text-muted); line-height: 1.8;
+      font-family: monospace;
+    }
   </style>
 </head>
 
@@ -711,6 +785,15 @@
         <button class="data-btn" id="btn-migrate">🔄 iSH版を取り込む</button>
         <button class="data-btn" id="btn-jinjer">🏢 jinjer同期</button>
         <button class="data-btn" id="btn-settings">⚙️ 設定</button>
+        <button class="data-btn" id="btn-recover" style="color:#c62828;border-color:#ffcdd2;background:rgba(255,235,238,0.7);">🚨 緊急復旧</button>
+      </div>
+      <!-- Health status bar -->
+      <div class="health-bar" id="health-bar">
+        <span class="health-item"><span class="health-dot" id="health-dot-ls"></span><span id="health-ls">LS: --</span></span>
+        <span class="health-item"><span class="health-dot" id="health-dot-idb"></span><span id="health-idb">IDB: --</span></span>
+        <span class="health-item"><span class="health-dot" id="health-dot-err"></span><span id="health-err">エラー: --</span></span>
+        <span style="flex:1"></span>
+        <span id="health-snap" style="font-size:10px;"></span>
       </div>
       <input type="file" id="file-import"  accept=".json" style="display:none">
       <input type="file" id="file-jinjer" accept=".json" style="display:none">
@@ -799,6 +882,33 @@
       <div id="task-list-container" style="overflow-y:auto;flex:1;padding-bottom:16px;"></div>
     </div>
   </div>
+
+  <!-- Emergency recovery modal -->
+  <div class="modal-backdrop" id="emergency-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div style="color:#c62828;">🚨 緊急復旧</div>
+        <div class="modal-close" id="emergency-modal-close">×</div>
+      </div>
+      <div class="emergency-modal-body">
+        <div class="emergency-section-title">クイック復旧</div>
+        <button class="emergency-btn emergency-btn-safe" id="em-sw-reload">🔄 Service Worker を強制更新</button>
+        <button class="emergency-btn emergency-btn-warn" id="em-cache-clear">🗂 キャッシュ・SWをクリア（データ保持）</button>
+        <button class="emergency-btn emergency-btn-warn" id="em-snap-restore">📦 自動スナップショットから復元</button>
+
+        <div class="emergency-section-title">完全リセット</div>
+        <button class="emergency-btn emergency-btn-danger" id="em-full-reset">🗑 全データ消去してリセット</button>
+        <a href="./recover.html" class="emergency-btn emergency-btn-link" style="text-decoration:none;display:block;">🔗 recover.html を開く（詳細）</a>
+
+        <div class="emergency-section-title">診断情報</div>
+        <div class="emergency-diag" id="em-diag">読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Emergency FAB -->
+  <button class="fab-recover" id="fab-recover" title="緊急復旧">🚨</button>
 
   <!-- Floating today button -->
   <button class="fab-today" id="fab-today">
@@ -889,6 +999,111 @@
       _logError('unhandled_rejection', ev.reason);
       ev.preventDefault(); // iOS Safari の強制クラッシュを抑制
     });
+
+    /* =====================================================
+       HA: 自動スナップショット（3世代ローリング保存）
+       ===================================================== */
+    const _SNAP_KEY   = '_kintai_snap_';   // _kintai_snap_0 / _1 / _2
+    const _SNAP_IDX   = '_kintai_snap_idx';
+    const _SNAP_GENS  = 3;
+
+    function saveSnapshot(store) {
+      try {
+        const idx = (Number(localStorage.getItem(_SNAP_IDX) || 0) + 1) % _SNAP_GENS;
+        const meta = { ts: new Date().toISOString(), months: Object.keys(store.months || {}).length };
+        localStorage.setItem(_SNAP_KEY + idx, JSON.stringify({ meta, data: store }));
+        localStorage.setItem(_SNAP_IDX, String(idx));
+      } catch(_) {}
+    }
+
+    function loadLatestSnapshot() {
+      try {
+        const idx = Number(localStorage.getItem(_SNAP_IDX) || 0);
+        for (let i = 0; i < _SNAP_GENS; i++) {
+          const si = (idx - i + _SNAP_GENS) % _SNAP_GENS;
+          const raw = localStorage.getItem(_SNAP_KEY + si);
+          if (!raw) continue;
+          const { meta, data } = JSON.parse(raw);
+          if (data && data.months && Object.keys(data.months).length > 0) return { meta, data };
+        }
+      } catch(_) {}
+      return null;
+    }
+
+    function listSnapshots() {
+      const result = [];
+      const idx = Number(localStorage.getItem(_SNAP_IDX) || 0);
+      for (let i = 0; i < _SNAP_GENS; i++) {
+        const si = (idx - i + _SNAP_GENS) % _SNAP_GENS;
+        const raw = localStorage.getItem(_SNAP_KEY + si);
+        if (!raw) continue;
+        try {
+          const { meta } = JSON.parse(raw);
+          result.push({ slot: si, ...meta });
+        } catch(_) {}
+      }
+      return result;
+    }
+
+    /* =====================================================
+       HA: ヘルスチェック & インジケーター
+       ===================================================== */
+    async function runHealthCheck() {
+      // localStorage サイズ推定
+      let lsSize = 0;
+      try {
+        for (const k of Object.keys(localStorage)) {
+          lsSize += (localStorage.getItem(k) || '').length;
+        }
+      } catch(_) {}
+
+      // IDB 確認
+      let idbOk = false;
+      try {
+        const idbData = await idbLoad();
+        idbOk = !!(idbData && Object.keys(idbData.months || {}).length > 0);
+      } catch(_) {}
+
+      // エラー数
+      let errCount = 0;
+      try {
+        errCount = JSON.parse(localStorage.getItem(_ERR_KEY) || '[]').length;
+      } catch(_) {}
+
+      // スナップショット最新時刻
+      const snaps = listSnapshots();
+      const latestSnap = snaps.length > 0 ? snaps[0] : null;
+
+      // UI 更新
+      const dotLS  = document.getElementById('health-dot-ls');
+      const dotIDB = document.getElementById('health-dot-idb');
+      const dotErr = document.getElementById('health-dot-err');
+      const txtLS  = document.getElementById('health-ls');
+      const txtIDB = document.getElementById('health-idb');
+      const txtErr = document.getElementById('health-err');
+      const txtSnap= document.getElementById('health-snap');
+
+      if (!dotLS) return;
+
+      const lsKB = Math.round(lsSize / 1024);
+      const lsWarn = lsKB > 4000;
+      dotLS.className  = 'health-dot ' + (lsWarn ? 'health-dot-warn' : 'health-dot-ok');
+      txtLS.textContent = `LS: ${lsKB}KB`;
+
+      dotIDB.className  = 'health-dot ' + (idbOk ? 'health-dot-ok' : 'health-dot-warn');
+      txtIDB.textContent = `IDB: ${idbOk ? '✓' : '空'}`;
+
+      dotErr.className  = 'health-dot ' + (errCount === 0 ? 'health-dot-ok' : errCount < 5 ? 'health-dot-warn' : 'health-dot-error');
+      txtErr.textContent = `エラー: ${errCount}件`;
+
+      if (latestSnap) {
+        const d = new Date(latestSnap.ts);
+        const fmt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        txtSnap.textContent = `スナップ: ${fmt}`;
+      } else {
+        txtSnap.textContent = 'スナップ: なし';
+      }
+    }
 
     /* =====================================================
        CONSTANTS
@@ -1061,6 +1276,14 @@
         } catch(_) { console.error('[saveStore] 保存完全失敗'); }
       }
       idbSave(store); // 非同期ミラー（fire-and-forget）
+      // スナップショット: 30分に1回だけ保存（頻繁な書き込みを抑制）
+      try {
+        const lastSnap = localStorage.getItem('_kintai_snap_last') || '0';
+        if (Date.now() - Number(lastSnap) > 30 * 60 * 1000) {
+          saveSnapshot(store);
+          localStorage.setItem('_kintai_snap_last', String(Date.now()));
+        }
+      } catch(_) {}
     }
 
     // 起動時: localStorage が空なら IndexedDB から復元
@@ -2101,8 +2324,21 @@
           try { renderStats(t.getFullYear(), t.getMonth() + 1); }  catch(e) {}
         }
         try { checkBackupReminder(); } catch(e) {}
+        // ヘルスチェック（非同期）
+        try { runHealthCheck(); } catch(e) {}
         // 起動成功 → クラッシュカウンタをリセット
         localStorage.setItem(_CRASH_KEY, '0');
+        // 初回スナップショット（起動時に1回）
+        try {
+          const store = loadStore();
+          if (Object.keys(store.months || {}).length > 0) {
+            const lastSnap = localStorage.getItem('_kintai_snap_last') || '0';
+            if (Date.now() - Number(lastSnap) > 5 * 60 * 1000) { // 5分超なら保存
+              saveSnapshot(store);
+              localStorage.setItem('_kintai_snap_last', String(Date.now()));
+            }
+          }
+        } catch(e) {}
       } catch(fatal) {
         console.error('[init] 致命的エラー:', fatal);
       }
@@ -2269,6 +2505,131 @@
         fabToday.classList.toggle('hidden', open);
         fab.classList.toggle('hidden', open);
       }).observe(modal, { attributes: true });
+    })();
+
+    /* =====================================================
+       EMERGENCY MODAL
+       ===================================================== */
+    (function initEmergencyModal() {
+      const modal    = document.getElementById('emergency-modal');
+      const closeBtn = document.getElementById('emergency-modal-close');
+      const fabRecover = document.getElementById('fab-recover');
+      const btnRecover = document.getElementById('btn-recover');
+      const diagEl   = document.getElementById('em-diag');
+
+      function openEmergencyModal() {
+        modal.classList.add('show');
+        // 診断情報を更新
+        (async () => {
+          try {
+            let lines = [];
+            // localStorage サイズ
+            let lsSize = 0;
+            for (const k of Object.keys(localStorage)) lsSize += (localStorage.getItem(k) || '').length;
+            lines.push(`LS使用量: ${Math.round(lsSize/1024)}KB`);
+            // IDB確認
+            const idbData = await idbLoad();
+            const idbMonths = Object.keys(idbData?.months || {}).length;
+            lines.push(`IDB: ${idbMonths}ヶ月分`);
+            // スナップショット
+            const snaps = listSnapshots();
+            lines.push(`スナップ: ${snaps.length}件`);
+            if (snaps.length > 0) {
+              const d = new Date(snaps[0].ts);
+              lines.push(`  最新: ${d.toLocaleDateString('ja')} ${d.toLocaleTimeString('ja')}`);
+              lines.push(`  データ: ${snaps[0].months}ヶ月分`);
+            }
+            // エラーログ
+            const errs = JSON.parse(localStorage.getItem(_ERR_KEY) || '[]');
+            lines.push(`エラーログ: ${errs.length}件`);
+            if (errs.length > 0) {
+              lines.push(`  最新: ${errs[0].type} (${errs[0].ts.slice(0,16)})`);
+            }
+            // クラッシュカウント
+            lines.push(`クラッシュ: ${localStorage.getItem(_CRASH_KEY) || '0'}回`);
+            diagEl.textContent = lines.join('\n');
+          } catch(e) {
+            diagEl.textContent = '診断情報の取得に失敗: ' + e.message;
+          }
+        })();
+      }
+
+      function closeEmergencyModal() {
+        modal.classList.remove('show');
+      }
+
+      if (fabRecover) fabRecover.addEventListener('click', openEmergencyModal);
+      if (btnRecover) btnRecover.addEventListener('click', openEmergencyModal);
+      closeBtn.addEventListener('click', closeEmergencyModal);
+      modal.addEventListener('click', e => { if (e.target === modal) closeEmergencyModal(); });
+
+      // SW強制更新
+      document.getElementById('em-sw-reload').addEventListener('click', async () => {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) await r.update();
+          toast('✅ Service Worker を更新しました');
+        } catch(e) { toast('SW更新失敗: ' + e.message); }
+        closeEmergencyModal();
+        runHealthCheck();
+      });
+
+      // キャッシュ・SWクリア（データ保持）
+      document.getElementById('em-cache-clear').addEventListener('click', async () => {
+        if (!confirm('キャッシュとService Workerをクリアします。\nデータは保持されます。')) return;
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) await r.unregister();
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+          toast('✅ キャッシュ・SWをクリアしました — 再読込します');
+          setTimeout(() => location.reload(), 1200);
+        } catch(e) { toast('クリア失敗: ' + e.message); }
+      });
+
+      // スナップショットから復元
+      document.getElementById('em-snap-restore').addEventListener('click', () => {
+        const snap = loadLatestSnapshot();
+        if (!snap) { toast('⚠️ 復元できるスナップショットがありません'); return; }
+        const d = new Date(snap.meta.ts);
+        const fmt = `${d.toLocaleDateString('ja')} ${d.toLocaleTimeString('ja')}`;
+        if (!confirm(`スナップショット（${fmt}、${snap.meta.months}ヶ月分）からデータを復元しますか？\n現在のデータは上書きされます。`)) return;
+        try {
+          localStorage.setItem(STORE_KEY, JSON.stringify(snap.data));
+          idbSave(snap.data);
+          toast('✅ スナップショットから復元しました — 再読込します');
+          closeEmergencyModal();
+          setTimeout(() => location.reload(), 1200);
+        } catch(e) { toast('復元失敗: ' + e.message); }
+      });
+
+      // 全データ消去リセット
+      document.getElementById('em-full-reset').addEventListener('click', async () => {
+        if (!confirm('⚠️ 勤怠データを含む全データを削除してリセットします。\n本当によいですか？\n\nこの操作は取り消せません。')) return;
+        if (!confirm('最終確認：本当にすべて削除しますか？')) return;
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) await r.unregister();
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+          localStorage.clear();
+          indexedDB.deleteDatabase(IDB_NAME);
+          toast('✅ 全リセット完了 — 再読込します');
+          setTimeout(() => location.replace(location.pathname), 1200);
+        } catch(e) { toast('リセット失敗: ' + e.message); }
+      });
+
+      // 緊急FABは他のモーダルが開いているとき隠す（邪魔にならないよう）
+      const hideObs = new MutationObserver(() => {
+        const anyOpen = document.getElementById('memo-modal')?.classList.contains('show')
+                     || document.getElementById('settings-modal')?.classList.contains('show')
+                     || document.getElementById('task-modal')?.classList.contains('show');
+        if (fabRecover) fabRecover.classList.toggle('hidden', anyOpen);
+      });
+      ['memo-modal','settings-modal','task-modal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) hideObs.observe(el, { attributes: true });
+      });
     })();
 
     /* =====================================================

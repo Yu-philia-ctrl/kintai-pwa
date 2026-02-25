@@ -5,87 +5,386 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>勤怠PWA — 緊急復旧</title>
 <style>
-  body { font-family:-apple-system,sans-serif; background:#f5f5f5; display:flex;
-         align-items:center; justify-content:center; min-height:100vh; margin:0; }
-  .box { background:#fff; border-radius:18px; padding:28px 24px; max-width:340px;
-         width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.12); text-align:center; }
-  h1   { font-size:20px; margin:0 0 8px; color:#1a1a1a; }
-  p    { font-size:13px; color:#666; line-height:1.6; margin:0 0 20px; }
-  .btn { display:block; width:100%; padding:13px; border:none; border-radius:12px;
-         font-size:15px; font-weight:700; cursor:pointer; margin-bottom:10px; font-family:inherit; }
-  .btn-danger  { background:#ff3b30; color:#fff; }
-  .btn-safe    { background:#4f8dfd; color:#fff; }
-  .btn-outline { background:#fff; color:#555; border:1.5px solid #ddd; }
-  .status { font-size:13px; color:#2e7d32; margin-top:16px; min-height:20px; font-weight:600; }
-  .warn   { font-size:12px; color:#ef6c00; background:#fff8e1; border-radius:8px;
-            padding:8px 12px; margin-bottom:16px; text-align:left; }
+  :root {
+    --blue: #4f8dfd; --red: #ff3b30; --orange: #f57c00;
+    --green: #2e7d32; --bg: #f0f2f8;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg);
+         min-height: 100vh; margin: 0; padding: 16px; }
+  .page { max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; color: #1a1a1a; }
+  .subtitle { font-size: 13px; color: #666; margin: 0 0 16px; line-height: 1.5; }
+
+  .card { background: #fff; border-radius: 16px; padding: 16px;
+          box-shadow: 0 2px 16px rgba(0,0,0,0.08); margin-bottom: 14px; }
+  .card-title { font-size: 11px; font-weight: 800; letter-spacing: .08em;
+                text-transform: uppercase; color: #999; margin-bottom: 10px; }
+
+  .btn { display: block; width: 100%; padding: 13px 14px;
+         border: none; border-radius: 12px; font-size: 14px; font-weight: 700;
+         cursor: pointer; margin-bottom: 8px; font-family: inherit;
+         text-align: left; transition: opacity 0.15s; }
+  .btn:last-child { margin-bottom: 0; }
+  .btn:active { opacity: 0.8; }
+  .btn-safe    { background: #e3f2fd; color: #1565c0; }
+  .btn-warn    { background: #fff8e1; color: var(--orange); }
+  .btn-danger  { background: #ffebee; color: #c62828; }
+  .btn-outline { background: #f4f5f9; color: #555; }
+  .btn-green   { background: #e8f5e9; color: var(--green); }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn span.desc { display: block; font-size: 11px; font-weight: 500;
+                   opacity: 0.72; margin-top: 2px; }
+
+  .warn-box { background: #fff8e1; border: 1px solid #ffe0b2;
+              border-radius: 10px; padding: 10px 12px;
+              font-size: 12px; color: var(--orange); line-height: 1.6;
+              margin-bottom: 12px; }
+
+  .status-box { font-size: 13px; color: var(--green); margin-top: 12px;
+                min-height: 20px; font-weight: 600; line-height: 1.6; }
+  .status-box.error { color: #c62828; }
+
+  /* Diagnostics */
+  .diag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+               margin-bottom: 8px; }
+  .diag-item { background: #f4f5f9; border-radius: 10px; padding: 10px 12px; }
+  .diag-label { font-size: 10px; color: #999; font-weight: 700; text-transform: uppercase; }
+  .diag-value { font-size: 16px; font-weight: 800; color: #1a1a1a; margin-top: 2px; }
+  .diag-sub   { font-size: 10px; color: #888; margin-top: 2px; }
+  .diag-ok   { color: var(--green); }
+  .diag-warn { color: var(--orange); }
+  .diag-error { color: #c62828; }
+
+  /* Error log */
+  .log-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .log-table th { background: #f4f5f9; padding: 6px 8px; text-align: left;
+                  color: #999; font-weight: 700; }
+  .log-table td { padding: 6px 8px; border-top: 1px solid #f0f0f0;
+                  word-break: break-all; }
+  .log-type { font-weight: 700; color: #c62828; white-space: nowrap; }
+  .log-ts   { color: #999; white-space: nowrap; }
+  .no-log   { text-align: center; color: #aaa; padding: 16px; font-size: 13px; }
+
+  /* Snapshots */
+  .snap-item { display: flex; align-items: center; gap: 10px;
+               padding: 10px 12px; background: #f9f9fb;
+               border-radius: 10px; margin-bottom: 6px; }
+  .snap-item:last-child { margin-bottom: 0; }
+  .snap-info  { flex: 1; }
+  .snap-ts    { font-size: 13px; font-weight: 700; color: #1a1a1a; }
+  .snap-sub   { font-size: 11px; color: #888; margin-top: 2px; }
+  .snap-btn   { padding: 7px 14px; border: none; border-radius: 8px;
+                font-size: 12px; font-weight: 700; cursor: pointer;
+                background: var(--blue); color: #fff; font-family: inherit; }
+  .snap-btn:active { opacity: 0.8; }
+  .no-snap  { text-align: center; color: #aaa; padding: 16px; font-size: 13px; }
+
+  .section-status { font-size: 12px; color: #aaa; margin-top: 4px; }
 </style>
 </head>
 <body>
-<div class="box">
+<div class="page">
   <h1>🚨 緊急復旧ページ</h1>
-  <p>勤怠PWAがクラッシュループに入った場合、このページで復旧できます。</p>
+  <p class="subtitle">勤怠PWAに問題が発生した場合、このページで復旧できます。<br>上から順に試してください。</p>
 
-  <div class="warn">
-    ⚠️ 「データも全部消す」を選ぶと勤怠データが消えます。<br>
-    「キャッシュだけ消す」を先に試してください。
+  <!-- Diagnostics -->
+  <div class="card">
+    <div class="card-title">📊 診断情報</div>
+    <div class="diag-grid" id="diag-grid">
+      <div class="diag-item"><div class="diag-label">LS使用量</div><div class="diag-value" id="d-ls-size">--</div><div class="diag-sub" id="d-ls-sub"></div></div>
+      <div class="diag-item"><div class="diag-label">IDB</div><div class="diag-value" id="d-idb">--</div><div class="diag-sub" id="d-idb-sub"></div></div>
+      <div class="diag-item"><div class="diag-label">スナップショット</div><div class="diag-value" id="d-snap">--</div><div class="diag-sub" id="d-snap-sub"></div></div>
+      <div class="diag-item"><div class="diag-label">エラーログ</div><div class="diag-value" id="d-err">--</div><div class="diag-sub" id="d-err-sub"></div></div>
+    </div>
+    <div class="section-status" id="diag-status">診断中...</div>
   </div>
 
-  <button class="btn btn-safe" onclick="clearCacheOnly()">🗂 キャッシュ・SWだけ消す（データは保持）</button>
-  <button class="btn btn-danger" onclick="clearAll()">🗑 データも全部消す（完全リセット）</button>
-  <button class="btn btn-outline" onclick="goHome()">← PWAに戻る（復旧せず）</button>
+  <!-- Step 1: SW/Cache only -->
+  <div class="card">
+    <div class="card-title">Step 1 — 軽い修復（データ保持）</div>
+    <div class="warn-box">⚠️ まずこちらを試してください。データは消えません。</div>
+    <button class="btn btn-safe" onclick="swUpdate()">🔄 Service Worker を強制更新
+      <span class="desc">SWの更新のみ。最も安全。</span>
+    </button>
+    <button class="btn btn-warn" onclick="clearCacheOnly()">🗂 キャッシュ・SWをクリア（データ保持）
+      <span class="desc">キャッシュとSWを全削除。勤怠データは保持。</span>
+    </button>
+    <div class="status-box" id="status-1"></div>
+  </div>
 
-  <div class="status" id="status"></div>
+  <!-- Step 2: Snapshot restore -->
+  <div class="card">
+    <div class="card-title">Step 2 — スナップショットから復元</div>
+    <p style="font-size:12px;color:#666;margin:0 0 10px;line-height:1.5;">
+      アプリが自動保存したスナップショット（最大3件）からデータを復元できます。<br>
+      現在のデータは上書きされます。
+    </p>
+    <div id="snap-list"><div class="no-snap">読み込み中...</div></div>
+    <div class="status-box" id="status-2"></div>
+  </div>
+
+  <!-- Step 3: Full reset -->
+  <div class="card">
+    <div class="card-title">Step 3 — 完全リセット（最終手段）</div>
+    <div class="warn-box">⚠️ 勤怠データも含めて全消去します。バックアップがある場合のみ実行してください。</div>
+    <button class="btn btn-danger" onclick="clearAll()">🗑 全データを消去してリセット
+      <span class="desc">localStorage・IDB・キャッシュ・SW をすべて削除。</span>
+    </button>
+    <div class="status-box" id="status-3"></div>
+  </div>
+
+  <!-- Error log -->
+  <div class="card">
+    <div class="card-title">🐞 エラーログ（直近20件）</div>
+    <div id="err-log-container"><div class="no-log">読み込み中...</div></div>
+    <button class="btn btn-outline" style="margin-top:10px;" onclick="clearErrorLog()">🗑 エラーログを消去</button>
+  </div>
+
+  <!-- Navigation -->
+  <div class="card">
+    <div class="card-title">ナビゲーション</div>
+    <button class="btn btn-primary" onclick="goHome()">← PWAに戻る</button>
+    <button class="btn btn-outline" onclick="location.reload()">🔃 このページを再読込</button>
+  </div>
 </div>
 
 <script>
-const STATUS = document.getElementById('status');
-const ORIGIN = location.origin + '/kintai-pwa';
+const STORE_KEY = 'kintai_store_v1';
+const IDB_NAME  = 'kintai_idb';
+const IDB_STORE = 'attendance';
+const _ERR_KEY  = '_kintai_errors';
+const _SNAP_KEY = '_kintai_snap_';
+const _SNAP_IDX = '_kintai_snap_idx';
+const _SNAP_GENS = 3;
+const ORIGIN    = location.origin + '/kintai-pwa';
 
-function log(msg) { STATUS.textContent = msg; console.log(msg); }
+function log(id, msg, isError = false) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'status-box' + (isError ? ' error' : '');
+  console.log('[recover]', msg);
+}
+
+/* ---- IDB helpers ---- */
+function _openIDB() {
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE, { keyPath: 'id' });
+      req.onsuccess = e => resolve(e.target.result);
+      req.onerror   = () => resolve(null);
+    } catch(_) { resolve(null); }
+  });
+}
+async function idbLoad() {
+  const db = await _openIDB();
+  if (!db) return null;
+  return new Promise(resolve => {
+    try {
+      const req = db.transaction(IDB_STORE).objectStore(IDB_STORE).get('main');
+      req.onsuccess = () => resolve(req.result?.data || null);
+      req.onerror   = () => resolve(null);
+    } catch(_) { resolve(null); }
+  });
+}
+async function idbSave(data) {
+  const db = await _openIDB();
+  if (!db) return;
+  try {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put({ id: 'main', data, saved_at: new Date().toISOString() });
+  } catch(_) {}
+}
+
+/* ---- Snapshot helpers ---- */
+function listSnapshots() {
+  const result = [];
+  const idx = Number(localStorage.getItem(_SNAP_IDX) || 0);
+  for (let i = 0; i < _SNAP_GENS; i++) {
+    const si = (idx - i + _SNAP_GENS) % _SNAP_GENS;
+    const raw = localStorage.getItem(_SNAP_KEY + si);
+    if (!raw) continue;
+    try {
+      const { meta, data } = JSON.parse(raw);
+      result.push({ slot: si, meta, data });
+    } catch(_) {}
+  }
+  return result;
+}
+
+/* ---- Diagnostics ---- */
+async function runDiag() {
+  // LS size
+  let lsSize = 0;
+  try { for (const k of Object.keys(localStorage)) lsSize += (localStorage.getItem(k)||'').length; } catch(_) {}
+  const lsKB = Math.round(lsSize / 1024);
+  const lsEl = document.getElementById('d-ls-size');
+  const lsSubEl = document.getElementById('d-ls-sub');
+  lsEl.textContent = lsKB + 'KB';
+  lsEl.className = 'diag-value ' + (lsKB > 4000 ? 'diag-warn' : 'diag-ok');
+  lsSubEl.textContent = lsKB > 4000 ? '残り少ない可能性' : '正常範囲';
+
+  // IDB
+  const idbData = await idbLoad();
+  const idbMonths = Object.keys(idbData?.months || {}).length;
+  const idbEl = document.getElementById('d-idb');
+  const idbSubEl = document.getElementById('d-idb-sub');
+  idbEl.textContent = idbMonths > 0 ? '✓ 正常' : '空';
+  idbEl.className = 'diag-value ' + (idbMonths > 0 ? 'diag-ok' : 'diag-warn');
+  idbSubEl.textContent = idbMonths > 0 ? idbMonths + 'ヶ月分' : 'データなし';
+
+  // Snapshots
+  const snaps = listSnapshots();
+  const snapEl = document.getElementById('d-snap');
+  const snapSubEl = document.getElementById('d-snap-sub');
+  snapEl.textContent = snaps.length + '件';
+  snapEl.className = 'diag-value ' + (snaps.length > 0 ? 'diag-ok' : 'diag-warn');
+  if (snaps.length > 0) {
+    const d = new Date(snaps[0].meta.ts);
+    snapSubEl.textContent = '最新: ' + d.toLocaleDateString('ja') + ' ' + d.toLocaleTimeString('ja', { hour:'2-digit', minute:'2-digit' });
+  } else {
+    snapSubEl.textContent = 'なし';
+  }
+
+  // Error count
+  const errs = JSON.parse(localStorage.getItem(_ERR_KEY) || '[]');
+  const errEl = document.getElementById('d-err');
+  const errSubEl = document.getElementById('d-err-sub');
+  errEl.textContent = errs.length + '件';
+  errEl.className = 'diag-value ' + (errs.length === 0 ? 'diag-ok' : errs.length < 5 ? 'diag-warn' : 'diag-error');
+  errSubEl.textContent = errs.length > 0 ? '最新: ' + errs[0].type : 'エラーなし';
+
+  document.getElementById('diag-status').textContent = '診断完了 — ' + new Date().toLocaleTimeString('ja');
+
+  // Render snapshots
+  renderSnapshots(snaps);
+  // Render error log
+  renderErrorLog(errs);
+}
+
+function renderSnapshots(snaps) {
+  const container = document.getElementById('snap-list');
+  if (snaps.length === 0) {
+    container.innerHTML = '<div class="no-snap">スナップショットはありません</div>';
+    return;
+  }
+  container.innerHTML = snaps.map((s, i) => {
+    const d = new Date(s.meta.ts);
+    const fmt = d.toLocaleDateString('ja') + ' ' + d.toLocaleTimeString('ja', { hour:'2-digit', minute:'2-digit' });
+    return `<div class="snap-item">
+      <div class="snap-info">
+        <div class="snap-ts">${fmt}</div>
+        <div class="snap-sub">${s.meta.months}ヶ月分のデータ${i === 0 ? ' ← 最新' : ''}</div>
+      </div>
+      <button class="snap-btn" onclick="restoreSnap(${s.slot})">復元</button>
+    </div>`;
+  }).join('');
+}
+
+function renderErrorLog(errs) {
+  const container = document.getElementById('err-log-container');
+  if (errs.length === 0) {
+    container.innerHTML = '<div class="no-log">✅ エラーログはありません</div>';
+    return;
+  }
+  container.innerHTML = `<table class="log-table">
+    <thead><tr><th>種類</th><th>時刻</th><th>詳細</th></tr></thead>
+    <tbody>${errs.map(e => `
+      <tr>
+        <td class="log-type">${_esc(e.type)}</td>
+        <td class="log-ts">${(e.ts||'').slice(0,16).replace('T',' ')}</td>
+        <td>${_esc(e.detail||'')}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function _esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ---- Actions ---- */
+async function swUpdate() {
+  log('status-1', '⏳ Service Worker を更新中...');
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const r of regs) await r.update();
+    log('status-1', '✅ SW更新完了。問題が続く場合はStep 2以降へ。');
+  } catch(e) { log('status-1', 'SW更新スキップ: ' + e.message, true); }
+}
 
 async function clearCacheOnly() {
-  log('⏳ Service Worker を登録解除中...');
+  log('status-1', '⏳ Service Worker を登録解除中...');
   try {
     const regs = await navigator.serviceWorker.getRegistrations();
     for (const r of regs) await r.unregister();
-    log('✅ SW解除完了');
-  } catch(e) { log('SW解除スキップ: ' + e.message); }
+    log('status-1', '✅ SW解除完了');
+  } catch(e) { log('status-1', 'SW解除スキップ: ' + e.message); }
 
   try {
     const keys = await caches.keys();
     await Promise.all(keys.map(k => caches.delete(k)));
-    log('✅ キャッシュ削除完了');
-  } catch(e) { log('キャッシュ削除スキップ'); }
+    log('status-1', '✅ キャッシュ削除完了 — PWAに戻ります...');
+  } catch(e) { log('status-1', 'キャッシュ削除スキップ'); }
 
-  log('✅ 完了！PWAに戻ります...');
-  setTimeout(goHome, 1200);
+  setTimeout(goHome, 1500);
+}
+
+function restoreSnap(slot) {
+  try {
+    const raw = localStorage.getItem(_SNAP_KEY + slot);
+    if (!raw) { log('status-2', '⚠️ スナップショットが見つかりません', true); return; }
+    const { meta, data } = JSON.parse(raw);
+    const d = new Date(meta.ts);
+    const fmt = d.toLocaleDateString('ja') + ' ' + d.toLocaleTimeString('ja', { hour:'2-digit', minute:'2-digit' });
+    if (!confirm(`${fmt} のスナップショット（${meta.months}ヶ月分）から復元しますか？\n現在のデータは上書きされます。`)) return;
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    idbSave(data);
+    log('status-2', '✅ 復元完了 — PWAに戻ります...');
+    setTimeout(goHome, 1500);
+  } catch(e) { log('status-2', '復元失敗: ' + e.message, true); }
 }
 
 async function clearAll() {
-  if (!confirm('勤怠データも含めて全て削除します。本当によいですか？')) return;
+  if (!confirm('⚠️ 勤怠データも含めて全て削除します。\nバックアップは取りましたか？')) return;
+  if (!confirm('最終確認：本当にすべて削除しますか？')) return;
 
-  await clearCacheOnly();
+  log('status-3', '⏳ 全データを削除中...');
 
-  // localStorage を全消去
   try {
-    localStorage.clear();
-    log('✅ localStorage 消去完了');
-  } catch(e) {}
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const r of regs) await r.unregister();
+  } catch(_) {}
 
-  // IndexedDB を削除
   try {
-    indexedDB.deleteDatabase('kintai_idb');
-    log('✅ IndexedDB 削除完了');
-  } catch(e) {}
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+  } catch(_) {}
 
-  log('✅ 全リセット完了！PWAに戻ります...');
-  setTimeout(goHome, 1200);
+  try { localStorage.clear(); } catch(_) {}
+  try { indexedDB.deleteDatabase(IDB_NAME); } catch(_) {}
+
+  log('status-3', '✅ 全リセット完了 — PWAに戻ります...');
+  setTimeout(goHome, 1500);
+}
+
+function clearErrorLog() {
+  if (!confirm('エラーログを消去しますか？')) return;
+  try { localStorage.removeItem(_ERR_KEY); } catch(_) {}
+  renderErrorLog([]);
+  document.getElementById('d-err').textContent = '0件';
+  document.getElementById('d-err').className = 'diag-value diag-ok';
+  document.getElementById('d-err-sub').textContent = 'エラーなし';
 }
 
 function goHome() {
   location.href = '/kintai-pwa/';
 }
+
+// 起動時診断
+runDiag();
 </script>
 </body>
 </html>
