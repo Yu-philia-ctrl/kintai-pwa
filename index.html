@@ -25,6 +25,7 @@
       --bg-card: rgba(255,255,255,0.82);
       --bg-card-solid: #ffffff;
       --border-soft: rgba(180,190,220,0.5);
+      --border-color: rgba(180,190,220,0.5);
       --accent-blue: #4f8dfd;
       --accent-purple: #7c5fe6;
       --text-main: #1a1c2e;
@@ -34,13 +35,14 @@
       --shadow-card: 0 8px 40px rgba(60,80,200,0.09), 0 1px 0 rgba(255,255,255,0.7) inset;
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --tab-bar-h: 60px;
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      padding: calc(max(var(--safe-top), 12px)) 12px calc(max(var(--safe-bottom), 12px));
+      padding: calc(max(var(--safe-top), 12px)) 12px calc(max(var(--safe-bottom), 0px) + var(--tab-bar-h) + 16px);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
       background: linear-gradient(145deg, #d8e8ff 0%, #e8ddff 45%, #ffd8f0 100%) fixed;
       color: var(--text-main);
@@ -572,7 +574,7 @@
     .fab-task {
       position:fixed;
       right: calc(max(env(safe-area-inset-right), 16px) + 62px);
-      bottom: calc(max(env(safe-area-inset-bottom), 20px) + 56px);
+      bottom: calc(max(env(safe-area-inset-bottom), 0px) + var(--tab-bar-h) + 20px);
       width:52px; height:52px;
       border-radius:999px;
       background:linear-gradient(135deg,#ff9800,#f06000);
@@ -610,7 +612,7 @@
     .fab-today {
       position:fixed;
       right: calc(max(env(safe-area-inset-right), 16px));
-      bottom: calc(max(env(safe-area-inset-bottom), 20px) + 56px);
+      bottom: calc(max(env(safe-area-inset-bottom), 0px) + var(--tab-bar-h) + 20px);
       width:52px; height:52px;
       border-radius:999px;
       background:linear-gradient(135deg,#4f8dfd,#7c5fe6);
@@ -627,6 +629,159 @@
     .fab-today .fab-day { font-size:18px; font-weight:900; line-height:1; }
     .fab-today .fab-label { font-size:9px; opacity:.85; }
     .fab-today.hidden { opacity:0; pointer-events:none; }
+
+    /* ======= BOTTOM TAB NAVIGATION ======= */
+    .bottom-tabs {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 800;
+      background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(180,190,220,0.35);
+      display: flex;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+      box-shadow: 0 -2px 20px rgba(60,80,200,0.08);
+    }
+    .tab-btn {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 8px 2px 6px; font-size: 9px; font-weight: 700;
+      color: var(--text-muted); border: none; background: none;
+      cursor: pointer; font-family: inherit; gap: 2px;
+      transition: color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab-btn.active { color: var(--accent-blue); }
+    .tab-icon { font-size: 20px; line-height: 1; }
+
+    /* ======= TAB PAGES ======= */
+    .tab-page { display: none; }
+    .tab-page.active { display: block; }
+
+    /* ======= HUB / LAUNCHER ======= */
+    .jinjer-card {
+      display: flex; align-items: center; gap: 14px;
+      background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+      border-radius: 20px; padding: 18px 20px;
+      color: #fff; cursor: pointer; text-decoration: none;
+      box-shadow: 0 6px 28px rgba(21,101,192,0.38);
+      margin-bottom: 12px; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .jinjer-card:active { transform: scale(0.98); opacity: 0.9; }
+    .jinjer-icon { font-size: 38px; }
+    .jinjer-info { flex: 1; }
+    .jinjer-label { font-size: 18px; font-weight: 900; }
+    .jinjer-sub   { font-size: 12px; opacity: 0.82; margin-top: 3px; }
+    .jinjer-arrow { font-size: 22px; opacity: 0.7; }
+    .links-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+      gap: 10px; margin-bottom: 12px;
+    }
+    .link-tile-wrap { position: relative; }
+    .link-tile {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; padding: 12px 6px;
+      background: var(--bg-card); border-radius: 16px;
+      border: 1px solid var(--border-soft);
+      cursor: pointer; text-decoration: none;
+      font-size: 11px; font-weight: 700; color: var(--text-main);
+      text-align: center; width: 100%;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.12s;
+    }
+    .link-tile:active { transform: scale(0.94); }
+    .link-tile-icon { font-size: 26px; }
+    .link-tile-add {
+      border: 1.5px dashed rgba(180,190,220,0.7);
+      background: rgba(255,255,255,0.4); color: var(--text-muted); border: none;
+    }
+    .link-tile-del {
+      position: absolute; top: 3px; right: 3px; font-size: 16px;
+      color: #e57373; line-height: 1; cursor: pointer; z-index: 2;
+      background: rgba(255,255,255,0.9); border-radius: 50%;
+      width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 900;
+    }
+
+    /* ======= STUDY TRACKER ======= */
+    .study-item {
+      background: var(--bg-card-solid); border-radius: 16px;
+      border: 1px solid var(--border-soft);
+      padding: 14px 14px 12px; margin-bottom: 10px;
+    }
+    .study-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .study-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .study-name { font-size: 15px; font-weight: 800; flex: 1; }
+    .study-countdown {
+      font-size: 10px; font-weight: 800; padding: 2px 8px;
+      border-radius: 999px; white-space: nowrap;
+    }
+    .study-progress-wrap {
+      height: 8px; background: #f0f0f5; border-radius: 999px;
+      overflow: hidden; margin-bottom: 6px;
+    }
+    .study-progress-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+    .study-stats { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+    .study-today { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .study-hours-input {
+      width: 72px; padding: 6px 8px; border-radius: 8px;
+      border: 1px solid var(--border-soft); font-size: 14px;
+      font-family: inherit; text-align: center;
+    }
+    .study-add-btn {
+      flex: 1; padding: 7px; border: none; border-radius: 8px;
+      background: var(--accent-blue); color: #fff; font-weight: 700;
+      font-size: 12px; cursor: pointer; font-family: inherit;
+    }
+    .study-del-btn { background: none; border: none; color: #e57373; font-size: 16px; cursor: pointer; padding: 0 4px; }
+
+    /* ======= PROJECT TRACKER ======= */
+    .project-item {
+      background: var(--bg-card-solid); border-radius: 16px;
+      border: 1px solid var(--border-soft);
+      padding: 12px 14px; margin-bottom: 8px;
+    }
+    .project-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .project-status-badge { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+    .project-status-未着手 { background: #f4f4f6; color: var(--text-muted); }
+    .project-status-進行中 { background: #e3f2fd; color: #1565c0; }
+    .project-status-完了   { background: #e8f5e9; color: #2e7d32; }
+    .project-status-保留   { background: #fff8e1; color: #ef6c00; }
+    .project-name { font-size: 14px; font-weight: 800; flex: 1; min-width: 0; word-break: break-all; }
+    .project-progress-wrap {
+      height: 6px; background: #f0f0f5; border-radius: 999px;
+      overflow: hidden; margin-bottom: 6px;
+    }
+    .project-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+      border-radius: 999px; transition: width 0.4s;
+    }
+    .project-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); gap: 8px; flex-wrap: wrap; }
+    .project-del-btn { background: none; border: none; color: #e57373; font-size: 15px; cursor: pointer; padding: 0; flex-shrink: 0; }
+
+    /* ======= PIN MODAL ======= */
+    .pin-modal-body { padding: 4px 0 8px; text-align: center; }
+    .pin-purpose { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; }
+    .pin-dots { display: flex; justify-content: center; gap: 14px; margin-bottom: 16px; }
+    .pin-dot {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid #ccc; background: transparent; transition: all 0.15s;
+    }
+    .pin-dot.filled { background: var(--accent-blue); border-color: var(--accent-blue); }
+    .pin-error-msg { font-size: 12px; color: #c62828; min-height: 18px; margin-bottom: 12px; font-weight: 700; }
+    .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 260px; margin: 0 auto; }
+    .pin-key {
+      padding: 16px; font-size: 20px; font-weight: 700;
+      border: 1px solid var(--border-soft); border-radius: 14px;
+      background: rgba(255,255,255,0.9); cursor: pointer;
+      font-family: inherit; color: var(--text-main);
+      -webkit-tap-highlight-color: transparent; transition: background 0.1s;
+    }
+    .pin-key:active { background: #e8efff; transform: scale(0.96); }
+    .pin-key-sm { font-size: 13px; color: var(--text-muted); }
+    .pin-lock-msg { font-size: 12px; color: #c62828; margin-top: 12px; font-weight: 700; min-height: 18px; }
 
     /* ======= HEALTH INDICATOR ======= */
     .health-bar {
@@ -657,7 +812,7 @@
     .fab-recover {
       position: fixed;
       left: calc(max(env(safe-area-inset-left), 16px));
-      bottom: calc(max(env(safe-area-inset-bottom), 20px) + 56px);
+      bottom: calc(max(env(safe-area-inset-bottom), 0px) + var(--tab-bar-h) + 20px);
       width: 52px; height: 52px;
       border-radius: 999px;
       background: linear-gradient(135deg, #f44336, #b71c1c);
@@ -727,6 +882,8 @@
     </div>
   </div>
 
+  <!-- ===== TAB: 勤怠カレンダー ===== -->
+  <div id="page-calendar" class="tab-page active">
   <div class="card" id="calendar-card">
     <div class="overlay" id="overlay"><div class="spinner"></div></div>
 
@@ -799,6 +956,46 @@
       <input type="file" id="file-jinjer" accept=".json" style="display:none">
     </div>
   </div>
+  </div><!-- /page-calendar -->
+
+  <!-- ===== TAB: ハブ / クイックランチャー ===== -->
+  <div id="page-hub" class="tab-page">
+    <div class="card">
+      <div class="card-title">🚀 クイックランチャー</div>
+      <!-- jinjer 打刻ボタン（大） -->
+      <a href="https://kintai.jinjer.biz/staff/top" target="_blank" rel="noopener" class="jinjer-card" id="jinjer-link">
+        <div class="jinjer-icon">🏢</div>
+        <div class="jinjer-info">
+          <div class="jinjer-label">jinjer 打刻</div>
+          <div class="jinjer-sub">出勤・退勤を記録する ↗</div>
+        </div>
+        <div class="jinjer-arrow">⏱</div>
+      </a>
+      <div class="card-title" style="margin-top:4px;">マイアプリ・リンク</div>
+      <div class="links-grid" id="links-grid"></div>
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:4px;">
+        ➕ をタップしてよく使うサービスを追加できます
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: 資格・学習進捗 ===== -->
+  <div id="page-study" class="tab-page">
+    <div class="card">
+      <div class="card-title">📚 資格・学習進捗</div>
+      <div id="study-list"></div>
+      <button class="data-btn" id="btn-add-study" style="width:100%;text-align:center;margin-top:4px;">＋ 資格・学習目標を追加</button>
+    </div>
+  </div>
+
+  <!-- ===== TAB: プロジェクト進捗 ===== -->
+  <div id="page-project" class="tab-page">
+    <div class="card">
+      <div class="card-title">📊 プロジェクト進捗</div>
+      <div id="project-list"></div>
+      <button class="data-btn" id="btn-add-project" style="width:100%;text-align:center;margin-top:4px;">＋ プロジェクトを追加</button>
+    </div>
+  </div>
 
   <!-- 編集モーダル -->
   <div class="modal-backdrop" id="memo-modal">
@@ -839,6 +1036,42 @@
     </div>
   </div>
 
+  <!-- PIN 認証モーダル -->
+  <div class="modal-backdrop" id="pin-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div>🔐 PIN 認証</div>
+        <div class="modal-close" id="pin-modal-cancel">×</div>
+      </div>
+      <div class="pin-modal-body">
+        <div class="pin-purpose" id="pin-purpose">この操作にはPINが必要です</div>
+        <div class="pin-dots" id="pin-dots">
+          <div class="pin-dot"></div>
+          <div class="pin-dot"></div>
+          <div class="pin-dot"></div>
+          <div class="pin-dot"></div>
+        </div>
+        <div class="pin-error-msg" id="pin-error"></div>
+        <div class="pin-keypad">
+          <button class="pin-key" data-key="1">1</button>
+          <button class="pin-key" data-key="2">2</button>
+          <button class="pin-key" data-key="3">3</button>
+          <button class="pin-key" data-key="4">4</button>
+          <button class="pin-key" data-key="5">5</button>
+          <button class="pin-key" data-key="6">6</button>
+          <button class="pin-key" data-key="7">7</button>
+          <button class="pin-key" data-key="8">8</button>
+          <button class="pin-key" data-key="9">9</button>
+          <button class="pin-key pin-key-sm" id="pin-key-cancel">キャンセル</button>
+          <button class="pin-key" data-key="0">0</button>
+          <button class="pin-key pin-key-sm" id="pin-key-del">⌫</button>
+        </div>
+        <div class="pin-lock-msg" id="pin-lock-msg"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- 設定モーダル -->
   <div class="modal-backdrop" id="settings-modal">
     <div class="modal-sheet">
@@ -857,6 +1090,18 @@
           <div class="settings-label">Obsidian サブフォルダ</div>
           <input id="settings-subdir" class="settings-input" type="text" placeholder="例: 【業務】/勤怠">
           <div class="settings-hint">VaultのどのフォルダにMDファイルを開くかのパス。</div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
+        <div class="settings-row">
+          <div class="settings-label">🔐 セキュリティPIN</div>
+          <div class="settings-hint" id="pin-status-hint" style="margin-bottom:6px;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn-secondary" id="btn-set-pin" style="flex:1;">PINを設定/変更</button>
+            <button class="btn-secondary" id="btn-clear-pin" style="flex:1;color:#c62828;display:none;">PINを解除</button>
+          </div>
+          <div class="settings-hint" style="margin-top:6px;">
+            危険な操作（全データ消去など）にPINロックをかけます。4〜6桁の数字。
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -918,6 +1163,22 @@
 
   <!-- Task FAB -->
   <button class="fab-task" id="fab-task">📋</button>
+
+  <!-- Bottom Tab Navigation -->
+  <nav class="bottom-tabs" id="bottom-tabs">
+    <button class="tab-btn active" data-tab="calendar">
+      <span class="tab-icon">📅</span>勤怠
+    </button>
+    <button class="tab-btn" data-tab="hub">
+      <span class="tab-icon">🚀</span>ハブ
+    </button>
+    <button class="tab-btn" data-tab="study">
+      <span class="tab-icon">📚</span>学習
+    </button>
+    <button class="tab-btn" data-tab="project">
+      <span class="tab-icon">📊</span>進捗
+    </button>
+  </nav>
 
   <!-- Progress overlay（jinjer同期・重い処理用） -->
   <div class="progress-overlay" id="progress-overlay">
@@ -1940,6 +2201,7 @@
       const cfg = loadConfig();
       document.getElementById('settings-vault').value  = cfg.vault  || 'Phi_Memo';
       document.getElementById('settings-subdir').value = cfg.subdir || '【業務】/勤怠';
+      updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
 
@@ -2603,9 +2865,11 @@
         } catch(e) { toast('復元失敗: ' + e.message); }
       });
 
-      // 全データ消去リセット
+      // 全データ消去リセット（PIN認証必須）
       document.getElementById('em-full-reset').addEventListener('click', async () => {
         if (!confirm('⚠️ 勤怠データを含む全データを削除してリセットします。\n本当によいですか？\n\nこの操作は取り消せません。')) return;
+        const pinOk = await requirePin('⚠️ 全データ消去にはPIN認証が必要です');
+        if (!pinOk) { toast('❌ 認証キャンセル — リセットを中止しました'); return; }
         if (!confirm('最終確認：本当にすべて削除しますか？')) return;
         try {
           const regs = await navigator.serviceWorker.getRegistrations();
@@ -2631,6 +2895,421 @@
         if (el) hideObs.observe(el, { attributes: true });
       });
     })();
+
+    /* =====================================================
+       PIN AUTHENTICATION SYSTEM
+       ===================================================== */
+    const PIN_HASH_KEY = 'kintai_pin_hash';
+    const PIN_FAIL_KEY = 'kintai_pin_fails';
+    const PIN_LOCK_KEY = 'kintai_pin_lock';
+    const PIN_MAX_FAILS = 3;
+    const PIN_LOCKOUT_MS = 60000;
+
+    async function sha256(text) {
+      try {
+        const data = new TextEncoder().encode(String(text));
+        const hash = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+      } catch(_) { return null; }
+    }
+
+    function isPinSet() { return !!localStorage.getItem(PIN_HASH_KEY); }
+    function getPinLockUntil() { return Number(localStorage.getItem(PIN_LOCK_KEY) || 0); }
+    function getPinFails() { return Number(localStorage.getItem(PIN_FAIL_KEY) || 0); }
+
+    // Returns Promise<boolean>: true=authenticated/no-PIN, false=cancelled
+    function requirePin(purpose) {
+      if (!isPinSet()) return Promise.resolve(true);
+      return new Promise(resolve => {
+        const modal    = document.getElementById('pin-modal');
+        const purposeEl = document.getElementById('pin-purpose');
+        const dotsEl   = document.getElementById('pin-dots');
+        const errorEl  = document.getElementById('pin-error');
+        const lockEl   = document.getElementById('pin-lock-msg');
+
+        purposeEl.textContent = purpose || 'この操作にはPINが必要です';
+        let pin = '', resolved = false, lockTimer = null;
+
+        function updateDots() {
+          dotsEl.querySelectorAll('.pin-dot').forEach((d, i) => d.classList.toggle('filled', i < pin.length));
+        }
+
+        function checkLockout() {
+          const lockUntil = getPinLockUntil();
+          if (lockUntil > Date.now()) {
+            const rem = Math.ceil((lockUntil - Date.now()) / 1000);
+            lockEl.textContent = `🔒 ${rem}秒後に再試行できます`;
+            return true;
+          }
+          lockEl.textContent = '';
+          return false;
+        }
+
+        async function submitPin() {
+          if (checkLockout()) return;
+          if (pin.length < 4) { errorEl.textContent = '4桁以上入力してください'; return; }
+          const hash = await sha256(pin);
+          const stored = localStorage.getItem(PIN_HASH_KEY);
+          if (hash === stored) {
+            localStorage.setItem(PIN_FAIL_KEY, '0');
+            errorEl.textContent = '';
+            cleanup(true);
+          } else {
+            const fails = getPinFails() + 1;
+            localStorage.setItem(PIN_FAIL_KEY, String(fails));
+            if (fails >= PIN_MAX_FAILS) {
+              localStorage.setItem(PIN_LOCK_KEY, String(Date.now() + PIN_LOCKOUT_MS));
+              localStorage.setItem(PIN_FAIL_KEY, '0');
+              startLockTimer();
+            }
+            const rem = Math.max(0, PIN_MAX_FAILS - fails);
+            errorEl.textContent = `❌ PINが違います${rem > 0 ? `（残り${rem}回）` : ''}`;
+            pin = ''; updateDots();
+          }
+        }
+
+        function startLockTimer() {
+          clearInterval(lockTimer);
+          lockTimer = setInterval(() => { if (!checkLockout()) clearInterval(lockTimer); }, 1000);
+          checkLockout();
+        }
+
+        function onKey(k) {
+          if (checkLockout()) return;
+          if (k === 'del') { pin = pin.slice(0, -1); updateDots(); errorEl.textContent = ''; }
+          else if (pin.length < 6) { pin += k; updateDots(); if (pin.length >= 4) submitPin(); }
+        }
+
+        function cleanup(ok) {
+          if (resolved) return;
+          resolved = true;
+          clearInterval(lockTimer);
+          modal.classList.remove('show');
+          pin = ''; updateDots(); errorEl.textContent = '';
+          resolve(ok);
+        }
+
+        modal.querySelectorAll('[data-key]').forEach(btn => { btn.onclick = () => onKey(btn.dataset.key); });
+        document.getElementById('pin-key-del').onclick    = () => onKey('del');
+        document.getElementById('pin-key-cancel').onclick = () => cleanup(false);
+        document.getElementById('pin-modal-cancel').onclick = () => cleanup(false);
+        modal.onclick = e => { if (e.target === modal) cleanup(false); };
+
+        if (getPinLockUntil() > Date.now()) startLockTimer();
+        pin = ''; updateDots(); errorEl.textContent = '';
+        modal.classList.add('show');
+      });
+    }
+
+    async function setupPin(newPin) {
+      const hash = await sha256(newPin);
+      if (!hash) { toast('PIN設定に失敗しました'); return false; }
+      localStorage.setItem(PIN_HASH_KEY, hash);
+      localStorage.removeItem(PIN_FAIL_KEY);
+      localStorage.removeItem(PIN_LOCK_KEY);
+      return true;
+    }
+
+    function clearPin() {
+      localStorage.removeItem(PIN_HASH_KEY);
+      localStorage.removeItem(PIN_FAIL_KEY);
+      localStorage.removeItem(PIN_LOCK_KEY);
+    }
+
+    function updatePinUI() {
+      const set = isPinSet();
+      const hint = document.getElementById('pin-status-hint');
+      const clearBtn = document.getElementById('btn-clear-pin');
+      if (hint) hint.textContent = set ? '✅ PINが設定されています' : '⚠️ PINが未設定です';
+      if (clearBtn) clearBtn.style.display = set ? '' : 'none';
+    }
+
+    (function initPinSettings() {
+      const btnSet   = document.getElementById('btn-set-pin');
+      const btnClear = document.getElementById('btn-clear-pin');
+      if (!btnSet) return;
+
+      btnSet.addEventListener('click', async () => {
+        if (isPinSet()) {
+          const ok = await requirePin('現在のPINで認証してください');
+          if (!ok) return;
+        }
+        const p1 = prompt('新しいPINを入力してください（4〜6桁の数字）');
+        if (!p1 || !/^\d{4,6}$/.test(p1)) { toast('4〜6桁の数字を入力してください'); return; }
+        const p2 = prompt('もう一度入力してください（確認）');
+        if (p1 !== p2) { toast('⚠️ PINが一致しません'); return; }
+        await setupPin(p1);
+        updatePinUI();
+        toast('✅ PINを設定しました');
+      });
+
+      btnClear.addEventListener('click', async () => {
+        const ok = await requirePin('PINを解除するには現在のPINを入力してください');
+        if (!ok) return;
+        if (!confirm('PINを解除します。よいですか？')) return;
+        clearPin();
+        updatePinUI();
+        toast('✅ PINを解除しました');
+      });
+    })();
+
+    /* =====================================================
+       TAB NAVIGATION
+       ===================================================== */
+    (function initTabs() {
+      const tabs   = document.querySelectorAll('.tab-btn[data-tab]');
+      const pages  = document.querySelectorAll('.tab-page');
+      const calFabs = ['fab-today', 'fab-task', 'fab-recover'].map(id => document.getElementById(id));
+
+      function switchTab(tabName) {
+        tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+        pages.forEach(p => p.classList.toggle('active', p.id === 'page-' + tabName));
+        const isCal = (tabName === 'calendar');
+        calFabs.forEach(f => f?.classList.toggle('hidden', !isCal));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (tabName === 'hub')     renderLauncher();
+        if (tabName === 'study')   renderStudy();
+        if (tabName === 'project') renderProjects();
+      }
+
+      tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+    })();
+
+    /* =====================================================
+       LAUNCHER / QUICK LINKS
+       ===================================================== */
+    const LAUNCHER_KEY = 'kintai_launcher_v1';
+    const LAUNCHER_DEFAULTS = [
+      { id: 'gcal',  name: 'Gカレンダー', url: 'https://calendar.google.com',        icon: '📆' },
+      { id: 'gmail', name: 'Gmail',        url: 'https://mail.google.com',            icon: '📧' },
+      { id: 'gdrive',name: 'Drive',        url: 'https://drive.google.com',           icon: '🗂' },
+      { id: 'slack', name: 'Slack',        url: 'https://slack.com',                  icon: '💬' },
+    ];
+
+    function loadLinks() {
+      try {
+        const r = localStorage.getItem(LAUNCHER_KEY);
+        return r ? JSON.parse(r) : [...LAUNCHER_DEFAULTS];
+      } catch { return [...LAUNCHER_DEFAULTS]; }
+    }
+    function saveLinks(links) { localStorage.setItem(LAUNCHER_KEY, JSON.stringify(links)); }
+
+    function renderLauncher() {
+      const grid = document.getElementById('links-grid');
+      if (!grid) return;
+      const links = loadLinks();
+      grid.innerHTML = links.map(l => `
+        <div class="link-tile-wrap">
+          <a href="${_esc(l.url)}" target="_blank" rel="noopener" class="link-tile" title="${_esc(l.name)}">
+            <div class="link-tile-icon">${l.icon || '🔗'}</div>
+            <div>${_esc(l.name)}</div>
+          </a>
+          <span class="link-tile-del" data-id="${_esc(l.id)}" title="削除">×</span>
+        </div>`).join('') +
+        `<div class="link-tile-wrap">
+          <button class="link-tile link-tile-add" id="btn-add-link" style="background:rgba(255,255,255,0.5);border:1.5px dashed rgba(180,190,220,0.7);color:var(--text-muted);">
+            <div class="link-tile-icon">➕</div><div>追加</div>
+          </button>
+        </div>`;
+
+      grid.querySelectorAll('.link-tile-del').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.preventDefault(); e.stopPropagation();
+          saveLinks(loadLinks().filter(l => l.id !== btn.dataset.id));
+          renderLauncher();
+        });
+      });
+      document.getElementById('btn-add-link')?.addEventListener('click', showAddLinkDialog);
+    }
+
+    function showAddLinkDialog() {
+      const name = prompt('リンク名（例: 資格アプリ、社内Wiki）');
+      if (!name?.trim()) return;
+      const url = prompt('URL（例: https://example.com）');
+      if (!url?.trim() || !url.startsWith('http')) { toast('正しいURLを入力してください（https://〜）'); return; }
+      const icon = prompt('絵文字アイコン（例: 📝 ）', '🔗') || '🔗';
+      saveLinks([...loadLinks(), { id: Date.now().toString(), name: name.trim(), url: url.trim(), icon: icon.trim().slice(0, 2) }]);
+      renderLauncher();
+      toast('✅ リンクを追加しました');
+    }
+
+    /* =====================================================
+       STUDY / CERTIFICATION TRACKER
+       ===================================================== */
+    const STUDY_KEY = 'kintai_study_v1';
+    const STUDY_COLORS = ['#7c5fe6','#4f8dfd','#2e7d32','#ef6c00','#c62828','#1565c0','#00838f'];
+
+    function loadStudy() {
+      try { const r = localStorage.getItem(STUDY_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
+    }
+    function saveStudy(d) { localStorage.setItem(STUDY_KEY, JSON.stringify(d)); }
+
+    function renderStudy() {
+      const container = document.getElementById('study-list');
+      if (!container) return;
+      const data = loadStudy();
+      if (!data.length) {
+        container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px 0 16px;font-size:13px;line-height:1.8;">資格・学習目標を追加してください<br>試験日・目標時間・進捗を管理できます</div>';
+        return;
+      }
+      container.innerHTML = data.map(s => {
+        const total  = (s.logs || []).reduce((sum, l) => sum + (l.hours || 0), 0);
+        const target = s.targetHours || 100;
+        const pct    = Math.min(100, Math.round(total / target * 100));
+        let cdText = '', cdStyle = '';
+        if (s.examDate) {
+          const days = Math.ceil((new Date(s.examDate) - new Date()) / 86400000);
+          if      (days > 0)  { cdText = `あと${days}日`; cdStyle = days <= 30 ? 'background:#ffebee;color:#c62828' : days <= 60 ? 'background:#fff8e1;color:#ef6c00' : 'background:#e8f5e9;color:#2e7d32'; }
+          else if (days === 0){ cdText = '今日！'; cdStyle = 'background:#ffebee;color:#c62828'; }
+          else                { cdText = `${-days}日経過`; cdStyle = 'background:#f4f4f6;color:#888'; }
+        }
+        const today = new Date().toISOString().slice(0,10);
+        const todayH = (s.logs || []).filter(l => l.date === today).reduce((sum, l) => sum + l.hours, 0);
+        return `<div class="study-item" data-id="${s.id}">
+          <div class="study-header">
+            <div class="study-color-dot" style="background:${s.color};"></div>
+            <div class="study-name">${_esc(s.name)}</div>
+            ${cdText ? `<span class="study-countdown" style="${cdStyle};">${cdText}</span>` : ''}
+            <button class="study-del-btn" data-id="${s.id}" title="削除">🗑</button>
+          </div>
+          <div class="study-progress-wrap"><div class="study-progress-fill" style="width:${pct}%;background:${s.color};"></div></div>
+          <div class="study-stats">
+            <span>📖 ${total.toFixed(1)}h / ${target}h${todayH > 0 ? ` (今日+${todayH}h)` : ''}</span>
+            <span style="font-weight:800;color:${s.color};">${pct}%</span>
+          </div>
+          <div class="study-today">
+            <input type="number" class="study-hours-input" data-id="${s.id}" min="0" max="24" step="0.25" placeholder="今日の時間">
+            <button class="study-add-btn" data-id="${s.id}">＋ 追記</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      container.querySelectorAll('.study-del-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (!confirm('この資格データを削除しますか？')) return;
+          saveStudy(loadStudy().filter(s => s.id !== btn.dataset.id));
+          renderStudy();
+        });
+      });
+      container.querySelectorAll('.study-add-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id    = btn.dataset.id;
+          const input = container.querySelector(`.study-hours-input[data-id="${id}"]`);
+          const hours = parseFloat(input?.value || '0');
+          if (!hours || hours <= 0) { toast('時間を入力してください'); return; }
+          const data = loadStudy(), idx = data.findIndex(s => s.id === id);
+          if (idx === -1) return;
+          if (!data[idx].logs) data[idx].logs = [];
+          data[idx].logs.push({ date: new Date().toISOString().slice(0,10), hours });
+          saveStudy(data);
+          if (input) input.value = '';
+          renderStudy();
+          toast(`✅ ${hours}h を追記しました`);
+        });
+      });
+    }
+
+    document.getElementById('btn-add-study')?.addEventListener('click', () => {
+      const name = prompt('資格・学習名（例: 応用情報技術者試験）');
+      if (!name?.trim()) return;
+      const targetStr = prompt('目標学習時間（時間、例: 200）', '100');
+      const target = parseFloat(targetStr || '100') || 100;
+      const examDate = prompt('試験日（YYYY-MM-DD形式、なければ空欄）') || '';
+      const data = loadStudy();
+      data.push({ id: Date.now().toString(), name: name.trim(), targetHours: target, examDate: examDate.trim(), color: STUDY_COLORS[data.length % STUDY_COLORS.length], logs: [] });
+      saveStudy(data);
+      renderStudy();
+      toast('✅ 資格を追加しました');
+    });
+
+    /* =====================================================
+       PROJECT TRACKER
+       ===================================================== */
+    const PROJECT_KEY = 'kintai_projects_v1';
+    const PROJECT_STATUSES = ['未着手', '進行中', '完了', '保留'];
+
+    function loadProjects() {
+      try { const r = localStorage.getItem(PROJECT_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
+    }
+    function saveProjects(p) { localStorage.setItem(PROJECT_KEY, JSON.stringify(p)); }
+
+    function renderProjects() {
+      const container = document.getElementById('project-list');
+      if (!container) return;
+      const projects = loadProjects();
+      if (!projects.length) {
+        container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px 0 16px;font-size:13px;line-height:1.8;">プロジェクトを追加してください<br>進捗・ステータス・期限を一元管理できます</div>';
+        return;
+      }
+      container.innerHTML = projects.map(p => {
+        let dlStr = '';
+        if (p.deadline) {
+          const d = Math.ceil((new Date(p.deadline) - new Date()) / 86400000);
+          if      (d > 0)  dlStr = `⏰ あと${d}日`;
+          else if (d === 0) dlStr = '⚠️ 今日が期限';
+          else              dlStr = `⚠️ ${-d}日超過`;
+        }
+        return `<div class="project-item" data-id="${p.id}">
+          <div class="project-header">
+            <div class="project-name">${_esc(p.name)}</div>
+            <span class="project-status-badge project-status-${_esc(p.status || '未着手')}">${_esc(p.status || '未着手')}</span>
+            <button class="project-del-btn" data-id="${p.id}" title="削除">🗑</button>
+          </div>
+          <div class="project-progress-wrap"><div class="project-progress-fill" style="width:${p.progress || 0}%;" id="proj-fill-${p.id}"></div></div>
+          <div class="project-footer">
+            <span style="font-size:11px;">${dlStr}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="range" min="0" max="100" value="${p.progress || 0}"
+                class="project-progress-range" data-id="${p.id}"
+                style="width:80px;accent-color:var(--accent-blue);">
+              <span style="font-weight:800;color:var(--text-main);min-width:32px;" id="proj-pct-${p.id}">${p.progress || 0}%</span>
+              <select class="project-status-select" data-id="${p.id}"
+                style="padding:3px 6px;border-radius:8px;border:1px solid var(--border-soft);font-size:11px;font-family:inherit;">
+                ${PROJECT_STATUSES.map(s => `<option${s === (p.status || '未着手') ? ' selected' : ''}>${s}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      container.querySelectorAll('.project-progress-range').forEach(range => {
+        range.addEventListener('input', () => {
+          const id = range.dataset.id, pct = parseInt(range.value);
+          const pctEl  = document.getElementById(`proj-pct-${id}`);
+          const fillEl = document.getElementById(`proj-fill-${id}`);
+          if (pctEl)  pctEl.textContent  = pct + '%';
+          if (fillEl) fillEl.style.width = pct + '%';
+        });
+        range.addEventListener('change', () => {
+          const projects = loadProjects(), idx = projects.findIndex(p => p.id === range.dataset.id);
+          if (idx !== -1) { projects[idx].progress = parseInt(range.value); saveProjects(projects); }
+        });
+      });
+      container.querySelectorAll('.project-status-select').forEach(sel => {
+        sel.addEventListener('change', () => {
+          const projects = loadProjects(), idx = projects.findIndex(p => p.id === sel.dataset.id);
+          if (idx !== -1) { projects[idx].status = sel.value; saveProjects(projects); renderProjects(); }
+        });
+      });
+      container.querySelectorAll('.project-del-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (!confirm('このプロジェクトを削除しますか？')) return;
+          saveProjects(loadProjects().filter(p => p.id !== btn.dataset.id));
+          renderProjects();
+        });
+      });
+    }
+
+    document.getElementById('btn-add-project')?.addEventListener('click', () => {
+      const name = prompt('プロジェクト名');
+      if (!name?.trim()) return;
+      const deadline = prompt('期限（YYYY-MM-DD形式、なければ空欄）') || '';
+      const projects = loadProjects();
+      projects.push({ id: Date.now().toString(), name: name.trim(), deadline: deadline.trim(), progress: 0, status: '未着手' });
+      saveProjects(projects);
+      renderProjects();
+      toast('✅ プロジェクトを追加しました');
+    });
 
     /* =====================================================
        SERVICE WORKER

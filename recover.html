@@ -150,14 +150,19 @@
 </div>
 
 <script>
-const STORE_KEY = 'kintai_store_v1';
-const IDB_NAME  = 'kintai_idb';
-const IDB_STORE = 'attendance';
-const _ERR_KEY  = '_kintai_errors';
-const _SNAP_KEY = '_kintai_snap_';
-const _SNAP_IDX = '_kintai_snap_idx';
-const _SNAP_GENS = 3;
-const ORIGIN    = location.origin + '/kintai-pwa';
+const STORE_KEY   = 'kintai_store_v1';
+const IDB_NAME    = 'kintai_idb';
+const IDB_STORE   = 'attendance';
+const _ERR_KEY    = '_kintai_errors';
+const _SNAP_KEY   = '_kintai_snap_';
+const _SNAP_IDX   = '_kintai_snap_idx';
+const _SNAP_GENS  = 3;
+const ORIGIN      = location.origin + '/kintai-pwa';
+const PIN_HASH_KEY = 'kintai_pin_hash';
+const PIN_FAIL_KEY = 'kintai_pin_fails';
+const PIN_LOCK_KEY = 'kintai_pin_lock';
+const PIN_MAX_FAILS = 3;
+const PIN_LOCKOUT_MS = 60000;
 
 function log(id, msg, isError = false) {
   const el = document.getElementById(id);
@@ -305,6 +310,44 @@ function _esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+/* ---- PIN helpers ---- */
+async function sha256(text) {
+  try {
+    const data = new TextEncoder().encode(String(text));
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+  } catch(_) { return null; }
+}
+function isPinSet() { return !!localStorage.getItem(PIN_HASH_KEY); }
+
+async function verifyPinPrompt(purpose) {
+  if (!isPinSet()) return true;
+  // ロックアウト確認
+  const lockUntil = Number(localStorage.getItem(PIN_LOCK_KEY) || 0);
+  if (lockUntil > Date.now()) {
+    const rem = Math.ceil((lockUntil - Date.now()) / 1000);
+    alert(`🔒 ${rem}秒間ロックされています。時間をおいて再試行してください。`);
+    return false;
+  }
+  for (let attempt = 1; attempt <= PIN_MAX_FAILS; attempt++) {
+    const pin = prompt(`🔐 ${purpose}\n\nPINを入力してください（${attempt}/${PIN_MAX_FAILS}回）`);
+    if (pin === null) return false; // キャンセル
+    const hash = await sha256(pin);
+    if (hash === localStorage.getItem(PIN_HASH_KEY)) {
+      localStorage.setItem(PIN_FAIL_KEY, '0');
+      return true;
+    }
+    if (attempt >= PIN_MAX_FAILS) {
+      localStorage.setItem(PIN_LOCK_KEY, String(Date.now() + PIN_LOCKOUT_MS));
+      localStorage.setItem(PIN_FAIL_KEY, '0');
+      alert(`❌ ${PIN_MAX_FAILS}回失敗しました。60秒間ロックします。`);
+      return false;
+    }
+    alert(`❌ PINが違います（残り${PIN_MAX_FAILS - attempt}回）`);
+  }
+  return false;
+}
+
 /* ---- Actions ---- */
 async function swUpdate() {
   log('status-1', '⏳ Service Worker を更新中...');
@@ -349,6 +392,9 @@ function restoreSnap(slot) {
 
 async function clearAll() {
   if (!confirm('⚠️ 勤怠データも含めて全て削除します。\nバックアップは取りましたか？')) return;
+  // PIN認証（設定されている場合）
+  const pinOk = await verifyPinPrompt('全データ消去の認証');
+  if (!pinOk) { log('status-3', '❌ PIN認証失敗 — リセットを中止しました', true); return; }
   if (!confirm('最終確認：本当にすべて削除しますか？')) return;
 
   log('status-3', '⏳ 全データを削除中...');
