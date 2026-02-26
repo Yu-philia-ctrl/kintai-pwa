@@ -14,7 +14,7 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#7c5fe6">
   <link rel="manifest" href="manifest.json">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com;">
   <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
@@ -761,6 +761,70 @@
     .project-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); gap: 8px; flex-wrap: wrap; }
     .project-del-btn { background: none; border: none; color: #e57373; font-size: 15px; cursor: pointer; padding: 0; flex-shrink: 0; }
 
+    /* ======= WEATHER FORECAST ======= */
+    .weather-card-wrap { margin-bottom: 10px; }
+    .weather-loading { text-align: center; color: var(--text-muted); font-size: 13px; padding: 18px 0; }
+    .weather-loc { font-size: 11px; color: var(--text-muted); font-weight: 700; letter-spacing: 0.04em; margin-bottom: 8px; }
+    .weather-main-row {
+      display: flex; align-items: center; gap: 14px;
+      background: linear-gradient(135deg, #1b6ca8 0%, #2980b9 60%, #6dd5fa 100%);
+      border-radius: 20px; padding: 16px 18px; color: #fff; margin-bottom: 10px;
+    }
+    .weather-big-emoji { font-size: 52px; line-height: 1; }
+    .weather-temps { display: flex; flex-direction: column; align-items: center; min-width: 52px; }
+    .weather-temp-max { font-size: 28px; font-weight: 900; line-height: 1; }
+    .weather-temp-min { font-size: 16px; font-weight: 700; opacity: 0.72; margin-top: 2px; }
+    .weather-cond { flex: 1; }
+    .weather-label { font-size: 17px; font-weight: 900; }
+    .weather-sub { font-size: 12px; opacity: 0.82; margin-top: 4px; letter-spacing: 0.04em; }
+    .outfit-card {
+      background: rgba(255,255,255,0.65); border-radius: 16px;
+      border: 1px solid var(--border-soft); padding: 12px 14px; margin-bottom: 10px;
+    }
+    .outfit-title { font-size: 13px; font-weight: 800; margin-bottom: 8px; color: var(--text-main); }
+    .outfit-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .outfit-chip {
+      background: linear-gradient(135deg, #ede7f6, #e3f2fd);
+      border-radius: 999px; padding: 5px 12px;
+      font-size: 12px; font-weight: 700; color: var(--text-main);
+      border: 1px solid rgba(124,95,230,0.15);
+    }
+    .outfit-warns { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .outfit-warn {
+      font-size: 11px; font-weight: 700; color: #c62828;
+      background: #ffebee; border-radius: 8px; padding: 4px 10px;
+    }
+    .forecast-scroll {
+      display: flex; gap: 8px; overflow-x: auto;
+      padding-bottom: 4px; scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .forecast-scroll::-webkit-scrollbar { display: none; }
+    .fc-card {
+      flex-shrink: 0; scroll-snap-align: start;
+      width: 60px; text-align: center;
+      background: rgba(255,255,255,0.7); border-radius: 14px;
+      padding: 10px 4px; border: 1px solid var(--border-soft);
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .fc-today {
+      background: linear-gradient(135deg, #e8effe, #f0e8ff);
+      border: 1.5px solid rgba(124,95,230,0.35);
+    }
+    .fc-dow { font-size: 10px; font-weight: 800; color: var(--text-muted); }
+    .fc-today .fc-dow { color: var(--accent-purple); }
+    .fc-emoji { font-size: 22px; line-height: 1; }
+    .fc-max { font-size: 14px; font-weight: 900; color: var(--text-main); }
+    .fc-min { font-size: 11px; color: var(--text-muted); }
+    .fc-rain { font-size: 10px; color: #1976d2; font-weight: 700; }
+    .weather-refresh-btn {
+      display: block; width: 100%; text-align: center;
+      font-size: 11px; color: var(--text-muted); margin-top: 8px;
+      background: none; border: none; cursor: pointer; padding: 4px;
+      font-family: inherit;
+    }
+    .weather-refresh-btn:active { opacity: 0.6; }
+
     /* ======= PIN MODAL ======= */
     .pin-modal-body { padding: 4px 0 8px; text-align: center; }
     .pin-purpose { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; }
@@ -960,6 +1024,20 @@
 
   <!-- ===== TAB: ハブ / クイックランチャー ===== -->
   <div id="page-hub" class="tab-page">
+
+    <!-- 天気予報カード -->
+    <div class="card weather-card-wrap" id="weather-card-wrap">
+      <div class="card-title">🌤 天気予報</div>
+      <div class="weather-loading" id="weather-loading">天気情報を取得中…</div>
+      <div id="weather-main-section" style="display:none;">
+        <div id="weather-today"></div>
+        <div class="outfit-card" id="outfit-card"></div>
+        <div class="forecast-scroll" id="forecast-scroll"></div>
+      </div>
+      <div id="weather-error" style="display:none;color:var(--text-muted);font-size:13px;text-align:center;padding:8px 0;"></div>
+      <button class="weather-refresh-btn" id="weather-refresh-btn">🔄 更新</button>
+    </div>
+
     <div class="card">
       <div class="card-title">🚀 クイックランチャー</div>
       <!-- jinjer 打刻ボタン（大） -->
@@ -1109,6 +1187,11 @@
           <div class="settings-label">🏢 jinjer 打刻URL</div>
           <input id="settings-jinjer-url" class="settings-input" type="url" placeholder="https://kintai.jinjer.biz/staffs/top">
           <div class="settings-hint">ハブの「jinjer打刻」ボタンの遷移先URL。会社によっては異なるドメインの場合があります。</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">📍 天気の取得場所</div>
+          <input id="settings-city" class="settings-input" type="text" placeholder="例: Tokyo（英語推奨）">
+          <div class="settings-hint">天気予報に使う都市名（英語）。空欄にするとGPS位置情報を自動使用します。</div>
         </div>
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
@@ -2221,6 +2304,7 @@
       document.getElementById('settings-vault').value     = cfg.vault     || 'Phi_Memo';
       document.getElementById('settings-subdir').value   = cfg.subdir   || '【業務】/勤怠';
       document.getElementById('settings-jinjer-url').value = cfg.jinjerUrl || 'https://kintai.jinjer.biz/staffs/top';
+      document.getElementById('settings-city').value     = cfg.city     || '';
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
@@ -2237,7 +2321,13 @@
         vault:     document.getElementById('settings-vault').value.trim()  || 'Phi_Memo',
         subdir:    document.getElementById('settings-subdir').value.trim() || '【業務】/勤怠',
         jinjerUrl: (rawJinjer && rawJinjer.startsWith('http')) ? rawJinjer : 'https://kintai.jinjer.biz/staffs/top',
+        city:      document.getElementById('settings-city').value.trim(),
       };
+      // 都市が変わったら天気キャッシュをクリアして再取得
+      const prevCfg = loadConfig();
+      if (prevCfg.city !== cfg.city) {
+        try { localStorage.removeItem('_kintai_weather_cache'); } catch(_) {}
+      }
       saveConfig(cfg);
       // jinjerカードのhrefをリアルタイム更新
       const jinjerLink = document.getElementById('jinjer-link');
@@ -3131,6 +3221,9 @@
       const grid = document.getElementById('links-grid');
       if (!grid) return;
 
+      // 天気予報を更新（キャッシュがあれば即反映）
+      renderWeather(false);
+
       // jinjer カードのURLをconfigから動的設定
       const cfg = loadConfig();
       const jinjerUrl = cfg.jinjerUrl || 'https://kintai.jinjer.biz/staffs/top';
@@ -3431,6 +3524,226 @@
       saveProjects(projects);
       renderProjects();
       toast('✅ プロジェクトを追加しました');
+    });
+
+    /* =====================================================
+       WEATHER FORECAST + OUTFIT RECOMMENDATION
+       Open-Meteo API (free, no key, CORS-friendly)
+       ===================================================== */
+    const WEATHER_CACHE_KEY = '_kintai_weather_cache';
+    const WEATHER_CACHE_TTL = 30 * 60 * 1000; // 30分
+
+    const WMO_CODE = {
+      0:  { label: '快晴',              emoji: '☀️' },
+      1:  { label: 'ほぼ晴れ',          emoji: '🌤' },
+      2:  { label: '一部曇り',          emoji: '⛅️' },
+      3:  { label: '曇り',              emoji: '☁️' },
+      45: { label: '霧',                emoji: '🌫' },
+      48: { label: '霧氷',              emoji: '🌫' },
+      51: { label: '霧雨（弱）',        emoji: '🌦' },
+      53: { label: '霧雨',              emoji: '🌦' },
+      55: { label: '霧雨（強）',        emoji: '🌧' },
+      61: { label: '雨（弱）',          emoji: '🌧' },
+      63: { label: '雨',                emoji: '🌧' },
+      65: { label: '雨（強）',          emoji: '🌧' },
+      71: { label: '雪（弱）',          emoji: '🌨' },
+      73: { label: '雪',                emoji: '❄️' },
+      75: { label: '大雪',              emoji: '❄️' },
+      77: { label: '雪粒',              emoji: '🌨' },
+      80: { label: 'にわか雨（弱）',    emoji: '🌦' },
+      81: { label: 'にわか雨',          emoji: '🌧' },
+      82: { label: 'にわか雨（強）',    emoji: '⛈' },
+      85: { label: 'にわか雪',          emoji: '🌨' },
+      86: { label: 'にわか雪（強）',    emoji: '❄️' },
+      95: { label: '雷雨',              emoji: '⛈' },
+      96: { label: '雷雨＋ひょう',      emoji: '⛈' },
+      99: { label: '雷雨＋大ひょう',    emoji: '⛈' },
+    };
+
+    function _wmo(code) {
+      return WMO_CODE[code] || { label: '不明', emoji: '❓' };
+    }
+
+    function _outfitAdvice(maxTemp, minTemp, weatherCode, windspeed) {
+      const items = [], warn = [];
+      // 気温ベース
+      if (maxTemp >= 30) {
+        items.push('👕 半袖・薄手');
+        warn.push('🥵 熱中症注意！こまめな水分補給を');
+      } else if (maxTemp >= 25) {
+        items.push('👕 半袖Tシャツ');
+      } else if (maxTemp >= 20) {
+        items.push('👕 薄手の長袖');
+        if (minTemp < 15) items.push('🧥 羽織り（持参）');
+      } else if (maxTemp >= 15) {
+        items.push('👔 長袖シャツ');
+        items.push('🧥 軽めのジャケット');
+      } else if (maxTemp >= 10) {
+        items.push('🧥 ジャケット / カーディガン');
+        items.push('👖 厚手パンツ');
+      } else if (maxTemp >= 5) {
+        items.push('🧥 コート');
+        items.push('🧣 マフラー');
+      } else {
+        items.push('🧥 厚手コート');
+        items.push('🧣 マフラー + 手袋');
+        warn.push('🥶 防寒対策を万全に！');
+      }
+      // 雨雪
+      const isRain  = [51,53,55,61,63,65,80,81,82,95,96,99].includes(weatherCode);
+      const isSnow  = [71,73,75,77,85,86].includes(weatherCode);
+      const isThund = [95,96,99].includes(weatherCode);
+      if (isRain)  { items.push('☂️ 傘を持参'); items.push('👟 防水シューズ推奨'); }
+      if (isSnow)  { items.push('🥾 雪対策の靴'); warn.push('⚠️ 路面凍結に注意'); }
+      if (isThund) warn.push('⛈ 雷雨の恐れ — 外出注意');
+      // 風
+      if (windspeed >= 30) {
+        items.push('🎩 帽子は飛ばされ注意');
+        warn.push('💨 強風注意（スカート注意）');
+      } else if (windspeed >= 20) {
+        warn.push('💨 風が強めです');
+      }
+      // 日焼け止め
+      if (maxTemp >= 22 && !isRain) items.push('🧴 日焼け止め');
+      return { items, warn };
+    }
+
+    function _loadWeatherCache() {
+      try {
+        const r = localStorage.getItem(WEATHER_CACHE_KEY);
+        if (!r) return null;
+        const d = JSON.parse(r);
+        if (!d.ts || Date.now() - d.ts > WEATHER_CACHE_TTL) return null;
+        return d.data;
+      } catch { return null; }
+    }
+    function _saveWeatherCache(data) {
+      try { localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch(_) {}
+    }
+
+    async function _fetchWeatherByCoords(lat, lon) {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+        `&daily=weathercode,temperature_2m_max,temperature_2m_min,windspeed_10m_max,precipitation_probability_max` +
+        `&current_weather=true&timezone=Asia%2FTokyo&forecast_days=7`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    async function _geocodeCity(city) {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ja&format=json`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      if (!d.results?.length) throw new Error(`「${city}」が見つかりません`);
+      return { lat: d.results[0].latitude, lon: d.results[0].longitude, name: d.results[0].name };
+    }
+
+    function _getGPSCoords() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) { reject(new Error('GPS非対応')); return; }
+        navigator.geolocation.getCurrentPosition(
+          p => resolve({ lat: p.coords.latitude, lon: p.coords.longitude, name: '現在地' }),
+          () => reject(new Error('GPS取得失敗 — 設定で都市名を入力してください')),
+          { timeout: 8000 }
+        );
+      });
+    }
+
+    async function _fetchWeatherData() {
+      const city = loadConfig().city || '';
+      const coords = city ? await _geocodeCity(city) : await _getGPSCoords();
+      const raw = await _fetchWeatherByCoords(coords.lat, coords.lon);
+      return { raw, locationName: coords.name };
+    }
+
+    function _renderWeatherUI(data) {
+      const { raw, locationName } = data;
+      const daily = raw.daily;
+      const today = new Date().toISOString().slice(0, 10);
+      const ti    = Math.max(0, daily.time.findIndex(t => t === today));
+      const maxT  = daily.temperature_2m_max[ti];
+      const minT  = daily.temperature_2m_min[ti];
+      const code  = daily.weathercode[ti];
+      const wind  = daily.windspeed_10m_max[ti];
+      const rain  = daily.precipitation_probability_max[ti];
+      const wi    = _wmo(code);
+      const outfit = _outfitAdvice(maxT, minT, code, wind);
+
+      // 今日のメイン天気
+      const todayEl = document.getElementById('weather-today');
+      if (todayEl) {
+        todayEl.innerHTML =
+          `<div class="weather-loc">📍 ${_esc(locationName)}</div>` +
+          `<div class="weather-main-row">` +
+            `<div class="weather-big-emoji">${wi.emoji}</div>` +
+            `<div class="weather-temps">` +
+              `<div class="weather-temp-max">${Math.round(maxT)}°</div>` +
+              `<div class="weather-temp-min">${Math.round(minT)}°</div>` +
+            `</div>` +
+            `<div class="weather-cond">` +
+              `<div class="weather-label">${wi.label}</div>` +
+              `<div class="weather-sub">💧${rain}%　💨${Math.round(wind)}km/h</div>` +
+            `</div>` +
+          `</div>`;
+      }
+
+      // 服装提案
+      const outfitEl = document.getElementById('outfit-card');
+      if (outfitEl) {
+        const chips = outfit.items.map(it => `<span class="outfit-chip">${it}</span>`).join('');
+        const warns = outfit.warn.map(w => `<div class="outfit-warn">${w}</div>`).join('');
+        outfitEl.innerHTML =
+          `<div class="outfit-title">👗 本日の服装おすすめ</div>` +
+          `<div class="outfit-chips">${chips}</div>` +
+          (warns ? `<div class="outfit-warns">${warns}</div>` : '');
+      }
+
+      // 7日間予報
+      const forecastEl = document.getElementById('forecast-scroll');
+      if (forecastEl) {
+        forecastEl.innerHTML = daily.time.map((dateStr, i) => {
+          const d    = new Date(dateStr + 'T00:00:00');
+          const dow  = ['日','月','火','水','木','金','土'][d.getDay()];
+          const isTd = (dateStr === today);
+          const wi2  = _wmo(daily.weathercode[i]);
+          return `<div class="fc-card${isTd ? ' fc-today' : ''}">` +
+            `<div class="fc-dow">${isTd ? '今日' : dow}</div>` +
+            `<div class="fc-emoji">${wi2.emoji}</div>` +
+            `<div class="fc-max">${Math.round(daily.temperature_2m_max[i])}°</div>` +
+            `<div class="fc-min">${Math.round(daily.temperature_2m_min[i])}°</div>` +
+            `<div class="fc-rain">${daily.precipitation_probability_max[i]}%</div>` +
+          `</div>`;
+        }).join('');
+      }
+
+      document.getElementById('weather-main-section').style.display = '';
+      document.getElementById('weather-loading').style.display = 'none';
+      document.getElementById('weather-error').style.display = 'none';
+    }
+
+    async function renderWeather(forceRefresh) {
+      if (!document.getElementById('weather-card-wrap')) return;
+      const cached = forceRefresh ? null : _loadWeatherCache();
+      if (cached) { _renderWeatherUI(cached); return; }
+
+      document.getElementById('weather-loading').style.display = '';
+      document.getElementById('weather-main-section').style.display = 'none';
+      document.getElementById('weather-error').style.display = 'none';
+
+      try {
+        const data = await _fetchWeatherData();
+        _saveWeatherCache(data);
+        _renderWeatherUI(data);
+      } catch (err) {
+        document.getElementById('weather-loading').style.display = 'none';
+        document.getElementById('weather-error').style.display = '';
+        document.getElementById('weather-error').textContent = `⚠️ 天気取得失敗: ${err.message}`;
+      }
+    }
+
+    document.getElementById('weather-refresh-btn')?.addEventListener('click', () => {
+      renderWeather(true);
     });
 
     /* =====================================================
