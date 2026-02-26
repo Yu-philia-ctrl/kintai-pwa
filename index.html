@@ -14,7 +14,7 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#7c5fe6">
   <link rel="manifest" href="manifest.json">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://thumbnail.image.rakuten.co.jp; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://app.rakuten.co.jp;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com;">
   <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
@@ -962,9 +962,6 @@
       transition: opacity 0.15s;
     }
     .outfit-all-btn:active { opacity: 0.8; }
-    .oic-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: #f5f5f5; display: block; }
-    .oic-price { font-size: 11px; font-weight: 800; color: #c62828; }
-    .oic-rktn { font-size: 9px; font-weight: 800; color: #bf360c; background: #fbe9e7; border-radius: 999px; padding: 2px 7px; border: 1px solid #ffccbc; white-space: nowrap; }
     .outfit-fallback { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; font-size: 13px; color: var(--text-muted); }
 
     /* ======= PIN MODAL ======= */
@@ -1476,11 +1473,6 @@
             <option value="pastel">パステル（淡い色）</option>
           </select>
           <div class="settings-hint">スタイルと色の好みを設定すると、服装提案が最適化されます。</div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-label">🛍 楽天 Application ID（実商品表示）</div>
-          <input type="text" id="settings-rakuten-id" class="settings-input" placeholder="任意：楽天 Developers で取得" autocomplete="off">
-          <div class="settings-hint">設定すると服装提案に楽天の実商品・画像・価格が表示されます。未設定時は Amazon 検索リンクを表示。</div>
         </div>
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
@@ -2597,7 +2589,6 @@
       document.getElementById('settings-style-gender').value = cfg.styleGender   || 'メンズ';
       document.getElementById('settings-style-type').value   = cfg.styleType     || 'casual';
       document.getElementById('settings-style-color').value  = cfg.styleColor    || 'basic';
-      document.getElementById('settings-rakuten-id').value   = cfg.rakutenId     || '';
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
@@ -2618,7 +2609,6 @@
         styleGender: document.getElementById('settings-style-gender').value,
         styleType:   document.getElementById('settings-style-type').value,
         styleColor:  document.getElementById('settings-style-color').value,
-        rakutenId:   document.getElementById('settings-rakuten-id').value.trim(),
       };
       // 都市 or スタイルが変わったら天気キャッシュをクリアして再取得
       const prevCfg = loadConfig();
@@ -4111,40 +4101,7 @@
     // コーデキャッシュ（同条件の再レンダリング防止）
     let _outfitBoardCache = { key: null, html: null };
 
-    // 楽天Ichiba APIで実商品を非同期取得しカードを更新（Rakuten App ID設定時のみ）
-    async function _enhanceOutfitWithRakuten(items, boardEl) {
-      const cfg   = loadConfig();
-      const appId = cfg.rakutenId || '';
-      if (!appId || !boardEl) return;
-      const gender  = cfg.styleGender || '';
-      const cardEls = boardEl.querySelectorAll('.oic');
-      const tasks   = Array.from(cardEls).map(async (cardEl, i) => {
-        const item = items[i];
-        if (!item) return;
-        try {
-          const kw  = encodeURIComponent((item.q + (gender ? ' ' + gender : '')).trim());
-          const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?applicationId=${encodeURIComponent(appId)}&keyword=${kw}&hits=1&imageFlag=1&availability=1&sort=-reviewCount&formatVersion=2`;
-          const res = await fetch(url);
-          if (!res.ok) return;
-          const json  = await res.json();
-          const prod  = json.Items?.[0];
-          if (!prod || !prod.itemUrl) return;
-          const img   = prod.mediumImageUrls?.[0] || '';
-          const price = prod.itemPrice ? `¥${Number(prod.itemPrice).toLocaleString()}` : '';
-          cardEl.href   = prod.itemUrl;
-          cardEl.target = '_blank';
-          cardEl.rel    = 'noopener';
-          cardEl.innerHTML =
-            (img ? `<img src="${_esc(img)}" class="oic-img" alt="${_esc(item.label)}" loading="lazy">` : `<div class="oic-em">${item.emoji}</div>`) +
-            `<div class="oic-nm">${_esc((prod.itemName || item.label).slice(0, 20))}</div>` +
-            (price ? `<div class="oic-price">${_esc(price)}</div>` : '') +
-            `<div class="oic-rktn">🛒 楽天</div>`;
-        } catch (_) { /* Amazon fallback はそのまま残す */ }
-      });
-      await Promise.allSettled(tasks);
-    }
-
-    // 服装ボードHTML生成（HA・キャッシュ・楽天連携対応）
+    // 服装ボードHTML生成（HA・キャッシュ対応）
     function _buildOutfitBoard(outfit, cacheKey) {
       if (cacheKey && cacheKey === _outfitBoardCache.key) return _outfitBoardCache.html;
       const { items, warn, style } = outfit;
@@ -4248,7 +4205,6 @@
         try {
           const outfit = _outfitAdvice(maxT, minT, code, wind);
           boardEl.innerHTML = _buildOutfitBoard(outfit, outfitKey);
-          _enhanceOutfitWithRakuten(outfit.items, boardEl).catch(() => {});
         } catch(e) {
           console.warn('[outfit]', e);
           boardEl.innerHTML = '<div class="outfit-fallback">👗 コーデ情報を読み込めませんでした</div>';
@@ -4383,7 +4339,6 @@
                 card.style.padding = '0';
                 card.style.border  = 'none';
                 card.style.background = 'none';
-                _enhanceOutfitWithRakuten(outfit.items, card).catch(() => {});
               } catch(e) {
                 card.innerHTML = '<div class="outfit-fallback">👗 コーデを読み込めませんでした</div>';
               }
