@@ -847,6 +847,122 @@
       font-family: inherit;
     }
     .weather-refresh-btn:active { opacity: 0.6; }
+    /* -- Hourly timeline -- */
+    .hourly-section { margin: 10px 0 12px; }
+    .hourly-label, .forecast-label {
+      font-size: 11px; font-weight: 800; color: var(--text-muted);
+      letter-spacing: 0.05em; margin-bottom: 7px;
+    }
+    .forecast-label { margin-top: 14px; }
+    .hourly-scroll {
+      display: flex; gap: 5px; overflow-x: auto;
+      padding-bottom: 4px; scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .hourly-scroll::-webkit-scrollbar { display: none; }
+    .h-card {
+      flex-shrink: 0; scroll-snap-align: start; width: 54px;
+      text-align: center; border-radius: 14px; padding: 8px 3px;
+      border: 1px solid var(--border-soft);
+      background: rgba(255,255,255,0.65);
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      transition: transform 0.1s;
+    }
+    .h-card.h-now {
+      background: linear-gradient(160deg, #1565c0 0%, #42a5f5 100%);
+      border: none; box-shadow: 0 4px 14px rgba(21,101,192,0.35);
+    }
+    .h-time  { font-size: 10px; font-weight: 800; color: var(--text-muted); }
+    .h-emoji { font-size: 18px; line-height: 1; }
+    .h-temp  { font-size: 13px; font-weight: 900; color: var(--text-main); }
+    .h-feels { font-size: 9px; color: var(--text-muted); }
+    .h-rain  { font-size: 10px; font-weight: 700; color: #1976d2; }
+    .h-card.h-now .h-time,
+    .h-card.h-now .h-temp,
+    .h-card.h-now .h-feels,
+    .h-card.h-now .h-rain { color: rgba(255,255,255,0.9); }
+    /* -- Outfit Amazon board -- */
+    .outfit-board-wrap {
+      background: rgba(255,255,255,0.55);
+      border-radius: 18px; border: 1px solid var(--border-soft);
+      padding: 12px 12px 10px; margin-bottom: 4px;
+    }
+    .outfit-board-title {
+      font-size: 13px; font-weight: 800; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .outfit-style-tag {
+      font-size: 10px; font-weight: 800; padding: 2px 9px;
+      border-radius: 999px; background: linear-gradient(135deg,#7c5fe6,#4f8dfd);
+      color: #fff;
+    }
+    /* Mannequin visual */
+    .outfit-mannequin-row {
+      display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px;
+    }
+    .vp-mannequin {
+      position: relative; width: 82px; height: 170px;
+      flex-shrink: 0; overflow: visible;
+    }
+    .vp-bg {
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      font-size: 130px; line-height: 1; opacity: 0.12; pointer-events: none;
+      user-select: none;
+    }
+    .vp-item {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      font-size: 26px; line-height: 1; text-decoration: none;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.85); border-radius: 50%;
+      width: 36px; height: 36px; border: 1.5px solid rgba(124,95,230,0.3);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transition: transform 0.12s; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .vp-item:active { transform: translateX(-50%) scale(0.88); }
+    .vp-hat    { top: -4px; }
+    .vp-scarf  { top: 24px; }
+    .vp-outer  { top: 40px; }
+    .vp-top    { top: 54px; }
+    .vp-bottom { top: 98px; }
+    .vp-feet   { top: 138px; }
+    .vp-acc    { top: 72px; left: calc(50% + 26px); }
+    /* Card grid */
+    .oic-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+      gap: 7px;
+    }
+    .oic {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 5px; padding: 10px 5px 8px;
+      background: #fff; border-radius: 14px;
+      border: 1px solid rgba(124,95,230,0.15);
+      text-decoration: none; color: var(--text-main); text-align: center;
+      cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .oic:active { transform: scale(0.93); box-shadow: none; }
+    .oic:hover  { box-shadow: 0 3px 12px rgba(124,95,230,0.18); }
+    .oic-em  { font-size: 30px; line-height: 1; }
+    .oic-nm  { font-size: 10px; font-weight: 800; line-height: 1.3; }
+    .oic-amz {
+      font-size: 9px; font-weight: 800; color: #c45500;
+      background: #fff3e0; border-radius: 999px; padding: 2px 7px;
+      border: 1px solid #ffe0b2; white-space: nowrap;
+    }
+    .outfit-warn-row { margin: 8px 0 4px; display: flex; flex-direction: column; gap: 4px; }
+    .outfit-all-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin-top: 10px; padding: 11px;
+      background: linear-gradient(135deg, #ff9900 0%, #ff6d00 100%);
+      color: #fff; border-radius: 14px; font-size: 13px; font-weight: 800;
+      text-decoration: none; letter-spacing: 0.02em;
+      box-shadow: 0 4px 16px rgba(255,153,0,0.35);
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s;
+    }
+    .outfit-all-btn:active { opacity: 0.8; }
 
     /* ======= PIN MODAL ======= */
     .pin-modal-body { padding: 4px 0 8px; text-align: center; }
@@ -1070,7 +1186,15 @@
       <div class="weather-loading" id="weather-loading">天気情報を取得中…</div>
       <div id="weather-main-section" style="display:none;">
         <div id="weather-today"></div>
-        <div class="outfit-card" id="outfit-card"></div>
+        <!-- 1時間毎の予報 -->
+        <div class="hourly-section">
+          <div class="hourly-label">⏱ 時間ごとの天気</div>
+          <div class="hourly-scroll" id="hourly-scroll"></div>
+        </div>
+        <!-- 服装おすすめ（Amazon連携） -->
+        <div id="outfit-board"></div>
+        <!-- 7日間予報 -->
+        <div class="forecast-label">📅 7日間予報</div>
         <div class="forecast-scroll" id="forecast-scroll"></div>
       </div>
       <div id="weather-error" style="display:none;color:var(--text-muted);font-size:13px;text-align:center;padding:8px 0;"></div>
@@ -1321,6 +1445,36 @@
             </optgroup>
           </select>
           <div class="settings-hint">天気予報に使う場所。GPS自動取得なら空欄のまま（ブラウザの位置情報許可が必要）。</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">👤 性別（Amazon検索最適化）</div>
+          <select id="settings-style-gender" class="settings-input">
+            <option value="メンズ">メンズ</option>
+            <option value="レディース">レディース</option>
+            <option value="">指定なし</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">👔 ファッションスタイル</div>
+          <select id="settings-style-type" class="settings-input">
+            <option value="casual">カジュアル</option>
+            <option value="business">ビジネス / オフィス</option>
+            <option value="street">ストリート</option>
+            <option value="sports">スポーティ</option>
+            <option value="formal">フォーマル</option>
+            <option value="outdoor">アウトドア</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">🎨 好みのカラー系統</div>
+          <select id="settings-style-color" class="settings-input">
+            <option value="basic">ベーシック（白・黒・グレー）</option>
+            <option value="earth">アース系（ベージュ・ブラウン）</option>
+            <option value="dark">ダーク系（ネイビー・黒）</option>
+            <option value="bright">ビビッド（カラフル）</option>
+            <option value="pastel">パステル（淡い色）</option>
+          </select>
+          <div class="settings-hint">スタイルと色の好みを設定すると、Amazonの服装提案が最適化されます。</div>
         </div>
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
@@ -2445,7 +2599,10 @@
       document.getElementById('settings-vault').value     = cfg.vault     || 'Phi_Memo';
       document.getElementById('settings-subdir').value   = cfg.subdir   || '【業務】/勤怠';
       document.getElementById('settings-jinjer-url').value = cfg.jinjerUrl || 'https://kintai.jinjer.biz/staffs/top';
-      document.getElementById('settings-city').value     = cfg.city     || '';
+      document.getElementById('settings-city').value          = cfg.city          || '';
+      document.getElementById('settings-style-gender').value = cfg.styleGender   || 'メンズ';
+      document.getElementById('settings-style-type').value   = cfg.styleType     || 'casual';
+      document.getElementById('settings-style-color').value  = cfg.styleColor    || 'basic';
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
@@ -2462,11 +2619,15 @@
         vault:     document.getElementById('settings-vault').value.trim()  || 'Phi_Memo',
         subdir:    document.getElementById('settings-subdir').value.trim() || '【業務】/勤怠',
         jinjerUrl: (rawJinjer && rawJinjer.startsWith('http')) ? rawJinjer : 'https://kintai.jinjer.biz/staffs/top',
-        city:      document.getElementById('settings-city').value.trim(),
+        city:        document.getElementById('settings-city').value.trim(),
+        styleGender: document.getElementById('settings-style-gender').value,
+        styleType:   document.getElementById('settings-style-type').value,
+        styleColor:  document.getElementById('settings-style-color').value,
       };
-      // 都市が変わったら天気キャッシュをクリアして再取得
+      // 都市 or スタイルが変わったら天気キャッシュをクリアして再取得
       const prevCfg = loadConfig();
-      if (prevCfg.city !== cfg.city) {
+      if (prevCfg.city !== cfg.city || prevCfg.styleType !== cfg.styleType ||
+          prevCfg.styleGender !== cfg.styleGender || prevCfg.styleColor !== cfg.styleColor) {
         try { localStorage.removeItem('_kintai_weather_cache'); } catch(_) {}
       }
       saveConfig(cfg);
@@ -3707,48 +3868,159 @@
       return WMO_CODE[code] || { label: '不明', emoji: '❓' };
     }
 
+    // スタイルラベル表
+    const STYLE_LABEL = {
+      casual: 'カジュアル', business: 'ビジネス', street: 'ストリート',
+      sports: 'スポーティ', formal: 'フォーマル', outdoor: 'アウトドア',
+    };
+    const COLOR_HINT = {
+      basic: '', earth: 'アース系カラー', dark: 'ダーク系', bright: 'カラフル', pastel: 'パステルカラー',
+    };
+
+    // Amazon検索URL生成
+    function _amzUrl(query) {
+      return `https://www.amazon.co.jp/s?k=${encodeURIComponent(query)}`;
+    }
+
+    // outfit item helper: { emoji, label, q } — q は Amazon検索クエリ
+    function _item(emoji, label, baseQ, profile) {
+      const g = profile.gender || '';
+      const c = COLOR_HINT[profile.color] || '';
+      return { emoji, label, q: [baseQ, g, c].filter(Boolean).join(' ') };
+    }
+
     function _outfitAdvice(maxTemp, minTemp, weatherCode, windspeed) {
-      const items = [], warn = [];
-      // 気温ベース
-      if (maxTemp >= 30) {
-        items.push('👕 半袖・薄手');
-        warn.push('🥵 熱中症注意！こまめな水分補給を');
-      } else if (maxTemp >= 25) {
-        items.push('👕 半袖Tシャツ');
-      } else if (maxTemp >= 20) {
-        items.push('👕 薄手の長袖');
-        if (minTemp < 15) items.push('🧥 羽織り（持参）');
-      } else if (maxTemp >= 15) {
-        items.push('👔 長袖シャツ');
-        items.push('🧥 軽めのジャケット');
-      } else if (maxTemp >= 10) {
-        items.push('🧥 ジャケット / カーディガン');
-        items.push('👖 厚手パンツ');
-      } else if (maxTemp >= 5) {
-        items.push('🧥 コート');
-        items.push('🧣 マフラー');
-      } else {
-        items.push('🧥 厚手コート');
-        items.push('🧣 マフラー + 手袋');
-        warn.push('🥶 防寒対策を万全に！');
-      }
-      // 雨雪
+      const cfg    = loadConfig();
+      const style  = cfg.styleType   || 'casual';
+      const gender = cfg.styleGender || 'メンズ';
+      const color  = cfg.styleColor  || 'basic';
+      const p      = { gender, color };
+      const items  = [], warn = [];
       const isRain  = [51,53,55,61,63,65,80,81,82,95,96,99].includes(weatherCode);
       const isSnow  = [71,73,75,77,85,86].includes(weatherCode);
       const isThund = [95,96,99].includes(weatherCode);
-      if (isRain)  { items.push('☂️ 傘を持参'); items.push('👟 防水シューズ推奨'); }
-      if (isSnow)  { items.push('🥾 雪対策の靴'); warn.push('⚠️ 路面凍結に注意'); }
+
+      // ─── 気温 × スタイル別トップス・ボトムス ───
+      if (maxTemp >= 30) {
+        if (style === 'business') {
+          items.push(_item('👔','半袖ポロシャツ','半袖ポロシャツ クールビズ',p));
+          items.push(_item('👖','夏用スラックス','夏 スラックス 涼しい ビジネス',p));
+        } else if (style === 'sports') {
+          items.push(_item('🏃','ドライTシャツ','ドライTシャツ 吸汗速乾 スポーツ',p));
+          items.push(_item('🩳','ショートパンツ','スポーツショーツ',p));
+        } else if (style === 'street') {
+          items.push(_item('👕','グラフィックTシャツ','グラフィックTシャツ ストリート',p));
+          items.push(_item('🩳','バギーショーツ','バギーパンツ ショーツ ストリート',p));
+        } else if (style === 'outdoor') {
+          items.push(_item('🏕','速乾Tシャツ','速乾 Tシャツ アウトドア',p));
+          items.push(_item('🩳','トレッキングショーツ','トレッキング ショーツ',p));
+        } else {
+          items.push(_item('👕','半袖Tシャツ','半袖Tシャツ カジュアル',p));
+          items.push(_item('🩳','ショートパンツ','ショートパンツ カジュアル',p));
+        }
+        warn.push('🥵 熱中症注意！こまめな水分補給を');
+      } else if (maxTemp >= 25) {
+        if (style === 'business') {
+          items.push(_item('👔','半袖ビジネスシャツ','半袖シャツ ビジネス',p));
+          items.push(_item('👖','サマースラックス','スラックス 夏 ビジネス',p));
+        } else if (style === 'sports') {
+          items.push(_item('🏃','半袖スポーツウェア','スポーツウェア 半袖',p));
+          items.push(_item('🩳','スポーツパンツ','スポーツパンツ 夏',p));
+        } else if (style === 'street') {
+          items.push(_item('👕','オーバーサイズTシャツ','オーバーサイズ Tシャツ ストリート',p));
+          items.push(_item('👖','バギーパンツ','バギーパンツ ストリート',p));
+        } else {
+          items.push(_item('👕','半袖Tシャツ','半袖Tシャツ カジュアル',p));
+          items.push(_item('👖','チノパンツ','チノパンツ 薄手',p));
+        }
+      } else if (maxTemp >= 20) {
+        if (style === 'business') {
+          items.push(_item('👔','長袖ビジネスシャツ','長袖シャツ ビジネス',p));
+          items.push(_item('🧥','テーラードジャケット','テーラードジャケット ビジネス',p));
+          items.push(_item('👖','スラックス','スラックス ビジネス',p));
+        } else if (style === 'formal') {
+          items.push(_item('🎩','スーツジャケット','スーツ ジャケット フォーマル',p));
+          items.push(_item('👔','ドレスシャツ','ドレスシャツ フォーマル',p));
+          items.push(_item('👖','スラックス','スラックス フォーマル',p));
+        } else if (style === 'street') {
+          items.push(_item('👕','ロンT','ロングスリーブ Tシャツ ストリート',p));
+          items.push(_item('🧥','ライトスタジャン','スタジャン ライト ストリート',p));
+          items.push(_item('👖','デニムパンツ','デニムパンツ ストリート',p));
+        } else {
+          items.push(_item('👕','薄手長袖シャツ','薄手 長袖 シャツ カジュアル',p));
+          if (minTemp < 15) items.push(_item('🧥','カーディガン','カーディガン 薄手 羽織り',p));
+          items.push(_item('👖','デニムパンツ','デニムパンツ カジュアル',p));
+        }
+      } else if (maxTemp >= 15) {
+        if (style === 'business') {
+          items.push(_item('🧥','ビジネスジャケット','ジャケット スーツ ビジネス',p));
+          items.push(_item('👔','ビジネスシャツ','ビジネスシャツ 長袖',p));
+          items.push(_item('👖','スラックス','スラックス ビジネス',p));
+        } else if (style === 'outdoor') {
+          items.push(_item('🧥','フリース','フリースジャケット アウトドア',p));
+          items.push(_item('👖','トレッキングパンツ','トレッキングパンツ 秋',p));
+        } else {
+          items.push(_item('🧥','ライトアウター','ライトジャケット アウター 秋',p));
+          items.push(_item('👔','長袖シャツ','長袖シャツ カジュアル',p));
+          items.push(_item('👖','デニムパンツ','デニムパンツ 秋',p));
+        }
+      } else if (maxTemp >= 10) {
+        if (style === 'business') {
+          items.push(_item('🧥','コート','コート ビジネス 秋冬',p));
+          items.push(_item('👔','ニットセーター','ニットセーター ビジネスカジュアル',p));
+        } else if (style === 'outdoor') {
+          items.push(_item('🧥','マウンテンパーカー','マウンテンパーカー アウトドア',p));
+          items.push(_item('🧤','グローブ','アウトドア グローブ 手袋',p));
+        } else {
+          items.push(_item('🧥','ミドルジャケット','ジャケット アウター 秋冬',p));
+          items.push(_item('👕','パーカー','パーカー カジュアル 裏起毛',p));
+        }
+        items.push(_item('👖','厚手パンツ','厚手パンツ 秋冬 暖かい',p));
+      } else if (maxTemp >= 5) {
+        items.push(_item('🧥','コート','コート 防寒 アウター 冬',p));
+        items.push(_item('🧣','マフラー','マフラー ウール 防寒',p));
+        items.push(_item('👖','ウールパンツ','ウールパンツ 防寒 冬',p));
+      } else {
+        items.push(_item('🧥','ダウンコート','ダウンコート 防寒 極寒 ヘビーウェイト',p));
+        items.push(_item('🧣','マフラー＋手袋','マフラー 手袋 セット 防寒 極寒',p));
+        items.push(_item('👖','防寒パンツ','防寒パンツ 裏起毛 極寒 冬',p));
+        warn.push('🥶 防寒対策を万全に！');
+      }
+
+      // ─── シューズ ───
+      const hasShoe = items.some(it => ['👟','👞','🥾'].includes(it.emoji));
+      if (!hasShoe) {
+        if (style === 'business' || style === 'formal')
+          items.push(_item('👞','ビジネスシューズ','ビジネスシューズ 革靴',p));
+        else if (style === 'sports')
+          items.push(_item('👟','スポーツシューズ','ランニングシューズ スポーツ',p));
+        else if (style === 'outdoor')
+          items.push(_item('🥾','トレッキングブーツ','トレッキングブーツ アウトドア',p));
+        else
+          items.push(_item('👟','スニーカー','スニーカー',p));
+      }
+
+      // ─── 雨雪 ───
+      if (isRain) {
+        items.push(_item('☂️','折りたたみ傘','折りたたみ傘 コンパクト',p));
+        items.push(_item('🥿','防水シューズ','防水シューズ レインシューズ',p));
+      }
+      if (isSnow) {
+        items.push(_item('🥾','防滑ブーツ','防滑ブーツ 雪道 防水',p));
+        warn.push('⚠️ 路面凍結に注意');
+      }
       if (isThund) warn.push('⛈ 雷雨の恐れ — 外出注意');
-      // 風
+      // ─── 風・UV ───
       if (windspeed >= 30) {
-        items.push('🎩 帽子は飛ばされ注意');
+        items.push(_item('🧢','キャップ（紐付き）','キャップ 帽子 飛ばされない',p));
         warn.push('💨 強風注意（スカート注意）');
       } else if (windspeed >= 20) {
         warn.push('💨 風が強めです');
       }
-      // 日焼け止め
-      if (maxTemp >= 22 && !isRain) items.push('🧴 日焼け止め');
-      return { items, warn };
+      if (maxTemp >= 22 && !isRain)
+        items.push(_item('🧴','日焼け止め','日焼け止め SPF50 顔用',p));
+
+      return { items, warn, style };
     }
 
     function _loadWeatherCache() {
@@ -3767,6 +4039,7 @@
     async function _fetchWeatherByCoords(lat, lon) {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
         `&daily=weathercode,temperature_2m_max,temperature_2m_min,windspeed_10m_max,precipitation_probability_max` +
+        `&hourly=temperature_2m,apparent_temperature,weathercode,precipitation_probability,windspeed_10m` +
         `&current_weather=true&timezone=Asia%2FTokyo&forecast_days=7`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -3800,18 +4073,69 @@
       return { raw, locationName: coords.name };
     }
 
+    // 服装ボードHTML生成（マネキン + Amazon itemカード）
+    function _buildOutfitBoard(outfit) {
+      const { items, warn, style } = outfit;
+      const styleLabel = STYLE_LABEL[style] || style;
+      // マネキンに貼るアイテムを分類
+      const hat   = items.find(it => ['🧢','🎩','👒'].includes(it.emoji));
+      const scarf = items.find(it => ['🧣'].includes(it.emoji));
+      const outer = items.find(it => ['🧥'].includes(it.emoji));
+      const top   = items.find(it => ['👔','👕','🏃','🏕','🎩'].includes(it.emoji));
+      const bot   = items.find(it => ['👖','🩳'].includes(it.emoji));
+      const shoe  = items.find(it => ['👟','👞','🥾','🥿'].includes(it.emoji));
+      const acc   = items.find(it => ['🧤'].includes(it.emoji));
+      const vpItem = (it, cls) => it
+        ? `<a href="${_esc(_amzUrl(it.q))}" target="_blank" rel="noopener" class="vp-item ${cls}" title="${_esc(it.label)} をAmazonで探す">${it.emoji}</a>`
+        : '';
+
+      const mannequin =
+        `<div class="vp-mannequin">` +
+          `<div class="vp-bg">🧍</div>` +
+          vpItem(hat, 'vp-hat') +
+          vpItem(scarf, 'vp-scarf') +
+          vpItem(outer, 'vp-outer') +
+          vpItem(top, 'vp-top') +
+          vpItem(bot, 'vp-bottom') +
+          vpItem(shoe, 'vp-feet') +
+          vpItem(acc, 'vp-acc') +
+        `</div>`;
+
+      const cards = items.map(it =>
+        `<a href="${_esc(_amzUrl(it.q))}" target="_blank" rel="noopener" class="oic">` +
+          `<div class="oic-em">${it.emoji}</div>` +
+          `<div class="oic-nm">${_esc(it.label)}</div>` +
+          `<div class="oic-amz">🛒 Amazon</div>` +
+        `</a>`
+      ).join('');
+
+      const warnHtml = warn.length
+        ? `<div class="outfit-warn-row">${warn.map(w => `<div class="outfit-warn">${w}</div>`).join('')}</div>`
+        : '';
+
+      const allQ = items.map(it => it.label).join(' ') + ' ' + (loadConfig().styleGender || '');
+      return `<div class="outfit-board-wrap">` +
+        `<div class="outfit-board-title">👗 今日のコーデ提案 <span class="outfit-style-tag">${_esc(styleLabel)}</span></div>` +
+        `<div class="outfit-mannequin-row">${mannequin}<div class="oic-grid" style="flex:1;">${cards}</div></div>` +
+        warnHtml +
+        `<a href="${_esc(_amzUrl(allQ))}" target="_blank" rel="noopener" class="outfit-all-btn">🛒 コーデ全体をAmazonで探す</a>` +
+      `</div>`;
+    }
+
     function _renderWeatherUI(data) {
       const { raw, locationName } = data;
-      const daily = raw.daily;
-      const today = new Date().toISOString().slice(0, 10);
-      const ti    = Math.max(0, daily.time.findIndex(t => t === today));
-      const maxT  = daily.temperature_2m_max[ti];
-      const minT  = daily.temperature_2m_min[ti];
-      const code  = daily.weathercode[ti];
-      const wind  = daily.windspeed_10m_max[ti];
-      const rain  = daily.precipitation_probability_max[ti];
-      const wi    = _wmo(code);
-      const outfit = _outfitAdvice(maxT, minT, code, wind);
+      const daily  = raw.daily;
+      const hourly = raw.hourly;
+      const now    = new Date();
+      const today  = now.toISOString().slice(0, 10);
+      const curH   = now.getHours();
+      const ti     = Math.max(0, daily.time.findIndex(t => t === today));
+      const maxT   = daily.temperature_2m_max[ti];
+      const minT   = daily.temperature_2m_min[ti];
+      const code   = daily.weathercode[ti];
+      const wind   = daily.windspeed_10m_max[ti];
+      const rain   = daily.precipitation_probability_max[ti];
+      const wi     = _wmo(code);
 
       // 今日のメイン天気
       const todayEl = document.getElementById('weather-today');
@@ -3831,15 +4155,47 @@
           `</div>`;
       }
 
-      // 服装提案
-      const outfitEl = document.getElementById('outfit-card');
-      if (outfitEl) {
-        const chips = outfit.items.map(it => `<span class="outfit-chip">${it}</span>`).join('');
-        const warns = outfit.warn.map(w => `<div class="outfit-warn">${w}</div>`).join('');
-        outfitEl.innerHTML =
-          `<div class="outfit-title">👗 本日の服装おすすめ</div>` +
-          `<div class="outfit-chips">${chips}</div>` +
-          (warns ? `<div class="outfit-warns">${warns}</div>` : '');
+      // 1時間毎の予報
+      const hourlyEl = document.getElementById('hourly-scroll');
+      if (hourlyEl && hourly) {
+        // 今日 + 明日の48時間から今の時刻を先頭に24枚表示
+        const cards = [];
+        let count = 0;
+        for (let i = 0; i < hourly.time.length && count < 24; i++) {
+          const t    = hourly.time[i];          // "2026-02-26T14:00"
+          const date = t.slice(0, 10);
+          const h    = parseInt(t.slice(11, 13));
+          if (date < today) continue;
+          if (date === today && h < curH) continue;
+          const isNow = (date === today && h === curH);
+          const wi2   = _wmo(hourly.weathercode[i]);
+          const tmp   = Math.round(hourly.temperature_2m[i]);
+          const feel  = Math.round(hourly.apparent_temperature[i]);
+          const rn    = hourly.precipitation_probability[i];
+          cards.push(
+            `<div class="h-card${isNow ? ' h-now' : ''}">` +
+              `<div class="h-time">${isNow ? '今' : h + '時'}</div>` +
+              `<div class="h-emoji">${wi2.emoji}</div>` +
+              `<div class="h-temp">${tmp}°</div>` +
+              `<div class="h-feels">体感 ${feel}°</div>` +
+              `<div class="h-rain">${rn}%</div>` +
+            `</div>`
+          );
+          count++;
+        }
+        hourlyEl.innerHTML = cards.join('');
+        // 現在時刻カードにスクロール
+        setTimeout(() => {
+          const nowCard = hourlyEl.querySelector('.h-now');
+          if (nowCard) nowCard.scrollIntoView({ inline: 'start', behavior: 'smooth', block: 'nearest' });
+        }, 100);
+      }
+
+      // 服装おすすめ（Amazon連携）
+      const boardEl = document.getElementById('outfit-board');
+      if (boardEl) {
+        const outfit = _outfitAdvice(maxT, minT, code, wind);
+        boardEl.innerHTML = _buildOutfitBoard(outfit);
       }
 
       // 7日間予報
@@ -3900,12 +4256,10 @@
             const outfit = _outfitAdvice(maxT, minT, code, wind);
             const card   = document.getElementById('cal-outfit-card');
             if (card) {
-              const chips = outfit.items.map(it => `<span class="outfit-chip">${it}</span>`).join('');
-              const warns = outfit.warn.map(w  => `<div class="outfit-warn">${w}</div>`).join('');
-              card.innerHTML =
-                `<div class="outfit-title">👗 本日の服装おすすめ</div>` +
-                `<div class="outfit-chips">${chips}</div>` +
-                (warns ? `<div class="outfit-warns">${warns}</div>` : '');
+              card.innerHTML = _buildOutfitBoard(outfit);
+              card.style.padding = '0';
+              card.style.border = 'none';
+              card.style.background = 'none';
             }
             expand.style.display = '';
             btn.textContent = '✕ 閉じる';
@@ -3929,13 +4283,11 @@
       const rain  = daily.precipitation_probability_max[ti];
       const wi    = _wmo(code);
       const outfit = _outfitAdvice(maxT, minT, code, wind);
-      const chips  = outfit.items.map(it => `<span class="outfit-chip">${it}</span>`).join('');
-      const warns  = outfit.warn.map(w   => `<div class="outfit-warn">${w}</div>`).join('');
 
       el.innerHTML =
         `<div style="display:flex;align-items:center;gap:10px;` +
             `background:linear-gradient(135deg,#e3f2fd,#ede7f6);` +
-            `border-radius:12px;padding:10px 14px;margin-bottom:8px;">` +
+            `border-radius:12px;padding:10px 14px;margin-bottom:10px;">` +
           `<span style="font-size:36px;line-height:1;">${wi.emoji}</span>` +
           `<div style="flex:1;">` +
             `<div style="font-size:15px;font-weight:800;">${wi.label}</div>` +
@@ -3946,9 +4298,7 @@
             `<div style="font-size:13px;color:var(--text-muted);">${Math.round(minT)}°</div>` +
           `</div>` +
         `</div>` +
-        `<div style="font-size:12px;font-weight:800;margin-bottom:6px;">👗 服装おすすめ</div>` +
-        `<div class="outfit-chips" style="margin-bottom:${warns ? '8px' : '0'};">${chips}</div>` +
-        (warns ? `<div class="outfit-warns">${warns}</div>` : '');
+        _buildOutfitBoard(outfit);
     }
 
     function _renderModalWeather() {
