@@ -761,6 +761,29 @@
     .project-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); gap: 8px; flex-wrap: wrap; }
     .project-del-btn { background: none; border: none; color: #e57373; font-size: 15px; cursor: pointer; padding: 0; flex-shrink: 0; }
 
+    /* ======= CALENDAR WEATHER STRIP ======= */
+    .cal-weather-strip {
+      display: flex; align-items: center; gap: 10px;
+      background: linear-gradient(135deg, #e3f2fd 0%, #ede7f6 100%);
+      border-radius: 14px; padding: 9px 13px;
+      border: 1px solid rgba(124,95,230,0.15);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cal-w-emoji { font-size: 28px; line-height: 1; flex-shrink: 0; }
+    .cal-weather-info { flex: 1; min-width: 0; }
+    .cal-w-cond { font-size: 13px; font-weight: 800; color: var(--text-main); }
+    .cal-w-sub  { font-size: 10px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cal-w-temps { font-size: 15px; font-weight: 900; color: var(--text-main); white-space: nowrap; flex-shrink: 0; }
+    .cal-outfit-btn {
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #7c5fe6, #4f8dfd);
+      color: #fff; border: none; border-radius: 999px;
+      padding: 5px 11px; font-size: 11px; font-weight: 800;
+      cursor: pointer; font-family: inherit; white-space: nowrap;
+      -webkit-tap-highlight-color: transparent; transition: opacity 0.15s;
+    }
+    .cal-outfit-btn:active { opacity: 0.8; }
+
     /* ======= WEATHER FORECAST ======= */
     .weather-card-wrap { margin-bottom: 10px; }
     .weather-loading { text-align: center; color: var(--text-muted); font-size: 13px; padding: 18px 0; }
@@ -964,6 +987,22 @@
     <!-- Weekly person-month breakdown (折りたたみ) -->
     <div class="weekly-stats" id="weekly-stats"></div>
 
+    <!-- 今日の天気ミニバナー -->
+    <div id="cal-weather-wrap" style="display:none;margin-bottom:6px;">
+      <div class="cal-weather-strip" id="cal-weather-strip">
+        <div class="cal-w-emoji" id="cal-w-emoji">🌤</div>
+        <div class="cal-weather-info">
+          <div class="cal-w-cond" id="cal-w-cond">--</div>
+          <div class="cal-w-sub" id="cal-w-sub">読み込み中…</div>
+        </div>
+        <div class="cal-w-temps" id="cal-w-temps">--°/--°</div>
+        <button class="cal-outfit-btn" id="cal-outfit-btn">👗 服装</button>
+      </div>
+      <div id="cal-outfit-expand" style="display:none;margin-top:6px;">
+        <div class="outfit-card" id="cal-outfit-card"></div>
+      </div>
+    </div>
+
     <div class="header-bar">
       <div class="header-left">
         <button class="nav-arrow" id="prev-month">‹</button>
@@ -1120,6 +1159,14 @@
         <button class="btn-secondary" id="btn-obs-open">📝 Obsidianで開く</button>
       </div>
 
+      <!-- 今日の天気・服装（今日の日付を開いたときのみ表示） -->
+      <div id="modal-weather-wrap" style="display:none;">
+        <div class="modal-section-title" style="margin-top:10px;">🌤 今日の天気・服装</div>
+        <div id="modal-weather-content">
+          <div style="color:var(--text-muted);font-size:13px;padding:8px 0;">取得中…</div>
+        </div>
+      </div>
+
       <div class="modal-footer">
         <button class="btn-secondary" id="modal-cancel">キャンセル</button>
         <button class="btn-primary" id="modal-save">保存</button>
@@ -1190,8 +1237,90 @@
         </div>
         <div class="settings-row">
           <div class="settings-label">📍 天気の取得場所</div>
-          <input id="settings-city" class="settings-input" type="text" placeholder="例: Tokyo（英語推奨）">
-          <div class="settings-hint">天気予報に使う都市名（英語）。空欄にするとGPS位置情報を自動使用します。</div>
+          <select id="settings-city" class="settings-input">
+            <option value="">📍 GPS 自動取得（推奨）</option>
+            <optgroup label="🇯🇵 日本">
+              <option value="Tokyo">東京</option>
+              <option value="Yokohama">横浜</option>
+              <option value="Osaka">大阪</option>
+              <option value="Kyoto">京都</option>
+              <option value="Kobe">神戸</option>
+              <option value="Nagoya">名古屋</option>
+              <option value="Sapporo">札幌</option>
+              <option value="Sendai">仙台</option>
+              <option value="Hiroshima">広島</option>
+              <option value="Fukuoka">福岡</option>
+              <option value="Naha">那覇（沖縄）</option>
+            </optgroup>
+            <optgroup label="🇰🇷 韓国・🇨🇳 中国">
+              <option value="Seoul">ソウル</option>
+              <option value="Busan">釜山</option>
+              <option value="Beijing">北京</option>
+              <option value="Shanghai">上海</option>
+              <option value="Shenzhen">深セン</option>
+              <option value="Chengdu">成都</option>
+            </optgroup>
+            <optgroup label="🇹🇼🇭🇰 台湾・香港">
+              <option value="Taipei">台北</option>
+              <option value="Hong Kong">香港</option>
+            </optgroup>
+            <optgroup label="🌏 東南アジア">
+              <option value="Bangkok">バンコク</option>
+              <option value="Singapore">シンガポール</option>
+              <option value="Kuala Lumpur">クアラルンプール</option>
+              <option value="Ho Chi Minh City">ホーチミン</option>
+              <option value="Hanoi">ハノイ</option>
+              <option value="Jakarta">ジャカルタ</option>
+              <option value="Manila">マニラ</option>
+              <option value="Yangon">ヤンゴン</option>
+            </optgroup>
+            <optgroup label="🇮🇳 南アジア・🇦🇪 中東">
+              <option value="Mumbai">ムンバイ</option>
+              <option value="Delhi">デリー</option>
+              <option value="Dubai">ドバイ</option>
+              <option value="Riyadh">リヤド</option>
+            </optgroup>
+            <optgroup label="🇦🇺 オセアニア">
+              <option value="Sydney">シドニー</option>
+              <option value="Melbourne">メルボルン</option>
+              <option value="Brisbane">ブリスベン</option>
+              <option value="Auckland">オークランド</option>
+            </optgroup>
+            <optgroup label="🇬🇧🇫🇷 ヨーロッパ">
+              <option value="London">ロンドン</option>
+              <option value="Paris">パリ</option>
+              <option value="Berlin">ベルリン</option>
+              <option value="Rome">ローマ</option>
+              <option value="Madrid">マドリード</option>
+              <option value="Amsterdam">アムステルダム</option>
+              <option value="Zurich">チューリッヒ</option>
+              <option value="Stockholm">ストックホルム</option>
+              <option value="Vienna">ウィーン</option>
+              <option value="Warsaw">ワルシャワ</option>
+              <option value="Moscow">モスクワ</option>
+            </optgroup>
+            <optgroup label="🇺🇸🇨🇦 北米">
+              <option value="New York">ニューヨーク</option>
+              <option value="Los Angeles">ロサンゼルス</option>
+              <option value="Chicago">シカゴ</option>
+              <option value="San Francisco">サンフランシスコ</option>
+              <option value="Seattle">シアトル</option>
+              <option value="Miami">マイアミ</option>
+              <option value="Toronto">トロント</option>
+              <option value="Vancouver">バンクーバー</option>
+            </optgroup>
+            <optgroup label="🇧🇷 中南米">
+              <option value="Mexico City">メキシコシティ</option>
+              <option value="São Paulo">サンパウロ</option>
+              <option value="Buenos Aires">ブエノスアイレス</option>
+            </optgroup>
+            <optgroup label="🌍 アフリカ">
+              <option value="Cairo">カイロ</option>
+              <option value="Lagos">ラゴス</option>
+              <option value="Nairobi">ナイロビ</option>
+            </optgroup>
+          </select>
+          <div class="settings-hint">天気予報に使う場所。GPS自動取得なら空欄のまま（ブラウザの位置情報許可が必要）。</div>
         </div>
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
@@ -1967,6 +2096,18 @@
         row.appendChild(chip);
       });
 
+      // 今日の日付なら天気・服装セクションを表示
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const mwWrap = document.getElementById('modal-weather-wrap');
+      if (mwWrap) {
+        if (dateStr === todayKey) {
+          mwWrap.style.display = '';
+          _renderModalWeather();
+        } else {
+          mwWrap.style.display = 'none';
+        }
+      }
+
       document.getElementById('memo-modal').classList.add('show');
     }
 
@@ -2703,6 +2844,8 @@
         try { checkBackupReminder(); } catch(e) {}
         // ヘルスチェック（非同期）
         try { runHealthCheck(); } catch(e) {}
+        // 天気取得（カレンダーミニバナー用、失敗しても続行）
+        try { renderWeather(false); } catch(e) {}
         // 起動成功 → クラッシュカウンタをリセット
         localStorage.setItem(_CRASH_KEY, '0');
         // 初回スナップショット（起動時に1回）
@@ -3722,23 +3865,133 @@
       document.getElementById('weather-error').style.display = 'none';
     }
 
-    async function renderWeather(forceRefresh) {
-      if (!document.getElementById('weather-card-wrap')) return;
-      const cached = forceRefresh ? null : _loadWeatherCache();
-      if (cached) { _renderWeatherUI(cached); return; }
+    // カレンダータブのミニバナーを更新
+    function _renderCalWeather(data) {
+      const wrap = document.getElementById('cal-weather-wrap');
+      if (!wrap) return;
+      const { raw, locationName } = data;
+      const daily = raw.daily;
+      const today = new Date().toISOString().slice(0, 10);
+      const ti    = Math.max(0, daily.time.findIndex(t => t === today));
+      const maxT  = daily.temperature_2m_max[ti];
+      const minT  = daily.temperature_2m_min[ti];
+      const code  = daily.weathercode[ti];
+      const wind  = daily.windspeed_10m_max[ti];
+      const rain  = daily.precipitation_probability_max[ti];
+      const wi    = _wmo(code);
 
-      document.getElementById('weather-loading').style.display = '';
-      document.getElementById('weather-main-section').style.display = 'none';
-      document.getElementById('weather-error').style.display = 'none';
+      document.getElementById('cal-w-emoji').textContent = wi.emoji;
+      document.getElementById('cal-w-cond').textContent  = wi.label;
+      document.getElementById('cal-w-sub').textContent   = `💧${rain}%  💨${Math.round(wind)}km/h  📍${locationName}`;
+      document.getElementById('cal-w-temps').textContent = `${Math.round(maxT)}° / ${Math.round(minT)}°`;
+      wrap.style.display = '';
+
+      // 服装ボタン — タップで展開/折りたたみ
+      const btn = document.getElementById('cal-outfit-btn');
+      if (btn) {
+        btn.onclick = () => {
+          const expand = document.getElementById('cal-outfit-expand');
+          if (!expand) return;
+          const open = expand.style.display !== 'none';
+          if (open) {
+            expand.style.display = 'none';
+            btn.textContent = '👗 服装';
+          } else {
+            const outfit = _outfitAdvice(maxT, minT, code, wind);
+            const card   = document.getElementById('cal-outfit-card');
+            if (card) {
+              const chips = outfit.items.map(it => `<span class="outfit-chip">${it}</span>`).join('');
+              const warns = outfit.warn.map(w  => `<div class="outfit-warn">${w}</div>`).join('');
+              card.innerHTML =
+                `<div class="outfit-title">👗 本日の服装おすすめ</div>` +
+                `<div class="outfit-chips">${chips}</div>` +
+                (warns ? `<div class="outfit-warns">${warns}</div>` : '');
+            }
+            expand.style.display = '';
+            btn.textContent = '✕ 閉じる';
+          }
+        };
+      }
+    }
+
+    // モーダル（今日の日付）の天気・服装セクションを描画
+    function _renderModalWeatherUI(data) {
+      const el = document.getElementById('modal-weather-content');
+      if (!el) return;
+      const { raw, locationName } = data;
+      const daily = raw.daily;
+      const today = new Date().toISOString().slice(0, 10);
+      const ti    = Math.max(0, daily.time.findIndex(t => t === today));
+      const maxT  = daily.temperature_2m_max[ti];
+      const minT  = daily.temperature_2m_min[ti];
+      const code  = daily.weathercode[ti];
+      const wind  = daily.windspeed_10m_max[ti];
+      const rain  = daily.precipitation_probability_max[ti];
+      const wi    = _wmo(code);
+      const outfit = _outfitAdvice(maxT, minT, code, wind);
+      const chips  = outfit.items.map(it => `<span class="outfit-chip">${it}</span>`).join('');
+      const warns  = outfit.warn.map(w   => `<div class="outfit-warn">${w}</div>`).join('');
+
+      el.innerHTML =
+        `<div style="display:flex;align-items:center;gap:10px;` +
+            `background:linear-gradient(135deg,#e3f2fd,#ede7f6);` +
+            `border-radius:12px;padding:10px 14px;margin-bottom:8px;">` +
+          `<span style="font-size:36px;line-height:1;">${wi.emoji}</span>` +
+          `<div style="flex:1;">` +
+            `<div style="font-size:15px;font-weight:800;">${wi.label}</div>` +
+            `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">💧${rain}%　💨${Math.round(wind)}km/h　📍${_esc(locationName)}</div>` +
+          `</div>` +
+          `<div style="text-align:right;">` +
+            `<div style="font-size:22px;font-weight:900;">${Math.round(maxT)}°</div>` +
+            `<div style="font-size:13px;color:var(--text-muted);">${Math.round(minT)}°</div>` +
+          `</div>` +
+        `</div>` +
+        `<div style="font-size:12px;font-weight:800;margin-bottom:6px;">👗 服装おすすめ</div>` +
+        `<div class="outfit-chips" style="margin-bottom:${warns ? '8px' : '0'};">${chips}</div>` +
+        (warns ? `<div class="outfit-warns">${warns}</div>` : '');
+    }
+
+    function _renderModalWeather() {
+      const el = document.getElementById('modal-weather-content');
+      if (!el) return;
+      const cached = _loadWeatherCache();
+      if (cached) { _renderModalWeatherUI(cached); return; }
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:4px 0;">取得中…</div>';
+      _fetchWeatherData()
+        .then(data => { _saveWeatherCache(data); _renderModalWeatherUI(data); _renderCalWeather(data); })
+        .catch(err  => { el.textContent = `⚠️ 天気取得失敗: ${err.message}`; });
+    }
+
+    async function renderWeather(forceRefresh) {
+      const cached = forceRefresh ? null : _loadWeatherCache();
+      if (cached) {
+        _renderWeatherUI(cached);
+        _renderCalWeather(cached);
+        return;
+      }
+
+      // ハブカードのローディング状態
+      const loadingEl = document.getElementById('weather-loading');
+      const mainEl    = document.getElementById('weather-main-section');
+      const errEl     = document.getElementById('weather-error');
+      if (loadingEl) loadingEl.style.display = '';
+      if (mainEl)    mainEl.style.display    = 'none';
+      if (errEl)     errEl.style.display     = 'none';
 
       try {
         const data = await _fetchWeatherData();
         _saveWeatherCache(data);
         _renderWeatherUI(data);
+        _renderCalWeather(data);
       } catch (err) {
-        document.getElementById('weather-loading').style.display = 'none';
-        document.getElementById('weather-error').style.display = '';
-        document.getElementById('weather-error').textContent = `⚠️ 天気取得失敗: ${err.message}`;
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (errEl) {
+          errEl.style.display  = '';
+          errEl.textContent = `⚠️ 天気取得失敗: ${err.message}`;
+        }
+        // カレンダーバナーにもエラー表示
+        const sub = document.getElementById('cal-w-sub');
+        if (sub) sub.textContent = `取得失敗: ${err.message}`;
       }
     }
 
