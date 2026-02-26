@@ -14,7 +14,7 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#7c5fe6">
   <link rel="manifest" href="manifest.json">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://thumbnail.image.rakuten.co.jp; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://app.rakuten.co.jp;">
   <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
@@ -962,6 +962,10 @@
       transition: opacity 0.15s;
     }
     .outfit-all-btn:active { opacity: 0.8; }
+    .oic-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: #f5f5f5; display: block; }
+    .oic-price { font-size: 11px; font-weight: 800; color: #c62828; }
+    .oic-rktn { font-size: 9px; font-weight: 800; color: #bf360c; background: #fbe9e7; border-radius: 999px; padding: 2px 7px; border: 1px solid #ffccbc; white-space: nowrap; }
+    .outfit-fallback { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; font-size: 13px; color: var(--text-muted); }
 
     /* ======= PIN MODAL ======= */
     .pin-modal-body { padding: 4px 0 8px; text-align: center; }
@@ -1471,7 +1475,12 @@
             <option value="bright">ビビッド（カラフル）</option>
             <option value="pastel">パステル（淡い色）</option>
           </select>
-          <div class="settings-hint">スタイルと色の好みを設定すると、Amazonの服装提案が最適化されます。</div>
+          <div class="settings-hint">スタイルと色の好みを設定すると、服装提案が最適化されます。</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">🛍 楽天 Application ID（実商品表示）</div>
+          <input type="text" id="settings-rakuten-id" class="settings-input" placeholder="任意：楽天 Developers で取得" autocomplete="off">
+          <div class="settings-hint">設定すると服装提案に楽天の実商品・画像・価格が表示されます。未設定時は Amazon 検索リンクを表示。</div>
         </div>
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
@@ -2588,6 +2597,7 @@
       document.getElementById('settings-style-gender').value = cfg.styleGender   || 'メンズ';
       document.getElementById('settings-style-type').value   = cfg.styleType     || 'casual';
       document.getElementById('settings-style-color').value  = cfg.styleColor    || 'basic';
+      document.getElementById('settings-rakuten-id').value   = cfg.rakutenId     || '';
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
@@ -2608,6 +2618,7 @@
         styleGender: document.getElementById('settings-style-gender').value,
         styleType:   document.getElementById('settings-style-type').value,
         styleColor:  document.getElementById('settings-style-color').value,
+        rakutenId:   document.getElementById('settings-rakuten-id').value.trim(),
       };
       // 都市 or スタイルが変わったら天気キャッシュをクリアして再取得
       const prevCfg = loadConfig();
@@ -2896,13 +2907,16 @@
     /* =====================================================
        SWIPE GESTURE（左右スワイプで月切り替え）
        ===================================================== */
-    let _swipeX = 0, _swipeY = 0;
+    let _swipeX = 0, _swipeY = 0, _swipeInScroll = false;
     document.getElementById('calendar-card').addEventListener('touchstart', e => {
       _swipeX = e.touches[0].clientX;
       _swipeY = e.touches[0].clientY;
+      // 横スクロール可能な子要素内のタッチは月スワイプを無効化
+      _swipeInScroll = !!e.target.closest('.hourly-scroll, .forecast-scroll, #cal-hourly-scroll');
     }, { passive: true });
 
     document.getElementById('calendar-card').addEventListener('touchend', e => {
+      if (_swipeInScroll) return; // スクロール内タッチは月移動しない
       const dx = e.changedTouches[0].clientX - _swipeX;
       const dy = e.changedTouches[0].clientY - _swipeY;
       if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.2) return; // 縦スクロールを除外
@@ -4058,8 +4072,81 @@
       return { raw, locationName: coords.name };
     }
 
-    // 服装ボードHTML生成（マネキン + Amazon itemカード）
-    function _buildOutfitBoard(outfit) {
+    // SVGマネキン定数（一度のアロケートでパフォーマンス改善）
+    const _VP_SVG_BODY =
+      `<svg class="vp-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">` +
+        `<ellipse cx="50" cy="197" rx="22" ry="5" fill="rgba(0,0,0,0.07)"/>` +
+        `<ellipse cx="50" cy="13" rx="16" ry="11" fill="#5C3A1E"/>` +
+        `<ellipse cx="36" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
+        `<ellipse cx="64" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
+        `<ellipse cx="50" cy="24" rx="15" ry="16" fill="#F5CBA7"/>` +
+        `<ellipse cx="35.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
+        `<ellipse cx="64.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
+        `<ellipse cx="44" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
+        `<ellipse cx="56" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
+        `<ellipse cx="44.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
+        `<ellipse cx="56.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
+        `<path d="M41.5 16.5 Q44 15.5 46.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
+        `<path d="M53.5 16.5 Q56 15.5 58.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
+        `<path d="M48.5 24.5 Q50 27 51.5 24.5" stroke="#C6845A" stroke-width="1.1" fill="none" stroke-linecap="round"/>` +
+        `<path d="M45.5 29 Q50 32 54.5 29" stroke="#C6845A" stroke-width="1.4" fill="none" stroke-linecap="round"/>` +
+        `<ellipse cx="42" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
+        `<ellipse cx="58" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
+        `<rect x="43" y="37" width="14" height="13" rx="3" fill="#F5CBA7"/>` +
+        `<path d="M14 53 Q12 51 50 49 Q88 51 86 53 L82 110 Q80 120 50 121 Q20 120 18 110 Z" fill="#E8B88A"/>` +
+        `<path d="M50 49 L50 121 Q60 121 68 118 L78 110 L80 53 Q65 51 50 49 Z" fill="rgba(0,0,0,0.05)"/>` +
+        `<path d="M16 55 C 8 61 3 86 4 110 C 4.5 117 9.5 120 15 119 C 19 118 21 111 22 105 C 24 86 22 63 22 55 Z" fill="#F5CBA7"/>` +
+        `<path d="M84 55 C 92 61 97 86 96 110 C 95.5 117 90.5 120 85 119 C 81 118 79 111 78 105 C 76 86 78 63 78 55 Z" fill="#F5CBA7"/>` +
+        `<ellipse cx="9.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
+        `<ellipse cx="90.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
+        `<path d="M18 110 Q15 120 22 126 Q36 132 50 132 Q64 132 78 126 Q85 120 82 110 Q66 121 50 121 Q34 121 18 110 Z" fill="#D9A070"/>` +
+        `<path d="M22 126 C 20 140 20 164 22 188 C 23 194 29 196 35 195 C 40 194 42 187 42 181 L 42 126 Z" fill="#F5CBA7"/>` +
+        `<path d="M78 126 C 80 140 80 164 78 188 C 77 194 71 196 65 195 C 60 194 58 187 58 181 L 58 126 Z" fill="#F5CBA7"/>` +
+        `<ellipse cx="32" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
+        `<ellipse cx="68" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
+        `<path d="M19 188 Q15 193 16 197 Q23 201 33 199 Q39 197 39 191 L 35 187 Z" fill="#C8916E"/>` +
+        `<path d="M81 188 Q85 193 84 197 Q77 201 67 199 Q61 197 61 191 L 65 187 Z" fill="#C8916E"/>` +
+      `</svg>`;
+
+    // コーデキャッシュ（同条件の再レンダリング防止）
+    let _outfitBoardCache = { key: null, html: null };
+
+    // 楽天Ichiba APIで実商品を非同期取得しカードを更新（Rakuten App ID設定時のみ）
+    async function _enhanceOutfitWithRakuten(items, boardEl) {
+      const cfg   = loadConfig();
+      const appId = cfg.rakutenId || '';
+      if (!appId || !boardEl) return;
+      const gender  = cfg.styleGender || '';
+      const cardEls = boardEl.querySelectorAll('.oic');
+      const tasks   = Array.from(cardEls).map(async (cardEl, i) => {
+        const item = items[i];
+        if (!item) return;
+        try {
+          const kw  = encodeURIComponent((item.q + (gender ? ' ' + gender : '')).trim());
+          const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?applicationId=${encodeURIComponent(appId)}&keyword=${kw}&hits=1&imageFlag=1&availability=1&sort=-reviewCount&formatVersion=2`;
+          const res = await fetch(url);
+          if (!res.ok) return;
+          const json  = await res.json();
+          const prod  = json.Items?.[0];
+          if (!prod || !prod.itemUrl) return;
+          const img   = prod.mediumImageUrls?.[0] || '';
+          const price = prod.itemPrice ? `¥${Number(prod.itemPrice).toLocaleString()}` : '';
+          cardEl.href   = prod.itemUrl;
+          cardEl.target = '_blank';
+          cardEl.rel    = 'noopener';
+          cardEl.innerHTML =
+            (img ? `<img src="${_esc(img)}" class="oic-img" alt="${_esc(item.label)}" loading="lazy">` : `<div class="oic-em">${item.emoji}</div>`) +
+            `<div class="oic-nm">${_esc((prod.itemName || item.label).slice(0, 20))}</div>` +
+            (price ? `<div class="oic-price">${_esc(price)}</div>` : '') +
+            `<div class="oic-rktn">🛒 楽天</div>`;
+        } catch (_) { /* Amazon fallback はそのまま残す */ }
+      });
+      await Promise.allSettled(tasks);
+    }
+
+    // 服装ボードHTML生成（HA・キャッシュ・楽天連携対応）
+    function _buildOutfitBoard(outfit, cacheKey) {
+      if (cacheKey && cacheKey === _outfitBoardCache.key) return _outfitBoardCache.html;
       const { items, warn, style } = outfit;
       const styleLabel = STYLE_LABEL[style] || style;
       // マネキンに貼るアイテムを分類
@@ -4074,61 +4161,7 @@
         ? `<a href="${_esc(_amzUrl(it.q))}" target="_blank" rel="noopener" class="vp-item ${cls}" title="${_esc(it.label)} をAmazonで探す">${it.emoji}</a>`
         : '';
 
-      const svgBody =
-        `<svg class="vp-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">` +
-          // Shadow
-          `<ellipse cx="50" cy="197" rx="22" ry="5" fill="rgba(0,0,0,0.07)"/>` +
-          // Hair
-          `<ellipse cx="50" cy="13" rx="16" ry="11" fill="#5C3A1E"/>` +
-          `<ellipse cx="36" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
-          `<ellipse cx="64" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
-          // Head
-          `<ellipse cx="50" cy="24" rx="15" ry="16" fill="#F5CBA7"/>` +
-          // Ears
-          `<ellipse cx="35.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
-          `<ellipse cx="64.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
-          // Eyes
-          `<ellipse cx="44" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
-          `<ellipse cx="56" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
-          `<ellipse cx="44.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
-          `<ellipse cx="56.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
-          // Eyebrows
-          `<path d="M41.5 16.5 Q44 15.5 46.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
-          `<path d="M53.5 16.5 Q56 15.5 58.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
-          // Nose
-          `<path d="M48.5 24.5 Q50 27 51.5 24.5" stroke="#C6845A" stroke-width="1.1" fill="none" stroke-linecap="round"/>` +
-          // Mouth
-          `<path d="M45.5 29 Q50 32 54.5 29" stroke="#C6845A" stroke-width="1.4" fill="none" stroke-linecap="round"/>` +
-          // Cheeks
-          `<ellipse cx="42" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
-          `<ellipse cx="58" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
-          // Neck
-          `<rect x="43" y="37" width="14" height="13" rx="3" fill="#F5CBA7"/>` +
-          // Torso
-          `<path d="M14 53 Q12 51 50 49 Q88 51 86 53 L82 110 Q80 120 50 121 Q20 120 18 110 Z" fill="#E8B88A"/>` +
-          // Torso shading
-          `<path d="M50 49 L50 121 Q60 121 68 118 L78 110 L80 53 Q65 51 50 49 Z" fill="rgba(0,0,0,0.05)"/>` +
-          // Left Arm
-          `<path d="M16 55 C 8 61 3 86 4 110 C 4.5 117 9.5 120 15 119 C 19 118 21 111 22 105 C 24 86 22 63 22 55 Z" fill="#F5CBA7"/>` +
-          // Right Arm
-          `<path d="M84 55 C 92 61 97 86 96 110 C 95.5 117 90.5 120 85 119 C 81 118 79 111 78 105 C 76 86 78 63 78 55 Z" fill="#F5CBA7"/>` +
-          // Hands
-          `<ellipse cx="9.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
-          `<ellipse cx="90.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
-          // Hip
-          `<path d="M18 110 Q15 120 22 126 Q36 132 50 132 Q64 132 78 126 Q85 120 82 110 Q66 121 50 121 Q34 121 18 110 Z" fill="#D9A070"/>` +
-          // Left Leg
-          `<path d="M22 126 C 20 140 20 164 22 188 C 23 194 29 196 35 195 C 40 194 42 187 42 181 L 42 126 Z" fill="#F5CBA7"/>` +
-          // Right Leg
-          `<path d="M78 126 C 80 140 80 164 78 188 C 77 194 71 196 65 195 C 60 194 58 187 58 181 L 58 126 Z" fill="#F5CBA7"/>` +
-          // Knee detail
-          `<ellipse cx="32" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
-          `<ellipse cx="68" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
-          // Left Foot
-          `<path d="M19 188 Q15 193 16 197 Q23 201 33 199 Q39 197 39 191 L 35 187 Z" fill="#C8916E"/>` +
-          // Right Foot
-          `<path d="M81 188 Q85 193 84 197 Q77 201 67 199 Q61 197 61 191 L 65 187 Z" fill="#C8916E"/>` +
-        `</svg>`;
+      const svgBody = _VP_SVG_BODY; // モジュール定数を参照（再アロケート不要）
 
       const mannequin =
         `<div class="vp-mannequin">` +
@@ -4155,12 +4188,14 @@
         : '';
 
       const allQ = items.map(it => it.label).join(' ') + ' ' + (loadConfig().styleGender || '');
-      return `<div class="outfit-board-wrap">` +
+      const html = `<div class="outfit-board-wrap">` +
         `<div class="outfit-board-title">👗 今日のコーデ提案 <span class="outfit-style-tag">${_esc(styleLabel)}</span></div>` +
         `<div class="outfit-mannequin-row">${mannequin}<div class="oic-grid" style="flex:1;">${cards}</div></div>` +
         warnHtml +
         `<a href="${_esc(_amzUrl(allQ))}" target="_blank" rel="noopener" class="outfit-all-btn">🛒 コーデ全体をAmazonで探す</a>` +
       `</div>`;
+      if (cacheKey) _outfitBoardCache = { key: cacheKey, html };
+      return html;
     }
 
     function _renderWeatherUI(data) {
@@ -4206,11 +4241,18 @@
         }, 100);
       }
 
-      // 服装おすすめ（Amazon連携）
+      // 服装おすすめ（楽天/Amazon連携、HA対応）
       const boardEl = document.getElementById('outfit-board');
       if (boardEl) {
-        const outfit = _outfitAdvice(maxT, minT, code, wind);
-        boardEl.innerHTML = _buildOutfitBoard(outfit);
+        const outfitKey = `${Math.round(maxT)},${Math.round(minT)},${code},${Math.round(wind)}`;
+        try {
+          const outfit = _outfitAdvice(maxT, minT, code, wind);
+          boardEl.innerHTML = _buildOutfitBoard(outfit, outfitKey);
+          _enhanceOutfitWithRakuten(outfit.items, boardEl).catch(() => {});
+        } catch(e) {
+          console.warn('[outfit]', e);
+          boardEl.innerHTML = '<div class="outfit-fallback">👗 コーデ情報を読み込めませんでした</div>';
+        }
       }
 
       // 7日間予報
@@ -4332,13 +4374,19 @@
             expand.style.display = 'none';
             outfitBtn.textContent = '👗 服装';
           } else {
-            const outfit = _outfitAdvice(maxT, minT, code, wind);
-            const card   = document.getElementById('cal-outfit-card');
+            const card = document.getElementById('cal-outfit-card');
             if (card) {
-              card.innerHTML = _buildOutfitBoard(outfit);
-              card.style.padding = '0';
-              card.style.border  = 'none';
-              card.style.background = 'none';
+              const outfitKey = `cal,${Math.round(maxT)},${Math.round(minT)},${code},${Math.round(wind)}`;
+              try {
+                const outfit = _outfitAdvice(maxT, minT, code, wind);
+                card.innerHTML = _buildOutfitBoard(outfit, outfitKey);
+                card.style.padding = '0';
+                card.style.border  = 'none';
+                card.style.background = 'none';
+                _enhanceOutfitWithRakuten(outfit.items, card).catch(() => {});
+              } catch(e) {
+                card.innerHTML = '<div class="outfit-fallback">👗 コーデを読み込めませんでした</div>';
+              }
             }
             expand.style.display = '';
             outfitBtn.textContent = '✕ 閉じる';
