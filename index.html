@@ -901,32 +901,31 @@
       display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px;
     }
     .vp-mannequin {
-      position: relative; width: 82px; height: 170px;
+      position: relative; width: 96px; height: 192px;
       flex-shrink: 0; overflow: visible;
     }
-    .vp-bg {
-      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-      font-size: 130px; line-height: 1; opacity: 0.12; pointer-events: none;
-      user-select: none;
+    .vp-svg {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; user-select: none;
     }
     .vp-item {
       position: absolute; left: 50%; transform: translateX(-50%);
-      font-size: 26px; line-height: 1; text-decoration: none;
+      font-size: 22px; line-height: 1; text-decoration: none;
       display: flex; align-items: center; justify-content: center;
-      background: rgba(255,255,255,0.85); border-radius: 50%;
-      width: 36px; height: 36px; border: 1.5px solid rgba(124,95,230,0.3);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      background: rgba(255,255,255,0.92); border-radius: 50%;
+      width: 34px; height: 34px; border: 1.5px solid rgba(124,95,230,0.3);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
       transition: transform 0.12s; cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
+      -webkit-tap-highlight-color: transparent; z-index: 2;
     }
-    .vp-item:active { transform: translateX(-50%) scale(0.88); }
-    .vp-hat    { top: -4px; }
-    .vp-scarf  { top: 24px; }
-    .vp-outer  { top: 40px; }
-    .vp-top    { top: 54px; }
-    .vp-bottom { top: 98px; }
-    .vp-feet   { top: 138px; }
-    .vp-acc    { top: 72px; left: calc(50% + 26px); }
+    .vp-item:active { transform: translateX(-50%) scale(0.86); }
+    .vp-hat    { top: -10px; }
+    .vp-scarf  { top: 30px; }
+    .vp-outer  { top: 43px; }
+    .vp-top    { top: 55px; }
+    .vp-bottom { top: 108px; }
+    .vp-feet   { top: 162px; }
+    .vp-acc    { top: 92px; left: calc(50% + 30px); }
     /* Card grid */
     .oic-grid {
       display: grid;
@@ -1112,8 +1111,14 @@
           <div class="cal-w-sub" id="cal-w-sub">読み込み中…</div>
         </div>
         <div class="cal-w-temps" id="cal-w-temps">--°/--°</div>
-        <button class="cal-outfit-btn" id="cal-outfit-btn">👗 服装</button>
+        <button class="cal-outfit-btn" id="cal-hourly-btn">⏱ 時間別</button>
+        <button class="cal-outfit-btn" id="cal-outfit-btn" style="background:linear-gradient(135deg,#2e7d32,#66bb6a);">👗 服装</button>
       </div>
+      <!-- 時間別予報展開 -->
+      <div id="cal-hourly-expand" style="display:none;margin-top:6px;padding:8px 4px 4px;background:rgba(255,255,255,0.6);border-radius:12px;">
+        <div class="hourly-scroll" id="cal-hourly-scroll"></div>
+      </div>
+      <!-- 服装展開 -->
       <div id="cal-outfit-expand" style="display:none;margin-top:6px;">
         <div class="outfit-card" id="cal-outfit-card"></div>
       </div>
@@ -1281,14 +1286,6 @@
       <div class="modal-section-title" style="margin-top:10px;">Obsidian</div>
       <div class="obs-row">
         <button class="btn-secondary" id="btn-obs-open">📝 Obsidianで開く</button>
-      </div>
-
-      <!-- 今日の天気・服装（今日の日付を開いたときのみ表示） -->
-      <div id="modal-weather-wrap" style="display:none;">
-        <div class="modal-section-title" style="margin-top:10px;">🌤 今日の天気・服装</div>
-        <div id="modal-weather-content">
-          <div style="color:var(--text-muted);font-size:13px;padding:8px 0;">取得中…</div>
-        </div>
       </div>
 
       <div class="modal-footer">
@@ -2249,18 +2246,6 @@
         chip.dataset.value = s;
         row.appendChild(chip);
       });
-
-      // 今日の日付なら天気・服装セクションを表示
-      const todayKey = new Date().toISOString().slice(0, 10);
-      const mwWrap = document.getElementById('modal-weather-wrap');
-      if (mwWrap) {
-        if (dateStr === todayKey) {
-          mwWrap.style.display = '';
-          _renderModalWeather();
-        } else {
-          mwWrap.style.display = 'none';
-        }
-      }
 
       document.getElementById('memo-modal').classList.add('show');
     }
@@ -3834,7 +3819,7 @@
        WEATHER FORECAST + OUTFIT RECOMMENDATION
        Open-Meteo API (free, no key, CORS-friendly)
        ===================================================== */
-    const WEATHER_CACHE_KEY = '_kintai_weather_cache';
+    const WEATHER_CACHE_KEY = '_kintai_weather_cache_v2';
     const WEATHER_CACHE_TTL = 30 * 60 * 1000; // 30分
 
     const WMO_CODE = {
@@ -4089,9 +4074,65 @@
         ? `<a href="${_esc(_amzUrl(it.q))}" target="_blank" rel="noopener" class="vp-item ${cls}" title="${_esc(it.label)} をAmazonで探す">${it.emoji}</a>`
         : '';
 
+      const svgBody =
+        `<svg class="vp-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">` +
+          // Shadow
+          `<ellipse cx="50" cy="197" rx="22" ry="5" fill="rgba(0,0,0,0.07)"/>` +
+          // Hair
+          `<ellipse cx="50" cy="13" rx="16" ry="11" fill="#5C3A1E"/>` +
+          `<ellipse cx="36" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
+          `<ellipse cx="64" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
+          // Head
+          `<ellipse cx="50" cy="24" rx="15" ry="16" fill="#F5CBA7"/>` +
+          // Ears
+          `<ellipse cx="35.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
+          `<ellipse cx="64.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
+          // Eyes
+          `<ellipse cx="44" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
+          `<ellipse cx="56" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
+          `<ellipse cx="44.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
+          `<ellipse cx="56.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
+          // Eyebrows
+          `<path d="M41.5 16.5 Q44 15.5 46.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
+          `<path d="M53.5 16.5 Q56 15.5 58.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
+          // Nose
+          `<path d="M48.5 24.5 Q50 27 51.5 24.5" stroke="#C6845A" stroke-width="1.1" fill="none" stroke-linecap="round"/>` +
+          // Mouth
+          `<path d="M45.5 29 Q50 32 54.5 29" stroke="#C6845A" stroke-width="1.4" fill="none" stroke-linecap="round"/>` +
+          // Cheeks
+          `<ellipse cx="42" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
+          `<ellipse cx="58" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
+          // Neck
+          `<rect x="43" y="37" width="14" height="13" rx="3" fill="#F5CBA7"/>` +
+          // Torso
+          `<path d="M14 53 Q12 51 50 49 Q88 51 86 53 L82 110 Q80 120 50 121 Q20 120 18 110 Z" fill="#E8B88A"/>` +
+          // Torso shading
+          `<path d="M50 49 L50 121 Q60 121 68 118 L78 110 L80 53 Q65 51 50 49 Z" fill="rgba(0,0,0,0.05)"/>` +
+          // Left Arm
+          `<path d="M16 55 C 8 61 3 86 4 110 C 4.5 117 9.5 120 15 119 C 19 118 21 111 22 105 C 24 86 22 63 22 55 Z" fill="#F5CBA7"/>` +
+          // Right Arm
+          `<path d="M84 55 C 92 61 97 86 96 110 C 95.5 117 90.5 120 85 119 C 81 118 79 111 78 105 C 76 86 78 63 78 55 Z" fill="#F5CBA7"/>` +
+          // Hands
+          `<ellipse cx="9.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
+          `<ellipse cx="90.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
+          // Hip
+          `<path d="M18 110 Q15 120 22 126 Q36 132 50 132 Q64 132 78 126 Q85 120 82 110 Q66 121 50 121 Q34 121 18 110 Z" fill="#D9A070"/>` +
+          // Left Leg
+          `<path d="M22 126 C 20 140 20 164 22 188 C 23 194 29 196 35 195 C 40 194 42 187 42 181 L 42 126 Z" fill="#F5CBA7"/>` +
+          // Right Leg
+          `<path d="M78 126 C 80 140 80 164 78 188 C 77 194 71 196 65 195 C 60 194 58 187 58 181 L 58 126 Z" fill="#F5CBA7"/>` +
+          // Knee detail
+          `<ellipse cx="32" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
+          `<ellipse cx="68" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
+          // Left Foot
+          `<path d="M19 188 Q15 193 16 197 Q23 201 33 199 Q39 197 39 191 L 35 187 Z" fill="#C8916E"/>` +
+          // Right Foot
+          `<path d="M81 188 Q85 193 84 197 Q77 201 67 199 Q61 197 61 191 L 65 187 Z" fill="#C8916E"/>` +
+        `</svg>`;
+
       const mannequin =
         `<div class="vp-mannequin">` +
-          `<div class="vp-bg">🧍</div>` +
+          svgBody +
           vpItem(hat, 'vp-hat') +
           vpItem(scarf, 'vp-scarf') +
           vpItem(outer, 'vp-outer') +
@@ -4127,7 +4168,7 @@
       const daily  = raw.daily;
       const hourly = raw.hourly;
       const now    = new Date();
-      const today  = now.toISOString().slice(0, 10);
+      const today  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
       const curH   = now.getHours();
       const ti     = Math.max(0, daily.time.findIndex(t => t === today));
       const maxT   = daily.temperature_2m_max[ti];
@@ -4157,34 +4198,8 @@
 
       // 1時間毎の予報
       const hourlyEl = document.getElementById('hourly-scroll');
-      if (hourlyEl && hourly) {
-        // 今日 + 明日の48時間から今の時刻を先頭に24枚表示
-        const cards = [];
-        let count = 0;
-        for (let i = 0; i < hourly.time.length && count < 24; i++) {
-          const t    = hourly.time[i];          // "2026-02-26T14:00"
-          const date = t.slice(0, 10);
-          const h    = parseInt(t.slice(11, 13));
-          if (date < today) continue;
-          if (date === today && h < curH) continue;
-          const isNow = (date === today && h === curH);
-          const wi2   = _wmo(hourly.weathercode[i]);
-          const tmp   = Math.round(hourly.temperature_2m[i]);
-          const feel  = Math.round(hourly.apparent_temperature[i]);
-          const rn    = hourly.precipitation_probability[i];
-          cards.push(
-            `<div class="h-card${isNow ? ' h-now' : ''}">` +
-              `<div class="h-time">${isNow ? '今' : h + '時'}</div>` +
-              `<div class="h-emoji">${wi2.emoji}</div>` +
-              `<div class="h-temp">${tmp}°</div>` +
-              `<div class="h-feels">体感 ${feel}°</div>` +
-              `<div class="h-rain">${rn}%</div>` +
-            `</div>`
-          );
-          count++;
-        }
-        hourlyEl.innerHTML = cards.join('');
-        // 現在時刻カードにスクロール
+      if (hourlyEl) {
+        hourlyEl.innerHTML = _buildHourlyCards(hourly, today, true);
         setTimeout(() => {
           const nowCard = hourlyEl.querySelector('.h-now');
           if (nowCard) nowCard.scrollIntoView({ inline: 'start', behavior: 'smooth', block: 'nearest' });
@@ -4221,20 +4236,58 @@
       document.getElementById('weather-error').style.display = 'none';
     }
 
+    // ローカル今日日付ヘルパー
+    function _localToday() {
+      const n = new Date();
+      return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+    }
+
+    // 時間別カードHTML生成（ハブ・カレンダー共通）
+    function _buildHourlyCards(hourly, targetDate, highlightCurrent) {
+      if (!hourly) return '';
+      const curH  = new Date().getHours();
+      const cards = [];
+      let count = 0;
+      for (let i = 0; i < hourly.time.length && count < 24; i++) {
+        const t    = hourly.time[i];
+        const date = t.slice(0, 10);
+        const h    = parseInt(t.slice(11, 13));
+        if (date < targetDate) continue;
+        if (date === targetDate && h < curH) continue;
+        const isNow = highlightCurrent && (date === targetDate && h === curH);
+        const wi2   = _wmo(hourly.weathercode[i]);
+        const tmp   = Math.round(hourly.temperature_2m[i]);
+        const feel  = Math.round(hourly.apparent_temperature[i]);
+        const rn    = hourly.precipitation_probability[i];
+        cards.push(
+          `<div class="h-card${isNow ? ' h-now' : ''}">` +
+            `<div class="h-time">${isNow ? '今' : h + '時'}</div>` +
+            `<div class="h-emoji">${wi2.emoji}</div>` +
+            `<div class="h-temp">${tmp}°</div>` +
+            `<div class="h-feels">体感 ${feel}°</div>` +
+            `<div class="h-rain">${rn}%</div>` +
+          `</div>`
+        );
+        count++;
+      }
+      return cards.join('');
+    }
+
     // カレンダータブのミニバナーを更新
     function _renderCalWeather(data) {
       const wrap = document.getElementById('cal-weather-wrap');
       if (!wrap) return;
       const { raw, locationName } = data;
-      const daily = raw.daily;
-      const today = new Date().toISOString().slice(0, 10);
-      const ti    = Math.max(0, daily.time.findIndex(t => t === today));
-      const maxT  = daily.temperature_2m_max[ti];
-      const minT  = daily.temperature_2m_min[ti];
-      const code  = daily.weathercode[ti];
-      const wind  = daily.windspeed_10m_max[ti];
-      const rain  = daily.precipitation_probability_max[ti];
-      const wi    = _wmo(code);
+      const daily  = raw.daily;
+      const hourly = raw.hourly;
+      const today  = _localToday();
+      const ti     = Math.max(0, daily.time.findIndex(t => t === today));
+      const maxT   = daily.temperature_2m_max[ti];
+      const minT   = daily.temperature_2m_min[ti];
+      const code   = daily.weathercode[ti];
+      const wind   = daily.windspeed_10m_max[ti];
+      const rain   = daily.precipitation_probability_max[ti];
+      const wi     = _wmo(code);
 
       document.getElementById('cal-w-emoji').textContent = wi.emoji;
       document.getElementById('cal-w-cond').textContent  = wi.label;
@@ -4242,74 +4295,56 @@
       document.getElementById('cal-w-temps').textContent = `${Math.round(maxT)}° / ${Math.round(minT)}°`;
       wrap.style.display = '';
 
-      // 服装ボタン — タップで展開/折りたたみ
-      const btn = document.getElementById('cal-outfit-btn');
-      if (btn) {
-        btn.onclick = () => {
+      // ⏱ 時間別ボタン
+      const hourlyBtn = document.getElementById('cal-hourly-btn');
+      if (hourlyBtn) {
+        hourlyBtn.onclick = () => {
+          const ex = document.getElementById('cal-hourly-expand');
+          if (!ex) return;
+          const open = ex.style.display !== 'none';
+          if (open) {
+            ex.style.display = 'none';
+            hourlyBtn.textContent = '⏱ 時間別';
+          } else {
+            const scrollEl = document.getElementById('cal-hourly-scroll');
+            if (scrollEl && hourly) {
+              scrollEl.innerHTML = _buildHourlyCards(hourly, today, true);
+              // 現在時刻カードへスクロール
+              setTimeout(() => {
+                const nowCard = scrollEl.querySelector('.h-now');
+                if (nowCard) nowCard.scrollIntoView({ inline: 'start', behavior: 'smooth', block: 'nearest' });
+              }, 80);
+            }
+            ex.style.display = '';
+            hourlyBtn.textContent = '⏱ 閉じる';
+          }
+        };
+      }
+
+      // 👗 服装ボタン
+      const outfitBtn = document.getElementById('cal-outfit-btn');
+      if (outfitBtn) {
+        outfitBtn.onclick = () => {
           const expand = document.getElementById('cal-outfit-expand');
           if (!expand) return;
           const open = expand.style.display !== 'none';
           if (open) {
             expand.style.display = 'none';
-            btn.textContent = '👗 服装';
+            outfitBtn.textContent = '👗 服装';
           } else {
             const outfit = _outfitAdvice(maxT, minT, code, wind);
             const card   = document.getElementById('cal-outfit-card');
             if (card) {
               card.innerHTML = _buildOutfitBoard(outfit);
               card.style.padding = '0';
-              card.style.border = 'none';
+              card.style.border  = 'none';
               card.style.background = 'none';
             }
             expand.style.display = '';
-            btn.textContent = '✕ 閉じる';
+            outfitBtn.textContent = '✕ 閉じる';
           }
         };
       }
-    }
-
-    // モーダル（今日の日付）の天気・服装セクションを描画
-    function _renderModalWeatherUI(data) {
-      const el = document.getElementById('modal-weather-content');
-      if (!el) return;
-      const { raw, locationName } = data;
-      const daily = raw.daily;
-      const today = new Date().toISOString().slice(0, 10);
-      const ti    = Math.max(0, daily.time.findIndex(t => t === today));
-      const maxT  = daily.temperature_2m_max[ti];
-      const minT  = daily.temperature_2m_min[ti];
-      const code  = daily.weathercode[ti];
-      const wind  = daily.windspeed_10m_max[ti];
-      const rain  = daily.precipitation_probability_max[ti];
-      const wi    = _wmo(code);
-      const outfit = _outfitAdvice(maxT, minT, code, wind);
-
-      el.innerHTML =
-        `<div style="display:flex;align-items:center;gap:10px;` +
-            `background:linear-gradient(135deg,#e3f2fd,#ede7f6);` +
-            `border-radius:12px;padding:10px 14px;margin-bottom:10px;">` +
-          `<span style="font-size:36px;line-height:1;">${wi.emoji}</span>` +
-          `<div style="flex:1;">` +
-            `<div style="font-size:15px;font-weight:800;">${wi.label}</div>` +
-            `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">💧${rain}%　💨${Math.round(wind)}km/h　📍${_esc(locationName)}</div>` +
-          `</div>` +
-          `<div style="text-align:right;">` +
-            `<div style="font-size:22px;font-weight:900;">${Math.round(maxT)}°</div>` +
-            `<div style="font-size:13px;color:var(--text-muted);">${Math.round(minT)}°</div>` +
-          `</div>` +
-        `</div>` +
-        _buildOutfitBoard(outfit);
-    }
-
-    function _renderModalWeather() {
-      const el = document.getElementById('modal-weather-content');
-      if (!el) return;
-      const cached = _loadWeatherCache();
-      if (cached) { _renderModalWeatherUI(cached); return; }
-      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:4px 0;">取得中…</div>';
-      _fetchWeatherData()
-        .then(data => { _saveWeatherCache(data); _renderModalWeatherUI(data); _renderCalWeather(data); })
-        .catch(err  => { el.textContent = `⚠️ 天気取得失敗: ${err.message}`; });
     }
 
     async function renderWeather(forceRefresh) {
