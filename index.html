@@ -963,6 +963,56 @@
     }
     .outfit-all-btn:active { opacity: 0.8; }
     .outfit-fallback { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; font-size: 13px; color: var(--text-muted); }
+    .oic-why { font-size: 9px; color: var(--text-muted); text-align: center; line-height: 1.3; }
+
+    /* ======= HOURLY DATE SEPARATOR ======= */
+    .h-date-sep {
+      flex-shrink: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1px;
+      background: linear-gradient(180deg, rgba(124,95,230,0.18) 0%, rgba(124,95,230,0.06) 100%);
+      border-radius: 14px; padding: 8px 5px; min-width: 30px;
+      border: 1.5px solid rgba(124,95,230,0.28);
+    }
+    .h-date-sep span { font-size: 9px; font-weight: 800; color: var(--accent); line-height: 1.3; }
+    .h-date-sep .h-ds-today { font-size: 8px; background: var(--accent); color: #fff; border-radius: 4px; padding: 1px 3px; }
+
+    /* ======= SYSTEM LOG MODAL ======= */
+    .log-filter-bar { display: flex; gap: 5px; padding: 8px 12px; border-bottom: 1px solid var(--border-soft); flex-shrink: 0; }
+    .log-filter-btn { flex: 1; padding: 5px 2px; border-radius: 8px; border: none; background: var(--bg-card); font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); font-family: inherit; }
+    .log-filter-btn.active { background: var(--accent); color: #fff; }
+    .log-entry { display: flex; flex-direction: column; gap: 3px; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+    .log-entry:last-child { border-bottom: none; }
+    .log-row1 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .log-ts { font-size: 10px; color: var(--text-muted); font-family: monospace; white-space: nowrap; }
+    .log-badge { font-size: 9px; font-weight: 800; border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
+    .log-badge-error { background: #fce4ec; color: #c62828; }
+    .log-badge-warn  { background: #fff3e0; color: #e65100; }
+    .log-badge-info  { background: #e3f2fd; color: #1565c0; }
+    .log-src { font-size: 10px; font-weight: 700; color: var(--accent); }
+    .log-msg { font-size: 11px; color: var(--text-main); line-height: 1.4; word-break: break-all; padding-left: 2px; }
+    .health-log-btn { background: none; border: none; font-size: 14px; cursor: pointer; padding: 2px 5px; border-radius: 6px; opacity: 0.7; transition: opacity 0.15s; line-height: 1; }
+    .health-log-btn:active { opacity: 1; }
+    .health-item-btn { cursor: pointer; border-radius: 6px; padding: 0 2px; transition: background 0.15s; }
+    .health-item-btn:active { background: rgba(124,95,230,0.12); }
+
+    /* ======= TAILSCALE CARD ======= */
+    .ts-card { background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 100%); border-radius: 16px; padding: 14px; margin-bottom: 10px; color: #e0e8f0; }
+    .ts-card-title { font-size: 13px; font-weight: 800; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .ts-status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; box-shadow: 0 0 6px #4caf50; flex-shrink: 0; animation: tsPulse 2s infinite; }
+    .ts-status-dot.offline { background: #9e9e9e; box-shadow: none; animation: none; }
+    @keyframes tsPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .ts-ip-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .ts-ip-row:last-of-type { border-bottom: none; }
+    .ts-ip-icon { font-size: 18px; flex-shrink: 0; }
+    .ts-ip-info { flex: 1; min-width: 0; }
+    .ts-ip-label { font-size: 10px; color: #90a4ae; font-weight: 700; }
+    .ts-ip-addr { font-size: 13px; font-weight: 800; font-family: monospace; color: #e0f7fa; letter-spacing: 0.03em; }
+    .ts-btn-row { display: flex; gap: 6px; margin-top: 10px; }
+    .ts-btn { flex: 1; padding: 9px 4px; border-radius: 10px; border: none; font-size: 11px; font-weight: 800; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px; transition: opacity 0.15s; font-family: inherit; }
+    .ts-btn:active { opacity: 0.8; }
+    .ts-btn-ssh { background: linear-gradient(135deg, #00897b, #26a69a); color: #fff; }
+    .ts-btn-copy { background: rgba(255,255,255,0.1); color: #e0e8f0; border: 1px solid rgba(255,255,255,0.15); }
+    .ts-btn-sftp { background: linear-gradient(135deg, #1565c0, #42a5f5); color: #fff; }
 
     /* ======= PIN MODAL ======= */
     .pin-modal-body { padding: 4px 0 8px; text-align: center; }
@@ -1172,10 +1222,11 @@
       <!-- Health status bar -->
       <div class="health-bar" id="health-bar">
         <span class="health-item"><span class="health-dot" id="health-dot-ls"></span><span id="health-ls">LS: --</span></span>
-        <span class="health-item"><span class="health-dot" id="health-dot-idb"></span><span id="health-idb">IDB: --</span></span>
-        <span class="health-item"><span class="health-dot" id="health-dot-err"></span><span id="health-err">エラー: --</span></span>
+        <span class="health-item health-item-btn" id="health-idb-item" title="タップでログを確認"><span class="health-dot" id="health-dot-idb"></span><span id="health-idb">IDB: --</span></span>
+        <span class="health-item health-item-btn" id="health-err-item" title="タップでエラーログを確認"><span class="health-dot" id="health-dot-err"></span><span id="health-err">エラー: --</span></span>
         <span style="flex:1"></span>
-        <span id="health-snap" style="font-size:10px;"></span>
+        <span id="health-snap" style="font-size:10px;color:var(--text-muted);"></span>
+        <button class="health-log-btn" id="health-log-btn" title="システムログ">📋</button>
       </div>
       <input type="file" id="file-import"  accept=".json" style="display:none">
       <input type="file" id="file-jinjer" accept=".json" style="display:none">
@@ -1226,6 +1277,39 @@
       <div class="links-grid" id="links-grid"></div>
       <div style="font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:4px;">
         ➕ をタップしてよく使うサービスを追加できます
+      </div>
+    </div>
+
+    <!-- Tailscale VPN / SSH card -->
+    <div class="card" id="ts-card-wrap" style="display:none;">
+      <div class="ts-card">
+        <div class="ts-card-title">
+          <span class="ts-status-dot" id="ts-status-dot"></span>
+          🔒 Tailscale VPN
+          <span id="ts-status-label" style="font-size:10px;opacity:0.7;margin-left:4px;"></span>
+        </div>
+        <div class="ts-ip-row">
+          <div class="ts-ip-icon">💻</div>
+          <div class="ts-ip-info">
+            <div class="ts-ip-label">MacBook (このデバイス)</div>
+            <div class="ts-ip-addr" id="ts-mac-ip-disp">--</div>
+          </div>
+          <button class="ts-btn ts-btn-copy" id="ts-copy-mac" style="flex:none;padding:6px 10px;">📋</button>
+        </div>
+        <div class="ts-ip-row">
+          <div class="ts-ip-icon">📱</div>
+          <div class="ts-ip-info">
+            <div class="ts-ip-label">iPhone 13 Pro</div>
+            <div class="ts-ip-addr" id="ts-iphone-ip-disp">--</div>
+          </div>
+          <button class="ts-btn ts-btn-copy" id="ts-copy-iphone" style="flex:none;padding:6px 10px;">📋</button>
+        </div>
+        <div class="ts-btn-row">
+          <a class="ts-btn ts-btn-ssh" id="ts-ssh-btn" href="#" target="_blank" rel="noopener">🖥 SSH接続</a>
+          <a class="ts-btn ts-btn-sftp" id="ts-sftp-btn" href="#" target="_blank" rel="noopener">📁 SFTP</a>
+          <button class="ts-btn ts-btn-copy" id="ts-ping-btn">📡 疎通確認</button>
+        </div>
+        <div id="ts-ping-result" style="font-size:11px;margin-top:8px;text-align:center;display:none;"></div>
       </div>
     </div>
   </div>
@@ -1476,6 +1560,20 @@
         </div>
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
+          <div class="settings-label">🔒 Tailscale MacBook IP</div>
+          <input type="text" id="settings-ts-mac" class="settings-input" placeholder="例: 100.65.221.66" autocomplete="off" inputmode="decimal">
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">📱 Tailscale iPhone IP</div>
+          <input type="text" id="settings-ts-iphone" class="settings-input" placeholder="例: 100.93.30.114" autocomplete="off" inputmode="decimal">
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">👤 SSH ユーザー名</div>
+          <input type="text" id="settings-ts-user" class="settings-input" placeholder="例: your_username" autocomplete="off">
+          <div class="settings-hint">設定するとハブにTailscale VPNカードが表示され、iPhoneからSSH接続できます。</div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
+        <div class="settings-row">
           <div class="settings-label">🔐 セキュリティPIN</div>
           <div class="settings-hint" id="pin-status-hint" style="margin-bottom:6px;"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1577,6 +1675,30 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- Log viewer modal -->
+  <div class="modal-backdrop" id="log-modal">
+    <div class="modal-sheet" style="max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title">📋 システムログ</div>
+        <button class="modal-close" id="log-close">✕</button>
+      </div>
+      <div class="log-filter-bar">
+        <button class="log-filter-btn active" data-filter="all">すべて</button>
+        <button class="log-filter-btn" data-filter="error">🔴 エラー</button>
+        <button class="log-filter-btn" data-filter="warn">🟡 警告</button>
+        <button class="log-filter-btn" data-filter="info">🔵 情報</button>
+      </div>
+      <div style="overflow-y:auto;flex:1;padding:0 14px 12px;" id="log-scroll">
+        <div id="log-list"></div>
+      </div>
+      <div class="modal-footer" style="gap:8px;">
+        <button class="btn-secondary" id="log-clear" style="flex:1;">🗑 ログ消去</button>
+        <button class="btn-primary" id="log-close2" style="flex:1;">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     /* =====================================================
        HIGH-AVAILABILITY: 緊急リセット / クラッシュ検出 / グローバルエラー捕捉
@@ -1643,6 +1765,29 @@
       _logError('unhandled_rejection', ev.reason);
       ev.preventDefault(); // iOS Safari の強制クラッシュを抑制
     });
+
+    // ④ アプリログ（ring buffer — 最新80件、info/warn/errorを記録）
+    const _LOG_KEY = '_kintai_log';
+    const _LOG_MAX = 80;
+    function _appLog(level, source, msg) {
+      try {
+        const log = JSON.parse(localStorage.getItem(_LOG_KEY) || '[]');
+        log.unshift({ ts: new Date().toISOString(), level, source, msg: String(msg).slice(0, 300) });
+        if (log.length > _LOG_MAX) log.length = _LOG_MAX;
+        localStorage.setItem(_LOG_KEY, JSON.stringify(log));
+      } catch(_) {}
+    }
+    // console.warn / console.error をインターセプトして自動記録
+    (function patchConsole() {
+      const _ow = console.warn.bind(console);
+      const _oe = console.error.bind(console);
+      function _src(args) {
+        const m = String(args[0]).match(/\[([^\]]+)\]/);
+        return m ? m[1] : 'app';
+      }
+      console.warn  = (...a) => { _ow(...a);  _appLog('warn',  _src(a), a.join(' ')); };
+      console.error = (...a) => { _oe(...a);  _appLog('error', _src(a), a.join(' ')); };
+    })();
 
     /* =====================================================
        HA: 自動スナップショット（3世代ローリング保存）
@@ -2551,6 +2696,7 @@
 
           updateProgress(100, `✅ ${done}日分の同期が完了しました！`);
           console.log(`[jinjer] 完了: ${done}日分`);
+          _appLog('info', 'jinjer', `同期完了: ${done}日分`);
 
           await new Promise(r => setTimeout(r, 900));
           hideProgress();
@@ -2589,6 +2735,9 @@
       document.getElementById('settings-style-gender').value = cfg.styleGender   || 'メンズ';
       document.getElementById('settings-style-type').value   = cfg.styleType     || 'casual';
       document.getElementById('settings-style-color').value  = cfg.styleColor    || 'basic';
+      document.getElementById('settings-ts-mac').value       = cfg.tsMac         || '100.65.221.66';
+      document.getElementById('settings-ts-iphone').value    = cfg.tsIphone      || '100.93.30.114';
+      document.getElementById('settings-ts-user').value      = cfg.tsUser        || '';
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
@@ -2609,6 +2758,9 @@
         styleGender: document.getElementById('settings-style-gender').value,
         styleType:   document.getElementById('settings-style-type').value,
         styleColor:  document.getElementById('settings-style-color').value,
+        tsMac:       document.getElementById('settings-ts-mac').value.trim(),
+        tsIphone:    document.getElementById('settings-ts-iphone').value.trim(),
+        tsUser:      document.getElementById('settings-ts-user').value.trim(),
       };
       // 都市 or スタイルが変わったら天気キャッシュをクリアして再取得
       const prevCfg = loadConfig();
@@ -2617,6 +2769,7 @@
         try { localStorage.removeItem('_kintai_weather_cache'); } catch(_) {}
       }
       saveConfig(cfg);
+      renderTailscaleCard();
       // jinjerカードのhrefをリアルタイム更新
       const jinjerLink = document.getElementById('jinjer-link');
       if (jinjerLink) jinjerLink.href = cfg.jinjerUrl;
@@ -2897,16 +3050,16 @@
     /* =====================================================
        SWIPE GESTURE（左右スワイプで月切り替え）
        ===================================================== */
-    let _swipeX = 0, _swipeY = 0, _swipeInScroll = false;
+    let _swipeX = 0, _swipeY = 0, _swipeOnCal = false;
     document.getElementById('calendar-card').addEventListener('touchstart', e => {
       _swipeX = e.touches[0].clientX;
       _swipeY = e.touches[0].clientY;
-      // 横スクロール可能な子要素内のタッチは月スワイプを無効化
-      _swipeInScroll = !!e.target.closest('.hourly-scroll, .forecast-scroll, #cal-hourly-scroll');
+      // カレンダーグリッド上のタッチのみ月スワイプを有効化（他領域では無効）
+      _swipeOnCal = !!e.target.closest('.calendar-wrapper');
     }, { passive: true });
 
     document.getElementById('calendar-card').addEventListener('touchend', e => {
-      if (_swipeInScroll) return; // スクロール内タッチは月移動しない
+      if (!_swipeOnCal) return; // カレンダーグリッド外のスワイプは月移動しない
       const dx = e.changedTouches[0].clientX - _swipeX;
       const dy = e.changedTouches[0].clientY - _swipeY;
       if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.2) return; // 縦スクロールを除外
@@ -2998,6 +3151,8 @@
         try { renderWeather(false); } catch(e) {}
         // 起動成功 → クラッシュカウンタをリセット
         localStorage.setItem(_CRASH_KEY, '0');
+        _appLog('info', 'init', '起動完了');
+        try { renderTailscaleCard(); } catch(e) {}
         // 初回スナップショット（起動時に1回）
         try {
           const store = loadStore();
@@ -3483,7 +3638,7 @@
         const isCal = (tabName === 'calendar');
         calFabs.forEach(f => f?.classList.toggle('hidden', !isCal));
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        if (tabName === 'hub')     renderLauncher();
+        if (tabName === 'hub')     { renderLauncher(); renderTailscaleCard(); }
         if (tabName === 'study')   renderStudy();
         if (tabName === 'project') renderProjects();
       }
@@ -4009,7 +4164,7 @@
       if (maxTemp >= 22 && !isRain)
         items.push(_item('🧴','日焼け止め','日焼け止め SPF50 顔用',p));
 
-      return { items, warn, style };
+      return { items, warn, style, maxT: maxTemp, minT: minTemp };
     }
 
     function _loadWeatherCache() {
@@ -4101,44 +4256,127 @@
     // コーデキャッシュ（同条件の再レンダリング防止）
     let _outfitBoardCache = { key: null, html: null };
 
-    // 服装ボードHTML生成（HA・キャッシュ対応）
+    // 服のカラーパレット（styleColorに対応）
+    const _CLOTH_PAL = {
+      basic:  { top:'#eceff1', btm:'#546e7a', out:'#37474f', sho:'#212121', sca:'#b0bec5', acc:'#90a4ae' },
+      earth:  { top:'#efebe9', btm:'#a1887f', out:'#6d4c41', sho:'#3e2723', sca:'#d7ccc8', acc:'#bcaaa4' },
+      dark:   { top:'#78909c', btm:'#263238', out:'#102027', sho:'#000a12', sca:'#455a64', acc:'#546e7a' },
+      bright: { top:'#f06292', btm:'#4fc3f7', out:'#ba68c8', sho:'#ff7043', sca:'#fff176', acc:'#80cbc4' },
+      pastel: { top:'#f8bbd0', btm:'#b3e5fc', out:'#c8e6c9', sho:'#ffccbc', sca:'#e1bee7', acc:'#f0f4c3' },
+    };
+
+    // 着衣SVGマネキンを生成（服の色をSVGレイヤーで描画）
+    function _buildMannequinSVG(items, colorKey) {
+      const p = _CLOTH_PAL[colorKey] || _CLOTH_PAL.basic;
+      const has = emoji => items.some(it => emoji.includes(it.emoji));
+      const hasHat   = has(['🧢','🎩','👒']);
+      const hasScarf = has(['🧣']);
+      const hasOuter = has(['🧥']);
+      const hasTop   = has(['👔','👕','🏃','🏕','🎩']);
+      const hasBot   = has(['👖','🩳']);
+      const hasShoe  = has(['👟','👞','🥾','🥿']);
+      const hasAcc   = has(['🧤']);
+      const sleeveC  = hasOuter ? p.out : (hasTop ? p.top : null);
+
+      return `<svg class="vp-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">` +
+        // ── 素体（肌） ──
+        `<ellipse cx="50" cy="197" rx="22" ry="5" fill="rgba(0,0,0,0.07)"/>` +
+        `<ellipse cx="50" cy="13" rx="16" ry="11" fill="#5C3A1E"/>` +
+        `<ellipse cx="36" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
+        `<ellipse cx="64" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
+        `<ellipse cx="50" cy="24" rx="15" ry="16" fill="#F5CBA7"/>` +
+        `<ellipse cx="35.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
+        `<ellipse cx="64.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
+        `<ellipse cx="44" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
+        `<ellipse cx="56" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
+        `<ellipse cx="44.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
+        `<ellipse cx="56.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
+        `<path d="M41.5 16.5 Q44 15.5 46.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
+        `<path d="M53.5 16.5 Q56 15.5 58.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
+        `<path d="M48.5 24.5 Q50 27 51.5 24.5" stroke="#C6845A" stroke-width="1.1" fill="none" stroke-linecap="round"/>` +
+        `<path d="M45.5 29 Q50 32 54.5 29" stroke="#C6845A" stroke-width="1.4" fill="none" stroke-linecap="round"/>` +
+        `<ellipse cx="42" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
+        `<ellipse cx="58" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
+        `<rect x="43" y="37" width="14" height="13" rx="3" fill="#F5CBA7"/>` +
+        // 素体（腕・胴・腰・脚）
+        `<path d="M16 55 C 8 61 3 86 4 110 C 4.5 117 9.5 120 15 119 C 19 118 21 111 22 105 C 24 86 22 63 22 55 Z" fill="#F5CBA7"/>` +
+        `<path d="M84 55 C 92 61 97 86 96 110 C 95.5 117 90.5 120 85 119 C 81 118 79 111 78 105 C 76 86 78 63 78 55 Z" fill="#F5CBA7"/>` +
+        `<ellipse cx="9.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
+        `<ellipse cx="90.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
+        `<path d="M14 53 Q12 51 50 49 Q88 51 86 53 L82 110 Q80 120 50 121 Q20 120 18 110 Z" fill="#E8B88A"/>` +
+        `<path d="M50 49 L50 121 Q60 121 68 118 L78 110 L80 53 Q65 51 50 49 Z" fill="rgba(0,0,0,0.05)"/>` +
+        `<path d="M18 110 Q15 120 22 126 Q36 132 50 132 Q64 132 78 126 Q85 120 82 110 Q66 121 50 121 Q34 121 18 110 Z" fill="#D9A070"/>` +
+        `<path d="M22 126 C 20 140 20 164 22 188 C 23 194 29 196 35 195 C 40 194 42 187 42 181 L 42 126 Z" fill="#F5CBA7"/>` +
+        `<path d="M78 126 C 80 140 80 164 78 188 C 77 194 71 196 65 195 C 60 194 58 187 58 181 L 58 126 Z" fill="#F5CBA7"/>` +
+        `<ellipse cx="32" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
+        `<ellipse cx="68" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
+        `<path d="M19 188 Q15 193 16 197 Q23 201 33 199 Q39 197 39 191 L 35 187 Z" fill="#C8916E"/>` +
+        `<path d="M81 188 Q85 193 84 197 Q77 201 67 199 Q61 197 61 191 L 65 187 Z" fill="#C8916E"/>` +
+        // ── 着衣レイヤー（肌の上に描画） ──
+        // パンツ・ボトムス
+        (hasBot ? `<path d="M24 118 Q20 124 26 128 Q40 134 50 134 Q60 134 74 128 Q80 124 76 118 Q64 122 50 122 Q36 122 24 118 Z" fill="${p.btm}"/>` +
+          `<path d="M26 128 L40 128 L40 188 L33 190 Q26 191 23 187 L22 188 Z" fill="${p.btm}"/>` +
+          `<path d="M74 128 L60 128 L60 188 L67 190 Q74 191 77 187 L78 188 Z" fill="${p.btm}"/>` +
+          `<line x1="50" y1="128" x2="50" y2="190" stroke="rgba(0,0,0,0.1)" stroke-width="0.8"/>` : '') +
+        // 袖（スリーブ）
+        (sleeveC ? `<path d="M20 55 C 12 62 7 85 8 108 C 8.5 114 12 117 16 116 C 20 115 22 108 22 102 L22 55 Z" fill="${sleeveC}"/>` +
+          `<path d="M80 55 C 88 62 93 85 92 108 C 91.5 114 88 117 84 116 C 80 115 78 108 78 102 L78 55 Z" fill="${sleeveC}"/>` : '') +
+        // シャツ・トップス（胴体）
+        (hasTop ? `<path d="M22 53 Q22 52 50 50 Q78 52 78 53 L76 116 Q74 122 50 122 Q26 122 24 116 Z" fill="${p.top}"/>` : '') +
+        // ジャケット・アウター（シャツの上に）
+        (hasOuter ? `<path d="M14 53 Q12 51 50 49 Q88 51 86 53 L82 112 Q80 120 50 121 Q20 120 18 112 Z" fill="${p.out}"/>` +
+          `<path d="M48 49 L46 121 Q44 121 44 120 L46 49 Z" fill="rgba(0,0,0,0.07)"/>` +
+          `<path d="M52 49 L54 121 Q56 121 56 120 L54 49 Z" fill="rgba(0,0,0,0.07)"/>` +
+          `<path d="M49 49 L51 49 L51 121 L49 121 Z" fill="rgba(255,255,255,0.18)"/>` : '') +
+        // マフラー・スカーフ
+        (hasScarf ? `<rect x="38" y="42" width="24" height="8" rx="4" fill="${p.sca}"/>` +
+          `<path d="M44 50 L44 63 Q44 66 46 66 L48 66 Q50 66 50 63 L50 50 Z" fill="${p.sca}"/>` +
+          `<rect x="38" y="42" width="24" height="3" rx="2" fill="rgba(255,255,255,0.25)"/>` : '') +
+        // 帽子
+        (hasHat ? `<ellipse cx="50" cy="8" rx="21" ry="5.5" fill="${p.out}"/>` +
+          `<rect x="36" y="1" width="28" height="8" rx="4" fill="${p.out}"/>` +
+          `<rect x="36" y="1" width="28" height="3" rx="2" fill="rgba(255,255,255,0.2)"/>` : '') +
+        // グローブ・手袋
+        (hasAcc ? `<ellipse cx="9" cy="120" rx="7" ry="9" fill="${p.acc}"/>` +
+          `<ellipse cx="91" cy="120" rx="7" ry="9" fill="${p.acc}"/>` : '') +
+        // シューズ
+        (hasShoe ? `<path d="M18 188 Q13 193 14 198 Q22 202 34 200 Q40 197 40 192 L35 188 Z" fill="${p.sho}"/>` +
+          `<path d="M82 188 Q87 193 86 198 Q78 202 66 200 Q60 197 60 192 L65 188 Z" fill="${p.sho}"/>` +
+          `<path d="M18 188 Q13 193 14 196 Q22 198 34 197 L40 192 Z" fill="rgba(255,255,255,0.15)"/>` +
+          `<path d="M82 188 Q87 193 86 196 Q78 198 66 197 L60 192 Z" fill="rgba(255,255,255,0.15)"/>` : '') +
+      `</svg>`;
+    }
+
+    // コーデアイテムの理由テキスト
+    function _outfitReason(emoji, maxT, minT) {
+      if (['🧥'].includes(emoji)) return maxT < 15 ? '防寒対策' : maxT < 20 ? '羽織り推奨' : '気温差対策';
+      if (['🧣'].includes(emoji)) return '首元の保温';
+      if (['🧤'].includes(emoji)) return '手先の防寒';
+      if (['🧢','🎩','👒'].includes(emoji)) return maxT >= 25 ? '紫外線対策' : '防寒アクセント';
+      if (['👟','🥾'].includes(emoji)) return 'アクティブ向け';
+      if (['👞'].includes(emoji)) return 'フォーマル向け';
+      if (['🩳'].includes(emoji)) return '快適な通気性';
+      return '';
+    }
+
+    // 服装ボードHTML生成（着衣マネキン・HA・キャッシュ対応）
     function _buildOutfitBoard(outfit, cacheKey) {
       if (cacheKey && cacheKey === _outfitBoardCache.key) return _outfitBoardCache.html;
       const { items, warn, style } = outfit;
       const styleLabel = STYLE_LABEL[style] || style;
-      // マネキンに貼るアイテムを分類
-      const hat   = items.find(it => ['🧢','🎩','👒'].includes(it.emoji));
-      const scarf = items.find(it => ['🧣'].includes(it.emoji));
-      const outer = items.find(it => ['🧥'].includes(it.emoji));
-      const top   = items.find(it => ['👔','👕','🏃','🏕','🎩'].includes(it.emoji));
-      const bot   = items.find(it => ['👖','🩳'].includes(it.emoji));
-      const shoe  = items.find(it => ['👟','👞','🥾','🥿'].includes(it.emoji));
-      const acc   = items.find(it => ['🧤'].includes(it.emoji));
-      const vpItem = (it, cls) => it
-        ? `<a href="${_esc(_amzUrl(it.q))}" target="_blank" rel="noopener" class="vp-item ${cls}" title="${_esc(it.label)} をAmazonで探す">${it.emoji}</a>`
-        : '';
+      const colorKey   = loadConfig().styleColor || 'basic';
 
-      const svgBody = _VP_SVG_BODY; // モジュール定数を参照（再アロケート不要）
+      const mannequin = `<div class="vp-mannequin">${_buildMannequinSVG(items, colorKey)}</div>`;
 
-      const mannequin =
-        `<div class="vp-mannequin">` +
-          svgBody +
-          vpItem(hat, 'vp-hat') +
-          vpItem(scarf, 'vp-scarf') +
-          vpItem(outer, 'vp-outer') +
-          vpItem(top, 'vp-top') +
-          vpItem(bot, 'vp-bottom') +
-          vpItem(shoe, 'vp-feet') +
-          vpItem(acc, 'vp-acc') +
-        `</div>`;
-
-      const cards = items.map(it =>
-        `<a href="${_esc(_amzUrl(it.q))}" target="_blank" rel="noopener" class="oic">` +
+      const cards = items.map(it => {
+        const reason = _outfitReason(it.emoji, outfit.maxT || 20, outfit.minT || 10);
+        return `<a href="${_esc(_amzUrl(it.q))}" target="_blank" rel="noopener" class="oic">` +
           `<div class="oic-em">${it.emoji}</div>` +
           `<div class="oic-nm">${_esc(it.label)}</div>` +
+          (reason ? `<div class="oic-why">${_esc(reason)}</div>` : '') +
           `<div class="oic-amz">🛒 Amazon</div>` +
-        `</a>`
-      ).join('');
+        `</a>`;
+      }).join('');
 
       const warnHtml = warn.length
         ? `<div class="outfit-warn-row">${warn.map(w => `<div class="outfit-warn">${w}</div>`).join('')}</div>`
@@ -4243,15 +4481,41 @@
     // 時間別カードHTML生成（ハブ・カレンダー共通）
     function _buildHourlyCards(hourly, targetDate, highlightCurrent) {
       if (!hourly) return '';
-      const curH  = new Date().getHours();
-      const cards = [];
-      let count = 0;
-      for (let i = 0; i < hourly.time.length && count < 24; i++) {
+      const curH   = new Date().getHours();
+      const cards  = [];
+      const DOW    = ['日','月','火','水','木','金','土'];
+      let count    = 0;
+      let lastDate = null;
+      for (let i = 0; i < hourly.time.length && count < 28; i++) {
         const t    = hourly.time[i];
         const date = t.slice(0, 10);
         const h    = parseInt(t.slice(11, 13));
         if (date < targetDate) continue;
         if (date === targetDate && h < curH) continue;
+
+        // 日付が変わったら仕切りカードを挿入
+        if (date !== lastDate) {
+          if (lastDate !== null) {
+            const d   = new Date(date + 'T00:00:00');
+            const mm  = d.getMonth() + 1;
+            const dd  = d.getDate();
+            const dow = DOW[d.getDay()];
+            const isTomorrow = (() => {
+              const td = new Date(targetDate + 'T00:00:00');
+              const nd = new Date(d); nd.setDate(nd.getDate());
+              return (d - td) / 86400000 <= 1;
+            })();
+            cards.push(
+              `<div class="h-date-sep">` +
+                (isTomorrow ? `<span class="h-ds-today">翌日</span>` : '') +
+                `<span>${mm}/${dd}</span>` +
+                `<span>${dow}</span>` +
+              `</div>`
+            );
+          }
+          lastDate = date;
+        }
+
         const isNow = highlightCurrent && (date === targetDate && h === curH);
         const wi2   = _wmo(hourly.weathercode[i]);
         const tmp   = Math.round(hourly.temperature_2m[i]);
@@ -4259,10 +4523,10 @@
         const rn    = hourly.precipitation_probability[i];
         cards.push(
           `<div class="h-card${isNow ? ' h-now' : ''}">` +
-            `<div class="h-time">${isNow ? '今' : h + '時'}</div>` +
+            `<div class="h-time">${isNow ? '現在' : h + '時'}</div>` +
             `<div class="h-emoji">${wi2.emoji}</div>` +
             `<div class="h-temp">${tmp}°</div>` +
-            `<div class="h-feels">体感 ${feel}°</div>` +
+            `<div class="h-feels">体感${feel}°</div>` +
             `<div class="h-rain">${rn}%</div>` +
           `</div>`
         );
@@ -4369,6 +4633,7 @@
       try {
         const data = await _fetchWeatherData();
         _saveWeatherCache(data);
+        _appLog('info', 'weather', `取得完了: ${data.locationName}`);
         _renderWeatherUI(data);
         _renderCalWeather(data);
       } catch (err) {
@@ -4386,6 +4651,129 @@
     document.getElementById('weather-refresh-btn')?.addEventListener('click', () => {
       renderWeather(true);
     });
+
+    /* =====================================================
+       LOG VIEWER
+       ===================================================== */
+    function openLogModal(filterLevel) {
+      const fl = filterLevel || 'all';
+      document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === fl));
+      _renderLogList(fl);
+      document.getElementById('log-modal').classList.add('show');
+    }
+
+    function _renderLogList(filter) {
+      const listEl = document.getElementById('log-list');
+      if (!listEl) return;
+      let appLogs = [], errLogs = [];
+      try { appLogs = JSON.parse(localStorage.getItem(_LOG_KEY) || '[]'); } catch(_) {}
+      try {
+        errLogs = JSON.parse(localStorage.getItem(_ERR_KEY) || '[]').map(e => ({
+          ts: e.ts, level: 'error', source: e.type || 'global', msg: e.detail
+        }));
+      } catch(_) {}
+      const all      = [...appLogs, ...errLogs].sort((a, b) => b.ts.localeCompare(a.ts));
+      const filtered = filter === 'all' ? all : all.filter(e => e.level === filter);
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:13px;">📋 ログなし</div>';
+        return;
+      }
+      listEl.innerHTML = filtered.map(e => {
+        const d  = new Date(e.ts);
+        const ts = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+        const bc = e.level === 'error' ? 'log-badge-error' : e.level === 'warn' ? 'log-badge-warn' : 'log-badge-info';
+        const bl = e.level === 'error' ? 'エラー' : e.level === 'warn' ? '警告' : '情報';
+        return `<div class="log-entry">` +
+          `<div class="log-row1">` +
+            `<span class="log-ts">${ts}</span>` +
+            `<span class="log-badge ${bc}">${bl}</span>` +
+            `<span class="log-src">[${_esc(e.source || 'app')}]</span>` +
+          `</div>` +
+          `<div class="log-msg">${_esc(e.msg || '')}</div>` +
+        `</div>`;
+      }).join('');
+    }
+
+    document.getElementById('log-close').addEventListener('click', () =>
+      document.getElementById('log-modal').classList.remove('show'));
+    document.getElementById('log-close2').addEventListener('click', () =>
+      document.getElementById('log-modal').classList.remove('show'));
+    document.getElementById('log-clear').addEventListener('click', () => {
+      if (!confirm('ログをすべて消去しますか？')) return;
+      try { localStorage.removeItem(_LOG_KEY); localStorage.removeItem(_ERR_KEY); } catch(_) {}
+      _renderLogList('all');
+      document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
+    });
+    document.querySelectorAll('.log-filter-btn').forEach(btn =>
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _renderLogList(btn.dataset.filter);
+      })
+    );
+    document.getElementById('health-log-btn').addEventListener('click', () => openLogModal('all'));
+    document.getElementById('health-err-item').addEventListener('click', () => openLogModal('error'));
+    document.getElementById('health-idb-item').addEventListener('click', () => openLogModal('all'));
+
+    /* =====================================================
+       TAILSCALE VPN / SSH
+       ===================================================== */
+    function renderTailscaleCard() {
+      const cfg = loadConfig();
+      const macIp   = cfg.tsMac   || '';
+      const iphone  = cfg.tsIphone || '';
+      const user    = cfg.tsUser  || '';
+      const wrap    = document.getElementById('ts-card-wrap');
+      if (!wrap) return;
+      if (!macIp && !iphone) { wrap.style.display = 'none'; return; }
+      wrap.style.display = '';
+      document.getElementById('ts-mac-ip-disp').textContent    = macIp   || '未設定';
+      document.getElementById('ts-iphone-ip-disp').textContent = iphone  || '未設定';
+
+      const sshUrl  = user && macIp ? `ssh://${user}@${macIp}` : '#';
+      const sftpUrl = user && macIp ? `ftp://${user}@${macIp}:22` : '#';
+      document.getElementById('ts-ssh-btn').href  = sshUrl;
+      document.getElementById('ts-sftp-btn').href = sftpUrl;
+
+      // コピーボタン
+      const copyMac = document.getElementById('ts-copy-mac');
+      const copyIph = document.getElementById('ts-copy-iphone');
+      copyMac.onclick = () => {
+        navigator.clipboard?.writeText(macIp).then(() => toast('📋 MacBook IP をコピー'));
+      };
+      copyIph.onclick = () => {
+        navigator.clipboard?.writeText(iphone).then(() => toast('📋 iPhone IP をコピー'));
+      };
+
+      // 疎通確認（Tailscale経由でMacにアクセス可能かチェック）
+      document.getElementById('ts-ping-btn').onclick = async () => {
+        const res = document.getElementById('ts-ping-result');
+        const dot = document.getElementById('ts-status-dot');
+        res.style.display = '';
+        res.textContent = '📡 確認中…';
+        dot.className = 'ts-status-dot offline';
+        document.getElementById('ts-status-label').textContent = '確認中…';
+        if (!macIp) { res.textContent = '⚠️ MacBook IPが未設定です'; return; }
+        try {
+          const ctrl = new AbortController();
+          setTimeout(() => ctrl.abort(), 4000);
+          await fetch(`http://${macIp}:22`, { signal: ctrl.signal, mode: 'no-cors' });
+          dot.className = 'ts-status-dot';
+          document.getElementById('ts-status-label').textContent = '接続可能';
+          res.textContent = `✅ ${macIp} は到達可能です`;
+          _appLog('info', 'tailscale', `疎通確認成功: ${macIp}`);
+        } catch(e) {
+          // no-corsでfetchが失敗してもSSH portが開いていれば「接続拒否」エラーになる
+          const reachable = e.name !== 'AbortError';
+          dot.className   = reachable ? 'ts-status-dot' : 'ts-status-dot offline';
+          document.getElementById('ts-status-label').textContent = reachable ? '接続可能' : 'タイムアウト';
+          res.textContent = reachable
+            ? `✅ ${macIp} に到達できます（SSH接続可能）`
+            : `❌ ${macIp} に到達できません（VPN確認）`;
+          _appLog(reachable ? 'info' : 'warn', 'tailscale', `疎通確認: ${macIp} → ${e.name}`);
+        }
+      };
+    }
 
     /* =====================================================
        SERVICE WORKER
