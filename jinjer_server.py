@@ -270,6 +270,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/files/read':
             self._handle_files_read(params)
 
+        # ===== /api/system/logs =====
+        elif path == '/api/system/logs':
+            self._handle_system_logs(params)
+
         else:
             self._send_json({'error': 'Not found'}, 404)
 
@@ -307,6 +311,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
             month = month.zfill(2)
             result = create_next_month_report(year, month)
             self._send_json(result, 200 if result['ok'] else 400)
+
+        # ===== /api/system/restart =====
+        elif path == '/api/system/restart':
+            self._handle_system_restart()
 
         else:
             self._send_json({'error': 'Not found'}, 404)
@@ -449,6 +457,31 @@ class JinjerHandler(BaseHTTPRequestHandler):
             })
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
+
+    def _handle_system_logs(self, params: dict):
+        """直近ログを返す。type=server|watchdog, lines=N"""
+        log_type = params.get('type', ['server'])[0]
+        lines_n  = min(int(params.get('lines', ['100'])[0]), 500)
+        log_file = _HERE / 'logs' / ('watchdog.log' if log_type == 'watchdog' else 'server.log')
+        if not log_file.exists():
+            self._send_json({'error': 'ログファイルが見つかりません', 'type': log_type}, 404)
+            return
+        all_lines = log_file.read_text(encoding='utf-8', errors='replace').splitlines()
+        recent = all_lines[-lines_n:] if len(all_lines) > lines_n else all_lines
+        self._send_json({'type': log_type, 'lines': recent, 'total': len(all_lines)})
+
+    def _handle_system_restart(self):
+        """launchd 経由でサーバー自身を1秒後に再起動する"""
+        def _do_restart():
+            import time as _t
+            _t.sleep(1)
+            uid = subprocess.run(['id', '-u'], capture_output=True, text=True).stdout.strip()
+            subprocess.run(
+                ['launchctl', 'kickstart', '-k', f'gui/{uid}/com.kintai.server'],
+                capture_output=True,
+            )
+        threading.Thread(target=_do_restart, daemon=True, name='restart-thread').start()
+        self._send_json({'status': 'restarting', 'message': '1秒後に再起動します'})
 
 
 def _server_is_alive(port: int) -> bool:

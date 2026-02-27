@@ -14,7 +14,7 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#7c5fe6">
   <link rel="manifest" href="manifest.json">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com http:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com http:;">
   <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
@@ -1372,6 +1372,94 @@
       color: var(--text-muted); line-height: 1.8;
       font-family: monospace;
     }
+
+    /* ===== AI Chat Tab ===== */
+    #page-ai {
+      display: flex; flex-direction: column;
+      height: calc(100dvh - var(--tab-bar-h) - max(var(--safe-top),12px) - max(var(--safe-bottom),0px) - 32px);
+      padding: 0;
+    }
+    .ai-toolbar {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-card-solid); border-radius: 18px;
+      padding: 8px 12px; margin-bottom: 8px;
+      box-shadow: var(--shadow-card); flex-shrink: 0;
+    }
+    .ai-model-select {
+      flex: 1; border: none; background: transparent;
+      font-size: 13px; font-weight: 700; color: var(--accent-purple);
+      outline: none; cursor: pointer;
+    }
+    .ai-icon-btn {
+      background: none; border: none; font-size: 20px;
+      cursor: pointer; padding: 2px 4px; border-radius: 8px;
+      line-height: 1;
+    }
+    .ai-icon-btn:active { background: var(--bg-page); }
+    .ai-messages {
+      flex: 1; overflow-y: auto; padding: 4px 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .ai-msg-user {
+      align-self: flex-end; max-width: 84%;
+      background: var(--accent-blue); color: #fff;
+      padding: 10px 14px; border-radius: 18px 18px 4px 18px;
+      font-size: 14px; line-height: 1.5; word-break: break-word;
+    }
+    .ai-msg-assistant {
+      align-self: flex-start; max-width: 90%;
+      background: var(--bg-card-solid); color: var(--text-main);
+      padding: 12px 14px; border-radius: 4px 18px 18px 18px;
+      font-size: 14px; line-height: 1.65;
+      box-shadow: 0 2px 10px rgba(60,80,200,0.08);
+      word-break: break-word;
+    }
+    .ai-msg-assistant pre {
+      background: #1a1a2e; color: #e0f2fe;
+      padding: 10px 12px; border-radius: 10px;
+      overflow-x: auto; font-size: 12px; margin: 6px 0;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .ai-msg-assistant code {
+      font-size: 12px; background: rgba(79,141,253,0.12);
+      padding: 1px 5px; border-radius: 4px;
+    }
+    .ai-msg-tool {
+      align-self: flex-start;
+      background: rgba(124,95,230,0.08); border: 1px solid rgba(124,95,230,0.25);
+      padding: 5px 12px; border-radius: 10px;
+      font-size: 11px; color: var(--text-muted); max-width: 88%;
+    }
+    .ai-msg-system {
+      align-self: center; font-size: 11px;
+      color: var(--text-muted); text-align: center; padding: 2px 0;
+    }
+    .ai-input-row {
+      display: flex; gap: 8px; margin-top: 8px;
+      background: var(--bg-card-solid); padding: 8px 10px;
+      border-radius: 18px; box-shadow: var(--shadow-card); flex-shrink: 0;
+    }
+    .ai-input {
+      flex: 1; border: none; background: transparent;
+      font-size: 14px; outline: none; resize: none;
+      max-height: 100px; min-height: 34px;
+      font-family: inherit; color: var(--text-main);
+      padding: 4px 2px; line-height: 1.5;
+    }
+    .ai-send-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--accent-blue); color: #fff;
+      border: none; cursor: pointer; font-size: 17px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; align-self: flex-end;
+    }
+    .ai-send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .ai-key-input {
+      flex: 1; padding: 8px 10px; border-radius: 10px;
+      border: 1px solid var(--border-color); font-size: 12px;
+      background: var(--bg-card-solid); color: var(--text-main);
+      font-family: monospace;
+    }
   </style>
 </head>
 
@@ -1740,6 +1828,68 @@
     </div>
   </div>
 
+  <!-- AI Chat Tab -->
+  <div id="page-ai" class="tab-page">
+    <div class="ai-toolbar">
+      <select class="ai-model-select" id="ai-model-select">
+        <optgroup label="Anthropic">
+          <option value="claude">🤖 Claude (Sonnet 4.6)</option>
+        </optgroup>
+        <optgroup label="OpenAI">
+          <option value="openai">💬 ChatGPT (GPT-4o)</option>
+        </optgroup>
+        <optgroup label="Google">
+          <option value="gemini">✨ Gemini 2.0 Flash</option>
+        </optgroup>
+      </select>
+      <button class="ai-icon-btn" id="ai-settings-btn" title="APIキー設定">⚙️</button>
+      <button class="ai-icon-btn" id="ai-clear-btn" title="履歴クリア">🗑️</button>
+    </div>
+    <div class="ai-messages" id="ai-messages"></div>
+    <div class="ai-input-row">
+      <textarea class="ai-input" id="ai-input" placeholder="AIに質問… (Enter で送信、Shift+Enter で改行)" rows="1"></textarea>
+      <button class="ai-send-btn" id="ai-send-btn">↑</button>
+    </div>
+  </div>
+
+  <!-- AI Settings Modal -->
+  <div class="modal-backdrop" id="ai-settings-modal" style="display:none;">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title">🔑 AI API キー設定</div>
+        <button class="modal-close" id="ai-settings-close">✕</button>
+      </div>
+      <div style="padding:0 4px 12px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">
+          APIキーはデバイス内に AES-GCM 暗号化して保存されます。<br>外部サーバーには送信されません。
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:700;margin-bottom:5px;">🤖 Anthropic API Key (Claude)</div>
+          <div style="display:flex;gap:6px;">
+            <input type="password" class="ai-key-input" id="ai-key-claude" placeholder="sk-ant-api03-…">
+            <button class="ai-icon-btn" id="ai-key-claude-toggle" style="border:1px solid var(--border-color);border-radius:10px;padding:6px 10px;">👁</button>
+          </div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:700;margin-bottom:5px;">💬 OpenAI API Key (ChatGPT)</div>
+          <div style="display:flex;gap:6px;">
+            <input type="password" class="ai-key-input" id="ai-key-openai" placeholder="sk-proj-…">
+            <button class="ai-icon-btn" id="ai-key-openai-toggle" style="border:1px solid var(--border-color);border-radius:10px;padding:6px 10px;">👁</button>
+          </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:700;margin-bottom:5px;">✨ Google AI API Key (Gemini)</div>
+          <div style="display:flex;gap:6px;">
+            <input type="password" class="ai-key-input" id="ai-key-gemini" placeholder="AIza…">
+            <button class="ai-icon-btn" id="ai-key-gemini-toggle" style="border:1px solid var(--border-color);border-radius:10px;padding:6px 10px;">👁</button>
+          </div>
+        </div>
+        <button id="ai-settings-save" style="width:100%;padding:12px;background:var(--accent-blue);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">💾 保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 編集モーダル -->
   <div class="modal-backdrop" id="memo-modal">
     <div class="modal-sheet">
@@ -2105,6 +2255,9 @@
     </button>
     <button class="tab-btn" data-tab="jobs">
       <span class="tab-icon">💼</span>案件
+    </button>
+    <button class="tab-btn" data-tab="ai">
+      <span class="tab-icon">🤖</span>AI
     </button>
   </nav>
 
@@ -4808,6 +4961,7 @@
         if (tabName === 'project') renderProjects();
         if (tabName === 'report')  { initReportTab(); }
         if (tabName === 'jobs')    { initJobsTab(); }
+        if (tabName === 'ai')      { if (window.initAiTab) window.initAiTab(); }
       }
 
       tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
@@ -7269,6 +7423,421 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         audio.src = '';
         document.getElementById('min-video-player-wrap').style.display = 'none';
         document.getElementById('min-video-title').value = '';
+      });
+    })();
+
+    /* =====================================================
+       AI CHAT  — Claude / ChatGPT / Gemini + System Tools
+       ===================================================== */
+    (function initAiChat() {
+      const SRV = 'http://localhost:8899';
+      const MAX_HIST = 60;
+
+      // --- ツール定義 (共通スキーマ) ---
+      const TOOL_DEFS = [
+        {
+          name: 'get_system_status',
+          description: 'サーバーの状態・アップタイム・機能フラグを取得する',
+          parameters: { type: 'object', properties: {}, required: [] },
+        },
+        {
+          name: 'list_files',
+          description: 'プロジェクトのファイル一覧を取得する',
+          parameters: { type: 'object', properties: {}, required: [] },
+        },
+        {
+          name: 'read_file',
+          description: 'ファイルの内容を読み込む（ソースコード・設定・ログなど）',
+          parameters: {
+            type: 'object',
+            properties: { path: { type: 'string', description: 'ファイルパス (例: sw.js, STRUCTURE.md)' } },
+            required: ['path'],
+          },
+        },
+        {
+          name: 'get_logs',
+          description: 'サーバーまたはウォッチドッグの直近ログを取得する',
+          parameters: {
+            type: 'object',
+            properties: {
+              type:  { type: 'string', description: 'server または watchdog (デフォルト: server)' },
+              lines: { type: 'number', description: '取得行数 (デフォルト: 80)' },
+            },
+            required: [],
+          },
+        },
+        {
+          name: 'restart_server',
+          description: 'ローカル API サーバー (port 8899) を再起動する',
+          parameters: { type: 'object', properties: {}, required: [] },
+        },
+        {
+          name: 'get_kintai_config',
+          description: '勤怠アプリの設定情報を取得する（デフォルト勤務時間・場所など）',
+          parameters: { type: 'object', properties: {}, required: [] },
+        },
+        {
+          name: 'get_structure',
+          description: 'システムのディレクトリ構成 (STRUCTURE.md) を取得する',
+          parameters: { type: 'object', properties: {}, required: [] },
+        },
+      ];
+
+      // --- ツール実行 ---
+      async function _execTool(name, args) {
+        try {
+          switch (name) {
+            case 'get_system_status': {
+              const r = await fetch(`${SRV}/api/health`).then(r => r.json());
+              return JSON.stringify(r, null, 2);
+            }
+            case 'list_files': {
+              const r = await fetch(`${SRV}/api/files`).then(r => r.json());
+              return JSON.stringify(r.files?.map(f => ({ path: f.path, is_dir: f.is_dir, size: f.size, modified: f.modified })), null, 2);
+            }
+            case 'read_file': {
+              const r = await fetch(`${SRV}/api/files/read?path=${encodeURIComponent(args.path || '')}`).then(r => r.json());
+              if (r.error) return `エラー: ${r.error}`;
+              return r.truncated ? r.content + '\n\n[200KB を超えたため切り詰めました]' : r.content;
+            }
+            case 'get_logs': {
+              const type  = args.type  || 'server';
+              const lines = args.lines || 80;
+              const r = await fetch(`${SRV}/api/system/logs?type=${type}&lines=${lines}`).then(r => r.json());
+              if (r.error) return `エラー: ${r.error}`;
+              return r.lines.join('\n');
+            }
+            case 'restart_server': {
+              const r = await fetch(`${SRV}/api/system/restart`, { method: 'POST' }).then(r => r.json());
+              return JSON.stringify(r);
+            }
+            case 'get_kintai_config': {
+              const cfg = JSON.parse(localStorage.getItem('kintaiConfig') || '{}');
+              const safe = { ...cfg };
+              delete safe.jinjerPass;
+              return JSON.stringify(safe, null, 2);
+            }
+            case 'get_structure': {
+              return await fetch(`${SRV}/api/structure`).then(r => r.text());
+            }
+            default:
+              return `不明なツール: ${name}`;
+          }
+        } catch (e) {
+          return `ツール実行エラー: ${e.message}`;
+        }
+      }
+
+      // --- システムプロンプト ---
+      function _sysPrompt() {
+        return `あなたは kintai PWA（勤怠管理アプリ）の AI アシスタントです。
+このシステムは Mac で動作し、以下のコンポーネントで構成されています:
+- index.html: PWA 本体（勤怠/ハブ/学習/進捗/報告書/案件/AI タブ）
+- jinjer_server.py: ローカル API サーバー (port 8899)
+- sw.js: Service Worker (PWA キャッシュ制御)
+- watchdog.py: サーバー死活監視（60秒ごと自動再起動）
+- sync_jinjer.py: jinjer から勤怠データを取得 (Playwright)
+- report_sync.py: Excel ↔ kintai データ変換
+
+利用可能なツールを使ってシステムの状態確認・ファイル確認・ログ確認・設定変更を行えます。
+破壊的な変更（サーバー再起動・設定変更）は実行前にユーザーへ確認してください。
+日本語で回答してください。`;
+      }
+
+      // --- UI ヘルパー ---
+      function _md(text) {
+        return text
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/```([\s\S]*?)```/g, (_,c) => `<pre><code>${c.trimStart()}</code></pre>`)
+          .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/^#{1,3} (.+)$/gm, '<strong>$1</strong>')
+          .replace(/^[•\-\*] (.+)$/gm, '• $1')
+          .replace(/\n/g, '<br>');
+      }
+
+      function _appendMsg(role, text) {
+        const el = document.getElementById('ai-messages');
+        if (!el) return;
+        const div = document.createElement('div');
+        div.className = role === 'user' ? 'ai-msg-user' : 'ai-msg-assistant';
+        if (role === 'assistant') div.innerHTML = _md(text);
+        else div.textContent = text;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+      }
+
+      function _appendTool(name, args) {
+        const el = document.getElementById('ai-messages');
+        if (!el) return;
+        const div = document.createElement('div');
+        div.className = 'ai-msg-tool';
+        const a = Object.keys(args || {}).length ? ` (${JSON.stringify(args)})` : '';
+        div.textContent = `🔧 ${name}${a}`;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+      }
+
+      function _appendSys(text) {
+        const el = document.getElementById('ai-messages');
+        if (!el) return;
+        const div = document.createElement('div');
+        div.className = 'ai-msg-system';
+        div.textContent = text;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+      }
+
+      // --- history: [{role:'user'|'assistant', content:string}] ---
+      let _history = [];
+      let _busy = false;
+      let _initialized = false;
+
+      // ===== Claude (Anthropic) =====
+      async function _runClaude(userText, apiKey) {
+        const tools = TOOL_DEFS.map(t => ({
+          name: t.name, description: t.description,
+          input_schema: { type: 'object', properties: t.parameters.properties, required: t.parameters.required },
+        }));
+        // build local messages from clean history + new user msg
+        const localMsgs = _history.map(m => ({ role: m.role, content: m.content }));
+        localMsgs.push({ role: 'user', content: userText });
+
+        let finalText = '';
+        for (let i = 0; i < 6; i++) {
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-allow-browser': 'true',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4096, system: _sysPrompt(), tools, messages: localMsgs }),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error?.message || `HTTP ${resp.status}`);
+          }
+          const res = await resp.json();
+          const texts = (res.content || []).filter(b => b.type === 'text').map(b => b.text);
+          if (texts.length) finalText += texts.join('');
+
+          if (res.stop_reason === 'tool_use') {
+            const toolBlocks = res.content.filter(b => b.type === 'tool_use');
+            localMsgs.push({ role: 'assistant', content: res.content });
+            const results = [];
+            for (const tb of toolBlocks) {
+              _appendTool(tb.name, tb.input);
+              const out = await _execTool(tb.name, tb.input || {});
+              results.push({ type: 'tool_result', tool_use_id: tb.id, content: out });
+            }
+            localMsgs.push({ role: 'user', content: results });
+          } else { break; }
+        }
+        return finalText || '(応答なし)';
+      }
+
+      // ===== OpenAI =====
+      async function _runOpenAI(userText, apiKey) {
+        const tools = TOOL_DEFS.map(t => ({
+          type: 'function',
+          function: { name: t.name, description: t.description, parameters: { type: 'object', properties: t.parameters.properties, required: t.parameters.required } },
+        }));
+        const msgs = [
+          { role: 'system', content: _sysPrompt() },
+          ..._history.map(m => ({ role: m.role, content: m.content })),
+          { role: 'user', content: userText },
+        ];
+        for (let i = 0; i < 6; i++) {
+          const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'content-type': 'application/json' },
+            body: JSON.stringify({ model: 'gpt-4o', messages: msgs, tools, tool_choice: 'auto' }),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error?.message || `HTTP ${resp.status}`);
+          }
+          const res = await resp.json();
+          const msg = res.choices?.[0]?.message;
+          if (!msg) throw new Error('OpenAI: no message returned');
+
+          if (msg.tool_calls?.length) {
+            msgs.push(msg);
+            for (const tc of msg.tool_calls) {
+              const args = JSON.parse(tc.function.arguments || '{}');
+              _appendTool(tc.function.name, args);
+              const out = await _execTool(tc.function.name, args);
+              msgs.push({ role: 'tool', tool_call_id: tc.id, content: out });
+            }
+          } else {
+            return msg.content || '(応答なし)';
+          }
+        }
+        return '(最大ループ数に達しました)';
+      }
+
+      // ===== Gemini =====
+      async function _runGemini(userText, apiKey) {
+        const tools = [{
+          functionDeclarations: TOOL_DEFS.map(t => ({
+            name: t.name, description: t.description,
+            parameters: {
+              type: 'OBJECT',
+              properties: Object.fromEntries(
+                Object.entries(t.parameters.properties || {}).map(([k, v]) => [k, { type: (v.type || 'string').toUpperCase(), description: v.description || '' }])
+              ),
+            },
+          })),
+        }];
+        const contents = [
+          ..._history.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+          { role: 'user', parts: [{ text: userText }] },
+        ];
+        const sysInst = { parts: [{ text: _sysPrompt() }] };
+        for (let i = 0; i < 6; i++) {
+          const resp = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contents, tools, systemInstruction: sysInst }) }
+          );
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error?.message || `HTTP ${resp.status}`);
+          }
+          const res = await resp.json();
+          const parts = res.candidates?.[0]?.content?.parts || [];
+          const funcCalls = parts.filter(p => p.functionCall);
+          const textParts = parts.filter(p => p.text);
+
+          if (funcCalls.length) {
+            contents.push({ role: 'model', parts });
+            const funcResps = [];
+            for (const fc of funcCalls) {
+              _appendTool(fc.functionCall.name, fc.functionCall.args);
+              const out = await _execTool(fc.functionCall.name, fc.functionCall.args || {});
+              funcResps.push({ functionResponse: { name: fc.functionCall.name, response: { result: out } } });
+            }
+            contents.push({ role: 'user', parts: funcResps });
+          } else {
+            return textParts.map(p => p.text).join('') || '(応答なし)';
+          }
+        }
+        return '(最大ループ数に達しました)';
+      }
+
+      // --- 送信メイン ---
+      async function _send() {
+        if (_busy) return;
+        const input = document.getElementById('ai-input');
+        const text = input?.value.trim();
+        if (!text) return;
+
+        const model = document.getElementById('ai-model-select')?.value || 'claude';
+        const sens = await loadSensitiveData();
+        const keyMap = { claude: sens.aiKeyClaude, openai: sens.aiKeyOpenAI, gemini: sens.aiKeyGemini };
+        const apiKey = keyMap[model];
+        if (!apiKey) {
+          _appendSys('⚠️ APIキーが未設定です。⚙️ ボタンから設定してください。');
+          return;
+        }
+
+        _appendMsg('user', text);
+        _history.push({ role: 'user', content: text });
+        input.value = '';
+        input.style.height = 'auto';
+
+        _busy = true;
+        const sendBtn = document.getElementById('ai-send-btn');
+        if (sendBtn) sendBtn.disabled = true;
+
+        // Thinking indicator
+        const msgEl = document.getElementById('ai-messages');
+        const thinkDiv = document.createElement('div');
+        thinkDiv.id = 'ai-thinking';
+        thinkDiv.className = 'ai-msg-assistant';
+        thinkDiv.innerHTML = '<span style="opacity:0.45">思考中 ⏳</span>';
+        msgEl?.appendChild(thinkDiv);
+        msgEl && (msgEl.scrollTop = msgEl.scrollHeight);
+
+        try {
+          let reply = '';
+          if (model === 'claude')  reply = await _runClaude(text, apiKey);
+          if (model === 'openai')  reply = await _runOpenAI(text, apiKey);
+          if (model === 'gemini')  reply = await _runGemini(text, apiKey);
+          document.getElementById('ai-thinking')?.remove();
+          _appendMsg('assistant', reply);
+          _history.push({ role: 'assistant', content: reply });
+        } catch (e) {
+          document.getElementById('ai-thinking')?.remove();
+          _appendSys(`❌ エラー: ${e.message}`);
+          _history.pop(); // user msg を戻す
+        } finally {
+          _busy = false;
+          if (sendBtn) sendBtn.disabled = false;
+        }
+        if (_history.length > MAX_HIST) _history = _history.slice(-MAX_HIST);
+      }
+
+      // --- API キー設定 ---
+      async function _loadKeys() {
+        const s = await loadSensitiveData();
+        ['claude','openai','gemini'].forEach(p => {
+          const el = document.getElementById(`ai-key-${p}`);
+          const keyName = p === 'claude' ? 'aiKeyClaude' : p === 'openai' ? 'aiKeyOpenAI' : 'aiKeyGemini';
+          if (el && s[keyName]) el.value = s[keyName];
+        });
+      }
+
+      async function _saveKeys() {
+        const kc = document.getElementById('ai-key-claude')?.value.trim() || '';
+        const ko = document.getElementById('ai-key-openai')?.value.trim() || '';
+        const kg = document.getElementById('ai-key-gemini')?.value.trim() || '';
+        const cur = await loadSensitiveData();
+        await saveSensitiveData({ ...cur, aiKeyClaude: kc, aiKeyOpenAI: ko, aiKeyGemini: kg });
+        if (typeof toast === 'function') toast('✅ APIキーを保存しました');
+        document.getElementById('ai-settings-modal').style.display = 'none';
+      }
+
+      // --- タブ初期化 (switchTab から呼ばれる) ---
+      window.initAiTab = function() {
+        if (_initialized) return;
+        _initialized = true;
+        _appendSys('🤖 AI アシスタントへようこそ');
+        _appendSys('⚙️ ボタンから API キーを設定してください（Claude / ChatGPT / Gemini）');
+        _appendSys('ローカルサーバーが起動中なら、ファイル確認・ログ確認・サーバー再起動なども依頼できます。');
+      };
+
+      window.addEventListener('load', () => {
+        document.getElementById('ai-send-btn')?.addEventListener('click', _send);
+        document.getElementById('ai-input')?.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _send(); }
+        });
+        document.getElementById('ai-input')?.addEventListener('input', function() {
+          this.style.height = 'auto';
+          this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+        });
+        document.getElementById('ai-clear-btn')?.addEventListener('click', () => {
+          _history = [];
+          const el = document.getElementById('ai-messages');
+          if (el) el.innerHTML = '';
+          _initialized = false;
+          window.initAiTab();
+        });
+        document.getElementById('ai-settings-btn')?.addEventListener('click', async () => {
+          await _loadKeys();
+          document.getElementById('ai-settings-modal').style.display = 'flex';
+        });
+        document.getElementById('ai-settings-close')?.addEventListener('click', () => {
+          document.getElementById('ai-settings-modal').style.display = 'none';
+        });
+        document.getElementById('ai-settings-save')?.addEventListener('click', _saveKeys);
+        ['claude','openai','gemini'].forEach(p => {
+          document.getElementById(`ai-key-${p}-toggle`)?.addEventListener('click', () => {
+            const inp = document.getElementById(`ai-key-${p}`);
+            if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+          });
+        });
       });
     })();
 
