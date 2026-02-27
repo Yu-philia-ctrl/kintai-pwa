@@ -576,22 +576,15 @@
 
     /* ======= TASK FAB ======= */
     .fab-task {
-      position:fixed;
-      right: calc(max(env(safe-area-inset-right), 16px) + 62px);
-      bottom: calc(max(env(safe-area-inset-bottom), 0px) + var(--tab-bar-h) + 20px);
-      width:52px; height:52px;
-      border-radius:999px;
+      width:48px; height:48px; border-radius:999px;
       background:linear-gradient(135deg,#ff9800,#f06000);
-      color:#fff; font-size:22px;
-      border:none; cursor:pointer;
-      box-shadow:0 4px 18px rgba(255,140,0,0.52);
+      color:#fff; font-size:20px; border:none; cursor:pointer;
+      box-shadow:0 3px 14px rgba(255,140,0,0.42);
       display:flex; align-items:center; justify-content:center;
-      z-index:900;
-      font-family:inherit;
-      transition:opacity 0.2s, transform 0.15s;
+      font-family:inherit; flex-shrink:0; transition:transform 0.15s;
     }
     .fab-task:active { transform:scale(0.93); }
-    .fab-task.hidden { opacity:0; pointer-events:none; }
+    .fab-task.hidden { display:none; }
 
     /* ======= TASK MODAL ======= */
     .task-add-form { padding:12px 16px 4px; display:flex; flex-direction:column; gap:8px; }
@@ -614,25 +607,49 @@
 
     /* ======= FLOATING TODAY BUTTON ======= */
     .fab-today {
-      position:fixed;
-      right: calc(max(env(safe-area-inset-right), 16px));
-      bottom: calc(max(env(safe-area-inset-bottom), 0px) + var(--tab-bar-h) + 20px);
-      width:52px; height:52px;
-      border-radius:999px;
+      width:48px; height:48px; border-radius:999px;
       background:linear-gradient(135deg,#4f8dfd,#7c5fe6);
       color:#fff; font-size:11px; font-weight:900;
       border:none; cursor:pointer;
-      box-shadow:0 4px 18px rgba(79,141,253,0.52);
+      box-shadow:0 3px 14px rgba(79,141,253,0.42);
       display:flex; flex-direction:column;
       align-items:center; justify-content:center;
-      gap:1px; z-index:900;
-      font-family:inherit;
-      transition:opacity 0.2s, transform 0.15s;
+      gap:1px; font-family:inherit; flex-shrink:0; transition:transform 0.15s;
     }
     .fab-today:active { transform:scale(0.93); }
-    .fab-today .fab-day { font-size:18px; font-weight:900; line-height:1; }
+    .fab-today .fab-day { font-size:17px; font-weight:900; line-height:1; }
     .fab-today .fab-label { font-size:9px; opacity:.85; }
-    .fab-today.hidden { opacity:0; pointer-events:none; }
+    .fab-today.hidden { display:none; }
+
+    /* ======= FAB GROUP (MacBook Dock スタイル、calendar タブのみ) ======= */
+    .fab-group {
+      position: fixed;
+      right: calc(max(env(safe-area-inset-right), 16px));
+      bottom: calc(max(env(safe-area-inset-bottom), 0px) + var(--tab-bar-h) + 14px);
+      z-index: 900;
+      display: flex; flex-direction: column-reverse; align-items: center; gap: 10px;
+    }
+    .fab-group.hidden { opacity: 0; pointer-events: none; }
+    .fab-group-toggle {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: linear-gradient(135deg, #4f8dfd, #7c5fe6);
+      color: #fff; font-size: 26px;
+      border: none; cursor: pointer;
+      box-shadow: 0 4px 20px rgba(79,141,253,0.52);
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+      font-family: inherit; line-height: 1; flex-shrink: 0;
+    }
+    .fab-group.open .fab-group-toggle { transform: rotate(45deg); }
+    .fab-group-menu {
+      display: flex; flex-direction: column-reverse; align-items: center; gap: 10px;
+      overflow: hidden; max-height: 0; opacity: 0;
+      transition: max-height 0.32s cubic-bezier(0.4,0,0.2,1), opacity 0.2s;
+      pointer-events: none;
+    }
+    .fab-group.open .fab-group-menu { max-height: 280px; opacity: 1; pointer-events: auto; }
+    /* AI ページを active 時に flex レイアウトにする */
+    #page-ai.active { display: flex !important; }
 
     /* ======= JOBS TAB ======= */
     .jobs-server-banner {
@@ -1326,22 +1343,16 @@
 
     /* ======= EMERGENCY FAB ======= */
     .fab-recover {
-      position: fixed;
-      left: calc(max(env(safe-area-inset-left), 16px));
-      bottom: calc(max(env(safe-area-inset-bottom), 0px) + var(--tab-bar-h) + 20px);
-      width: 52px; height: 52px;
-      border-radius: 999px;
+      width: 48px; height: 48px; border-radius: 999px;
       background: linear-gradient(135deg, #f44336, #b71c1c);
-      color: #fff; font-size: 20px;
+      color: #fff; font-size: 18px;
       border: none; cursor: pointer;
-      box-shadow: 0 4px 18px rgba(244,67,54,0.55);
+      box-shadow: 0 3px 14px rgba(244,67,54,0.42);
       display: flex; align-items: center; justify-content: center;
-      z-index: 900;
-      font-family: inherit;
-      transition: opacity 0.2s, transform 0.15s;
+      font-family: inherit; flex-shrink: 0; transition: transform 0.15s;
     }
     .fab-recover:active { transform: scale(0.93); }
-    .fab-recover.hidden { opacity: 0; pointer-events: none; }
+    .fab-recover.hidden { display: none; }
 
     /* ======= EMERGENCY MODAL ======= */
     .emergency-modal-body {
@@ -2224,17 +2235,18 @@
     </div>
   </div>
 
-  <!-- Emergency FAB -->
-  <button class="fab-recover" id="fab-recover" title="緊急復旧">🚨</button>
-
-  <!-- Floating today button -->
-  <button class="fab-today" id="fab-today">
-    <span class="fab-day" id="fab-day">--</span>
-    <span class="fab-label">今日</span>
-  </button>
-
-  <!-- Task FAB -->
-  <button class="fab-task" id="fab-task">📋</button>
+  <!-- FAB Group (calendar タブのみ表示・折り畳み式) -->
+  <div class="fab-group" id="fab-group">
+    <button class="fab-group-toggle" id="fab-toggle" aria-label="アクションメニューを開く">＋</button>
+    <div class="fab-group-menu" id="fab-group-menu">
+      <button class="fab-recover" id="fab-recover" title="緊急復旧">🚨</button>
+      <button class="fab-task" id="fab-task">📋</button>
+      <button class="fab-today" id="fab-today">
+        <span class="fab-day" id="fab-day">--</span>
+        <span class="fab-label">今日</span>
+      </button>
+    </div>
+  </div>
 
   <!-- Bottom Tab Navigation -->
   <nav class="bottom-tabs" id="bottom-tabs">
@@ -4546,6 +4558,7 @@
 
     function saveTasks(tasks) {
       localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+      window._taskIdbBackup?.(tasks); // 非同期 IDB バックアップ
     }
 
     function _esc(s) {
@@ -4648,6 +4661,63 @@
         fabToday.classList.toggle('hidden', open);
         fab.classList.toggle('hidden', open);
       }).observe(modal, { attributes: true });
+    })();
+
+    /* =====================================================
+       TASK IDB AUTO-BACKUP  — localStorage が消えても復元できる
+       ===================================================== */
+    (function initTaskIdbBackup() {
+      const DB   = 'kintaiTaskBackupDB';
+      const STOR = 'tasks';
+      let _db = null;
+
+      function _open() {
+        if (_db) return Promise.resolve(_db);
+        return new Promise((res, rej) => {
+          const r = indexedDB.open(DB, 1);
+          r.onupgradeneeded = e => e.target.result.createObjectStore(STOR, { keyPath: 'id' });
+          r.onsuccess = e => { _db = e.target.result; res(_db); };
+          r.onerror   = () => rej(r.error);
+        });
+      }
+
+      // 外部から saveTasks 経由で呼ばれる
+      window._taskIdbBackup = async function(tasks) {
+        try {
+          const db = await _open();
+          const tx = db.transaction(STOR, 'readwrite');
+          const s  = tx.objectStore(STOR);
+          s.clear();
+          tasks.forEach(t => s.put(t));
+          return new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
+        } catch (e) { console.warn('[TaskIDB] backup failed', e); }
+      };
+
+      async function _restore() {
+        try {
+          const db = await _open();
+          return new Promise(res => {
+            const r = db.transaction(STOR, 'readonly').objectStore(STOR).getAll();
+            r.onsuccess = () => res(r.result || []);
+            r.onerror   = () => res([]);
+          });
+        } catch { return []; }
+      }
+
+      // 起動時: localStorage が空なら IDB から復元
+      (async () => {
+        if (loadTasks().length === 0) {
+          const backup = await _restore();
+          if (backup.length > 0) {
+            localStorage.setItem(TASKS_KEY, JSON.stringify(backup));
+            if (typeof toast === 'function')
+              toast(`💾 バックアップから ${backup.length} 件のタスクを復元しました`);
+          }
+        } else {
+          // 起動時に IDB へも同期
+          window._taskIdbBackup(loadTasks());
+        }
+      })();
     })();
 
     /* =====================================================
@@ -4948,7 +5018,7 @@
     (function initTabs() {
       const tabs   = document.querySelectorAll('.tab-btn[data-tab]');
       const pages  = document.querySelectorAll('.tab-page');
-      const calFabs = ['fab-today', 'fab-task', 'fab-recover'].map(id => document.getElementById(id));
+      const calFabs = [document.getElementById('fab-group')];
 
       function switchTab(tabName) {
         tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
@@ -4965,6 +5035,33 @@
       }
 
       tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+    })();
+
+    /* =====================================================
+       FAB GROUP TOGGLE
+       ===================================================== */
+    (function initFabGroup() {
+      const group  = document.getElementById('fab-group');
+      const toggle = document.getElementById('fab-toggle');
+      if (!group || !toggle) return;
+
+      toggle.addEventListener('click', e => {
+        e.stopPropagation();
+        group.classList.toggle('open');
+      });
+
+      // グループ外クリックで閉じる
+      document.addEventListener('click', e => {
+        if (group && !group.contains(e.target)) group.classList.remove('open');
+      });
+
+      // モーダルが開いたとき自動でグループを閉じる
+      document.querySelectorAll('.modal-backdrop').forEach(m => {
+        new MutationObserver(() => {
+          const open = m.classList.contains('show') || m.style.display === 'flex';
+          if (open) group.classList.remove('open');
+        }).observe(m, { attributes: true, attributeFilter: ['class', 'style'] });
+      });
     })();
 
     /* =====================================================
