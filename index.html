@@ -2153,13 +2153,13 @@
       <div style="padding:4px 16px 16px;">
         <!-- 同期方法の選択 -->
         <div id="jinjer-sync-opts">
-          <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-full" style="border-color:var(--accent-blue);background:linear-gradient(135deg,rgba(79,141,253,0.08),rgba(124,95,230,0.08));">
-            <div class="jinjer-sync-opt-title" style="color:var(--accent-blue);">📊 全期間一括同期</div>
-            <div class="jinjer-sync-opt-sub" id="jinjer-sync-full-range">全月をMacから取得・iCloudに保存</div>
+          <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-auto" style="border-color:var(--accent-blue);background:linear-gradient(135deg,rgba(79,141,253,0.08),rgba(124,95,230,0.08));">
+            <div class="jinjer-sync-opt-title" style="color:var(--accent-blue);">🚀 今月を今すぐ同期</div>
+            <div class="jinjer-sync-opt-sub">ローカルサーバー経由でjinjerから直接取得（Tailscale不要）</div>
           </button>
-          <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-auto">
-            <div class="jinjer-sync-opt-title">🖥 今月のみ自動同期</div>
-            <div class="jinjer-sync-opt-sub">Tailscale経由で今月分のみ取得</div>
+          <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-full">
+            <div class="jinjer-sync-opt-title">📊 全期間一括同期</div>
+            <div class="jinjer-sync-opt-sub" id="jinjer-sync-full-range">全月をまとめて取得・iCloudに保存</div>
           </button>
           <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-file">
             <div class="jinjer-sync-opt-title">📂 ファイルから同期</div>
@@ -3375,45 +3375,66 @@
       return result;
     }
 
+    // サーバーURL解決: localhostを最優先、なければTailscale IP
+    async function _resolveServerUrl(port) {
+      // Macブラウザ / ローカルサーバー起動中 → localhost が最速
+      try {
+        const ctrl = new AbortController();
+        setTimeout(() => ctrl.abort(), 2000);
+        const r = await fetch(`http://localhost:${port}/api/structure`, { signal: ctrl.signal });
+        if (r.ok) return `http://localhost:${port}`;
+      } catch(_) {}
+      // フォールバック: Tailscale IP
+      const sens = await loadSensitiveData();
+      if (sens.tsMac) return `http://${sens.tsMac}:${port}`;
+      return null;
+    }
+
     // 全期間一括同期（開始月 ～ 今月）
     async function _doJinjerFullSync() {
-      const cfg  = loadConfig();
-      const sens = await loadSensitiveData();
-      const macIp = sens.tsMac || '';
+      const cfg      = loadConfig();
       const statusEl = document.getElementById('jinjer-sync-status');
       const cmdBox   = document.getElementById('jinjer-sync-cmd-box');
       const optsEl   = document.getElementById('jinjer-sync-opts');
       document.getElementById('jinjer-sync-modal').classList.add('show');
-      optsEl.style.display  = 'none';
+      optsEl.style.display   = 'none';
       statusEl.style.display = '';
       cmdBox.style.display   = 'none';
 
-      if (!macIp) {
-        statusEl.textContent = '⚠️ 設定でTailscale MacBook IPを設定してください';
+      const port   = cfg.jinjerServerPort || '8899';
+      statusEl.innerHTML = '🔍 サーバーを検索中…';
+
+      const base = await _resolveServerUrl(port);
+      if (!base) {
+        statusEl.innerHTML =
+          `❌ サーバーが見つかりません<br>` +
+          `<span style="font-size:11px;opacity:0.8;">ローカルサーバーは常時起動中のはずです。<br>launchctl list | grep kintai.server で確認してください。</span>`;
+        const cmd = `cd ~/root/attendance-pwa && python3 jinjer_server.py`;
+        document.getElementById('jinjer-sync-cmd-text').textContent = cmd;
+        cmdBox.style.display = '';
+        document.getElementById('jinjer-sync-cmd-copy').onclick = () =>
+          navigator.clipboard?.writeText(cmd).then(() => toast('📋 コピーしました'));
+        document.getElementById('jinjer-sync-retry').onclick = () => _doJinjerFullSync();
         return;
       }
 
       const today = new Date();
       const endMonth   = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
       const startMonth = cfg.jinjerStartMonth || '2025-10';
-      const months = _monthsInRange(startMonth, endMonth);
-      const port   = cfg.jinjerServerPort || '8899';
+      const months     = _monthsInRange(startMonth, endMonth);
+      const modeLabel  = base.includes('localhost') ? '🖥 ローカル直接' : '🔒 Tailscale';
 
       statusEl.innerHTML =
-        `📡 全期間一括同期中…<br>` +
+        `📡 全期間一括同期中… (${modeLabel})<br>` +
         `<span style="font-size:12px;font-weight:700;">${startMonth} ～ ${endMonth}（${months.length}ヶ月）</span><br>` +
-        `<span style="font-size:11px;opacity:0.7;">初回は数分かかる場合があります</span>`;
+        `<span style="font-size:11px;opacity:0.7;">初回は数分かかります（Playwright起動含む）</span>`;
 
       try {
         const ctrl = new AbortController();
-        const timeoutMs = Math.max(90000, months.length * 18000); // 18秒/月、最低90秒
+        const timeoutMs = Math.max(120000, months.length * 20000);
         setTimeout(() => ctrl.abort(), timeoutMs);
 
-        const monthsParam = months.join(',');
-        const res = await fetch(
-          `http://${macIp}:${port}/api/jinjer?months=${monthsParam}`,
-          { signal: ctrl.signal }
-        );
+        const res = await fetch(`${base}/api/jinjer?months=${months.join(',')}`, { signal: ctrl.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const jinjer = await res.json();
 
@@ -3426,57 +3447,64 @@
         const isTimeout = e.name === 'AbortError';
         statusEl.innerHTML =
           `❌ 同期に失敗しました<br>` +
-          `<span style="font-size:11px;opacity:0.8;">${isTimeout ? 'タイムアウト — Macのサーバーが起動しているか確認してください' : e.message}</span>`;
-        const projDir = '~/root/attendance-pwa';
-        const cmd = `cd ${projDir} && python3 jinjer_server.py`;
-        document.getElementById('jinjer-sync-cmd-text').textContent = cmd;
+          `<span style="font-size:11px;opacity:0.8;">${isTimeout ? 'タイムアウト — Playwright の起動に時間がかかっています' : e.message}</span>`;
+        document.getElementById('jinjer-sync-cmd-text').textContent =
+          `cd ~/root/attendance-pwa && python3 jinjer_server.py`;
         cmdBox.style.display = '';
-        document.getElementById('jinjer-sync-cmd-copy').onclick = () =>
-          navigator.clipboard?.writeText(cmd).then(() => toast('📋 コマンドをコピーしました'));
         document.getElementById('jinjer-sync-retry').onclick = () => _doJinjerFullSync();
         _appLog('warn', 'jinjer', `全期間同期失敗: ${e.message}`);
       }
     }
 
     async function _doJinjerAutoSync() {
-      const cfg  = loadConfig();
-      const sens = await loadSensitiveData();
-      const macIp = sens.tsMac || '';
+      const cfg      = loadConfig();
       const statusEl = document.getElementById('jinjer-sync-status');
-      const cmdBox = document.getElementById('jinjer-sync-cmd-box');
-      const optsEl = document.getElementById('jinjer-sync-opts');
+      const cmdBox   = document.getElementById('jinjer-sync-cmd-box');
+      const optsEl   = document.getElementById('jinjer-sync-opts');
       document.getElementById('jinjer-sync-modal').classList.add('show');
-      optsEl.style.display = 'none';
+      optsEl.style.display   = 'none';
       statusEl.style.display = '';
-      cmdBox.style.display = 'none';
-      if (!macIp) {
-        statusEl.textContent = '⚠️ 設定でTailscale MacBook IPを設定してください';
+      cmdBox.style.display   = 'none';
+
+      const port = cfg.jinjerServerPort || '8899';
+      statusEl.innerHTML = '🔍 サーバーを検索中…';
+
+      const base = await _resolveServerUrl(port);
+      if (!base) {
+        statusEl.innerHTML =
+          `❌ サーバーが見つかりません<br>` +
+          `<span style="font-size:11px;opacity:0.8;">launchd で常時起動中のはずです。ログを確認してください。</span>`;
+        document.getElementById('jinjer-sync-cmd-text').textContent =
+          `launchctl list | grep kintai.server`;
+        cmdBox.style.display = '';
+        document.getElementById('jinjer-sync-retry').onclick = () => _doJinjerAutoSync();
         return;
       }
-      statusEl.textContent = '📡 Macのサーバーに接続中…';
-      const today = new Date();
-      const month = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
-      const port = cfg.jinjerServerPort || '8899';
+
+      const today  = new Date();
+      const month  = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+      const modeLabel = base.includes('localhost') ? '🖥 ローカル直接' : '🔒 Tailscale';
+      statusEl.innerHTML = `📡 今月 (${month}) を同期中… (${modeLabel})`;
+
       try {
         const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 12000);
-        const res = await fetch(`http://${macIp}:${port}/api/jinjer?months=${month}`, { signal: ctrl.signal });
+        setTimeout(() => ctrl.abort(), 120000);  // Playwright起動込みで2分
+        const res = await fetch(`${base}/api/jinjer?months=${month}`, { signal: ctrl.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const jinjer = await res.json();
         document.getElementById('jinjer-sync-modal').classList.remove('show');
-        _processJinjerData(jinjer);
-        _appLog('info', 'jinjer', `Tailscale自動同期: ${month}`);
+        await _processJinjerData(jinjer);
+        toast(`✅ 今月の同期完了 (${modeLabel})`);
+        _appLog('info', 'jinjer', `今月同期: ${month} via ${modeLabel}`);
       } catch(e) {
-        statusEl.textContent = `❌ サーバーに接続できませんでした`;
-        const projDir = '~/root/attendance-pwa';
-        const cmd = `cd ${projDir} && python3 jinjer_server.py`;
-        document.getElementById('jinjer-sync-cmd-text').textContent = cmd;
+        statusEl.innerHTML =
+          `❌ 同期に失敗しました<br>` +
+          `<span style="font-size:11px;opacity:0.8;">${e.message}</span>`;
+        document.getElementById('jinjer-sync-cmd-text').textContent =
+          `cd ~/root/attendance-pwa && python3 jinjer_server.py`;
         cmdBox.style.display = '';
-        document.getElementById('jinjer-sync-cmd-copy').onclick = () => {
-          navigator.clipboard?.writeText(cmd).then(() => toast('📋 コマンドをコピーしました'));
-        };
         document.getElementById('jinjer-sync-retry').onclick = () => _doJinjerAutoSync();
-        _appLog('warn', 'jinjer', `Tailscale接続失敗: ${e.message}`);
+        _appLog('warn', 'jinjer', `今月同期失敗: ${e.message}`);
       }
     }
 

@@ -36,10 +36,11 @@ def _load_env():
 
 _load_env()
 
-JINJER_SIGN_IN = 'https://kintai.jinjer.biz/staffs/sign_in'
-COMPANY_CODE   = os.environ.get('JINJER_COMPANY_CODE', '15733')
-EMPLOYEE_CODE  = os.environ.get('JINJER_EMPLOYEE_CODE', '191')
-PASSWORD       = os.environ.get('JINJER_PASSWORD', 'philia1904rops')
+JINJER_SIGN_IN  = 'https://kintai.jinjer.biz/sign_in'   # メインログインURL
+JINJER_TOP      = 'https://kintai.jinjer.biz/staffs/top'
+COMPANY_CODE    = os.environ.get('JINJER_COMPANY_CODE', '15733')
+EMPLOYEE_CODE   = os.environ.get('JINJER_EMPLOYEE_CODE', '191')
+PASSWORD        = os.environ.get('JINJER_PASSWORD', 'philia1904rops')
 # ================================================================
 
 
@@ -80,20 +81,47 @@ def to_date_key(date_text, year, month):
 
 
 JS_EXTRACT = """() => {
+    // ヘッダーから列インデックスを動的に解決する
+    const headers = Array.from(document.querySelectorAll('table thead tr th, table thead tr td'))
+        .map(th => th.textContent?.replace(/\\s+/g,' ').trim());
+    const idx = name => {
+        const i = headers.findIndex(h => h.includes(name));
+        return i >= 0 ? i : null;
+    };
+    // 既知の列名パターン
+    const COL_DATE    = idx('日付')   ?? 1;
+    const COL_ACTUAL  = idx('実績')   ?? 3;   // 実績 or 打刻実績
+    const COL_STATUS  = idx('勤怠')   ?? 7;
+    const COL_KYUKA   = idx('休暇')   ?? 8;
+    const COL_SHUTSU  = idx('出社')   ?? 15;
+    const COL_ZAITAKU = idx('在宅')   ?? 16;
+
     const rows = document.querySelectorAll('table tbody tr');
     const data = [];
     rows.forEach(row => {
         const cells = Array.from(row.querySelectorAll('td'))
             .map(td => td.textContent?.replace(/\\s+/g,' ').trim());
-        if (cells.length < 20 || !cells[1]?.match(/月\\d+日/)) return;
-        const am = (cells[3]||'').match(/(\\d{2}:\\d{2})\\s*〜\\s*(\\d{2}:\\d{2})/);
+        if (!cells[COL_DATE]?.match(/月\\d+日/)) return;
+
+        // 実績時間を全セルから広く探す（列位置が変わっても対応）
+        let actualStr = cells[COL_ACTUAL] || '';
+        if (!actualStr.match(/\\d{2}:\\d{2}/)) {
+            // フォールバック: 先頭20列から時刻パターンを探す
+            for (let i = 0; i < Math.min(cells.length, 20); i++) {
+                if ((cells[i]||'').match(/\\d{2}:\\d{2}\\s*[〜~]\\s*\\d{2}:\\d{2}/)) {
+                    actualStr = cells[i]; break;
+                }
+            }
+        }
+        const am = actualStr.match(/(\\d{2}:\\d{2})\\s*[〜~]\\s*(\\d{2}:\\d{2})/);
+
         data.push({
-            date:       cells[1],
+            date:       cells[COL_DATE],
             actual:     am ? am[1]+'~'+am[2] : null,
-            workStatus: cells[7],
-            kyuka:      cells[8],
-            shutsu:     cells[15],
-            zaitaku:    cells[16],
+            workStatus: cells[COL_STATUS]  || '-',
+            kyuka:      cells[COL_KYUKA]   || '-',
+            shutsu:     cells[COL_SHUTSU]  || '00:00',
+            zaitaku:    cells[COL_ZAITAKU] || '00:00',
         });
     });
     return data;
@@ -115,6 +143,48 @@ def months_in_range(start: str, end: str) -> list:
     return result
 
 
+async def _login(page) -> bool:
+    """jinjer にログインする。成功したら True を返す"""
+    print(f'[ログイン] {JINJER_SIGN_IN} へ移動中...')
+    await page.goto(JINJER_SIGN_IN, wait_until='domcontentloaded')
+
+    # --- 企業コードを入力 ---
+    company_sel = 'input[name="company_code"], input[id="company_code"], input[placeholder*="企業"]'
+    try:
+        await page.wait_for_selector(company_sel, timeout=8000)
+        await page.fill(company_sel, COMPANY_CODE)
+    except Exception:
+        # 企業コードフィールドがない場合（既にリダイレクト済みなど）はスキップ
+        pass
+
+    # --- 社員番号 / メールアドレス ---
+    await page.fill('input[name="email"], input[name="employee_code"]', EMPLOYEE_CODE)
+
+    # --- パスワード ---
+    await page.fill('input[name="password"]', PASSWORD)
+
+    # --- 次回から入力を省略（Remember Me）にチェック ---
+    try:
+        remember_sel = 'input[type="checkbox"]'
+        cb = page.locator(remember_sel).first
+        if await cb.count() > 0 and not await cb.is_checked():
+            await cb.check()
+            print('      ☑ 次回から入力を省略 にチェック')
+    except Exception:
+        pass
+
+    # --- ログインボタン押下 ---
+    await page.click('button[type="submit"]')
+
+    try:
+        await page.wait_for_url('**/staffs/top', timeout=20000)
+        print('      ✅ ログイン成功')
+        return True
+    except Exception as e:
+        print(f'      ❌ ログイン失敗: {e}')
+        return False
+
+
 async def scrape_months(target_months: list) -> dict:
     """複数月をまとめてスクレイプ（ログイン1回で節約）"""
     from playwright.async_api import async_playwright
@@ -122,23 +192,43 @@ async def scrape_months(target_months: list) -> dict:
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        page    = await browser.new_page()
+        ctx     = await browser.new_context()
+        page    = await ctx.new_page()
 
-        print('[ログイン] jinjerにサインイン中...')
-        await page.goto(JINJER_SIGN_IN)
-        await page.fill('input[name="company_code"]', COMPANY_CODE)
-        await page.fill('input[name="email"]',        EMPLOYEE_CODE)
-        await page.fill('input[name="password"]',     PASSWORD)
-        await page.click('button[type="submit"]')
-        await page.wait_for_url('**/staffs/top')
-        print('      ✅ ログイン成功')
+        if not await _login(page):
+            await browser.close()
+            raise RuntimeError('jinjer へのログインに失敗しました。認証情報を .env で確認してください。')
+
+        # 今月のデータは 打刻修正申請 ページ経由で取得（UI経由で信頼性向上）
+        today_ym = date.today().strftime('%Y-%m')
 
         for i, ym in enumerate(target_months):
             year, month = ym.split('-')
             print(f'[{i+1}/{len(target_months)}] {ym} を取得中...')
-            url = f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{int(month)}'
-            await page.goto(url, wait_until='domcontentloaded')
-            await page.wait_for_selector('table tbody tr', timeout=15000)
+
+            if ym == today_ym:
+                # 今月は staffs/top → 打刻修正申請ボタン経由
+                try:
+                    await page.goto(JINJER_TOP, wait_until='domcontentloaded')
+                    # 「打刻修正申請」ボタンを探してクリック
+                    btn = page.locator('a, button').filter(has_text=re.compile(r'打刻修正|タイムカード|勤怠一覧'))
+                    if await btn.count() > 0:
+                        await btn.first.click()
+                        await page.wait_for_selector('table tbody tr', timeout=15000)
+                    else:
+                        # ボタンが見つからなければ直接URL
+                        raise Exception('打刻修正申請ボタンが見つかりません')
+                except Exception as ex:
+                    print(f'      ⚠ UI経由失敗 ({ex})、直接URLで再試行...')
+                    url = f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{int(month)}'
+                    await page.goto(url, wait_until='domcontentloaded')
+                    await page.wait_for_selector('table tbody tr', timeout=15000)
+            else:
+                # 過去月は直接URL
+                url = f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{int(month)}'
+                await page.goto(url, wait_until='domcontentloaded')
+                await page.wait_for_selector('table tbody tr', timeout=15000)
+
             rows = await page.evaluate(JS_EXTRACT)
             all_rows[ym] = rows
             print(f'      → {len(rows)} 行取得')
