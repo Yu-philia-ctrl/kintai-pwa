@@ -765,6 +765,124 @@
     .project-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); gap: 8px; flex-wrap: wrap; }
     .project-del-btn { background: none; border: none; color: #e57373; font-size: 15px; cursor: pointer; padding: 0; flex-shrink: 0; }
 
+    /* ======= REPORT TAB ======= */
+    .report-server-banner {
+      background: #fff8e1; border: 1px solid #ffe0b2;
+      border-radius: 14px; padding: 10px 14px;
+      margin-bottom: 10px; font-size: 12px;
+      color: #e65100; line-height: 1.5;
+    }
+    .report-month-nav {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px; overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .report-month-nav::-webkit-scrollbar { display: none; }
+    .report-month-chip {
+      flex-shrink: 0; padding: 5px 13px; border-radius: 999px;
+      font-size: 12px; font-weight: 700;
+      border: 1px solid var(--border-soft);
+      background: rgba(255,255,255,0.7);
+      cursor: pointer; font-family: inherit;
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+    .report-month-chip.active {
+      background: var(--accent-blue); color: #fff;
+      border-color: var(--accent-blue);
+    }
+    .report-status-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 14px;
+      border: 1px solid var(--border-soft);
+      background: var(--bg-card-solid);
+      margin-bottom: 8px;
+    }
+    .report-status-badge {
+      font-size: 10px; font-weight: 800;
+      padding: 3px 9px; border-radius: 999px;
+      white-space: nowrap;
+    }
+    .report-badge-approved { background: #e8f5e9; color: #2e7d32; }
+    .report-badge-reviewing { background: #e3f2fd; color: #1565c0; }
+    .report-badge-draft     { background: #f4f4f6; color: var(--text-muted); }
+    .report-filename { font-size: 11px; color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .report-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 14px; border: 1px solid var(--border-soft); margin-bottom: 8px; }
+    .report-table {
+      width: 100%; border-collapse: collapse; font-size: 11px; min-width: 520px;
+    }
+    .report-table th {
+      background: rgba(245,246,251,0.9); padding: 7px 6px;
+      text-align: center; font-weight: 700; color: var(--text-muted);
+      border-bottom: 1px solid var(--border-soft); white-space: nowrap;
+    }
+    .report-table td {
+      padding: 5px 6px; border-bottom: 1px solid rgba(230,232,240,0.7);
+      vertical-align: middle;
+    }
+    .report-table tr:last-child td { border-bottom: none; }
+    .report-row-weekend td { background: rgba(245,246,251,0.6); color: var(--text-muted); }
+    .report-row-holiday td { background: #ffebee; }
+    .report-row-vacation td { background: #fff8e1; }
+    .report-row-office td  { background: rgba(227,242,253,0.5); }
+    .report-row-home td    { background: rgba(232,245,233,0.5); }
+    .report-note-badge {
+      display: inline-block; padding: 1px 7px; border-radius: 999px;
+      font-size: 10px; font-weight: 700;
+    }
+    .report-note-在宅   { background: #e8f5e9; color: #2e7d32; }
+    .report-note-出社   { background: #e3f2fd; color: #1565c0; }
+    .report-note-有給   { background: #fff8e1; color: #ef6c00; }
+    .report-note-祝日   { background: #ffebee; color: #c62828; }
+    .report-note-休日   { background: #ede7f6; color: #5e35b1; }
+    .report-actions {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .report-meta-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 6px; margin-bottom: 8px;
+    }
+    .report-meta-item {
+      background: rgba(255,255,255,0.7); border-radius: 10px;
+      border: 1px solid var(--border-soft); padding: 6px 10px;
+    }
+    .report-meta-label { font-size: 10px; color: var(--text-muted); font-weight: 700; margin-bottom: 2px; }
+    .report-meta-value { font-size: 12px; font-weight: 700; }
+    .report-summary-bar {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .report-automation-panel {
+      background: rgba(255,255,255,0.7); border-radius: 16px;
+      border: 1px solid var(--border-soft);
+      padding: 10px 14px;
+    }
+    .report-automation-header {
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; user-select: none;
+    }
+    .report-automation-title { font-size: 12px; font-weight: 800; }
+    .report-automation-body { display: none; margin-top: 10px; }
+    .report-automation-body.open { display: block; }
+    .report-suggestion {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 8px 0; border-bottom: 1px solid var(--border-soft);
+    }
+    .report-suggestion:last-child { border-bottom: none; }
+    .report-suggestion-icon { font-size: 18px; flex-shrink: 0; }
+    .report-suggestion-text { font-size: 12px; line-height: 1.5; }
+    .report-suggestion-title { font-weight: 800; margin-bottom: 2px; }
+    .report-suggestion-desc { color: var(--text-muted); }
+    .report-empty {
+      text-align: center; padding: 32px 16px;
+      color: var(--text-muted); font-size: 13px;
+    }
+    .report-loading {
+      text-align: center; padding: 24px;
+      color: var(--text-muted); font-size: 13px;
+    }
+
     /* ======= CALENDAR WEATHER STRIP ======= */
     .cal-weather-strip {
       display: flex; align-items: center; gap: 10px;
@@ -1441,6 +1559,100 @@
     </div>
   </div>
 
+  <!-- ===== TAB: 業務報告書 ===== -->
+  <div id="page-report" class="tab-page">
+    <!-- サーバー未起動バナー -->
+    <div class="report-server-banner" id="report-server-banner" style="display:none;">
+      ⚠️ <strong>ローカルサーバー未接続</strong><br>
+      Excel 読み込み・同期機能を使うには <code>python3 jinjer_server.py</code> を起動してください（port 8899）。
+    </div>
+
+    <!-- 月選択ナビ -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">📋 業務報告書</div>
+      <div class="report-month-nav" id="report-month-nav"></div>
+
+      <!-- ステータスカード -->
+      <div id="report-status-area"></div>
+
+      <!-- メタ情報 -->
+      <div class="report-meta-grid" id="report-meta-grid" style="display:none;"></div>
+
+      <!-- サマリー -->
+      <div class="report-summary-bar" id="report-summary-bar" style="display:none;"></div>
+
+      <!-- アクションボタン -->
+      <div class="report-actions">
+        <button class="data-btn" id="btn-report-load">📥 Excel 読み込み</button>
+        <button class="data-btn" id="btn-report-sync">📤 kintai から同期</button>
+        <button class="data-btn" id="btn-report-generate">➕ 翌月を自動生成</button>
+      </div>
+    </div>
+
+    <!-- 日別テーブル -->
+    <div class="card" id="report-table-card" style="margin-bottom:10px;">
+      <div class="card-title">📆 日別作業内容</div>
+      <div id="report-table-area">
+        <div class="report-empty" id="report-empty-msg">← 月を選択してください</div>
+      </div>
+    </div>
+
+    <!-- 自動化提案パネル -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="report-automation-panel">
+        <div class="report-automation-header" id="report-auto-toggle">
+          <span class="report-automation-title">🤖 業務自動化の提案・状況</span>
+          <span id="report-auto-arrow" style="font-size:14px;transition:transform 0.2s;">▶</span>
+        </div>
+        <div class="report-automation-body" id="report-auto-body">
+          <div id="report-auto-launchd-status" style="margin-bottom:10px;"></div>
+          <div class="report-suggestion">
+            <div class="report-suggestion-icon">📅</div>
+            <div class="report-suggestion-text">
+              <div class="report-suggestion-title">毎月1日: 翌月Excel自動生成</div>
+              <div class="report-suggestion-desc">launchd (com.kintai.monthly) により毎月1日 08:00 に翌月の作業報告書テンプレートを自動生成します。祝日も自動入力。</div>
+            </div>
+          </div>
+          <div class="report-suggestion">
+            <div class="report-suggestion-icon">🔄</div>
+            <div class="report-suggestion-text">
+              <div class="report-suggestion-title">毎月28日: jinjer同期 + Excel自動記入</div>
+              <div class="report-suggestion-desc">月末にjinjerから勤怠データを取得し、kintaiカレンダーと作業報告書Excelを自動更新します。</div>
+            </div>
+          </div>
+          <div class="report-suggestion">
+            <div class="report-suggestion-icon">🌅</div>
+            <div class="report-suggestion-text">
+              <div class="report-suggestion-title">毎朝07:30: STRUCTURE.md自動更新</div>
+              <div class="report-suggestion-desc">ディレクトリ構成図を毎日最新の状態でリポジトリに保存します（git pushで公開）。</div>
+            </div>
+          </div>
+          <div class="report-suggestion">
+            <div class="report-suggestion-icon">💡</div>
+            <div class="report-suggestion-text">
+              <div class="report-suggestion-title">【提案】作業内容テンプレート化</div>
+              <div class="report-suggestion-desc">「【定常作業】日次ログ確認」のような繰り返し作業はテンプレートとして登録し、1クリックで入力できます。kintaiの「メモ」欄に保存して報告書に自動反映。</div>
+            </div>
+          </div>
+          <div class="report-suggestion">
+            <div class="report-suggestion-icon">📊</div>
+            <div class="report-suggestion-text">
+              <div class="report-suggestion-title">【提案】月次工数サマリーの自動作成</div>
+              <div class="report-suggestion-desc">kintaiデータから在宅・出社・休暇の日数と総時間を集計し、月次報告に使えるテキストを自動生成します。</div>
+            </div>
+          </div>
+          <div class="report-suggestion">
+            <div class="report-suggestion-icon">📧</div>
+            <div class="report-suggestion-text">
+              <div class="report-suggestion-title">【提案】報告書提出リマインダー</div>
+              <div class="report-suggestion-desc">月末近くに作業報告書が「作成中」状態のままの場合、macOS通知でリマインドする仕組みを追加できます。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 編集モーダル -->
   <div class="modal-backdrop" id="memo-modal">
     <div class="modal-sheet">
@@ -1679,11 +1891,11 @@
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
           <div class="settings-label">🔒 Tailscale MacBook IP</div>
-          <input type="text" id="settings-ts-mac" class="settings-input" placeholder="例: 100.65.221.66" autocomplete="off" inputmode="decimal">
+          <input type="text" id="settings-ts-mac" class="settings-input" placeholder="例: 100.x.x.x" autocomplete="off" inputmode="decimal">
         </div>
         <div class="settings-row">
           <div class="settings-label">📱 Tailscale iPhone IP</div>
-          <input type="text" id="settings-ts-iphone" class="settings-input" placeholder="例: 100.93.30.114" autocomplete="off" inputmode="decimal">
+          <input type="text" id="settings-ts-iphone" class="settings-input" placeholder="例: 100.x.x.x" autocomplete="off" inputmode="decimal">
         </div>
         <div class="settings-row">
           <div class="settings-label">👤 SSH ユーザー名</div>
@@ -1776,6 +1988,9 @@
     </button>
     <button class="tab-btn" data-tab="project">
       <span class="tab-icon">📊</span>進捗
+    </button>
+    <button class="tab-btn" data-tab="report">
+      <span class="tab-icon">📋</span>報告書
     </button>
   </nav>
 
@@ -2335,16 +2550,112 @@
     }
 
     /* =====================================================
+       SENSITIVE DATA ENCRYPTION (AES-GCM / Web Crypto API)
+       tsMac / tsIphone / jinjerPass は平文では保存しない。
+       デバイス固有のIDから PBKDF2 で鍵を派生させ、常に暗号化して保管する。
+       ===================================================== */
+    const _SENS_STORE_KEY = '_kintai_sens_v1';
+    const _DEV_ID_KEY     = '_kintai_dev_id';
+
+    async function _getSensKey() {
+      let devId = localStorage.getItem(_DEV_ID_KEY);
+      if (!devId) {
+        devId = (crypto.randomUUID?.() ?? Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join(''));
+        localStorage.setItem(_DEV_ID_KEY, devId);
+      }
+      const raw = await crypto.subtle.importKey('raw', new TextEncoder().encode(devId), 'PBKDF2', false, ['deriveKey']);
+      return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: new TextEncoder().encode('kintai-sens-v1'), iterations: 120000, hash: 'SHA-256' },
+        raw, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+      );
+    }
+
+    async function _encSens(str) {
+      if (!str) return '';
+      const key = await _getSensKey();
+      const iv  = crypto.getRandomValues(new Uint8Array(12));
+      const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(str));
+      const combined = new Uint8Array(12 + enc.byteLength);
+      combined.set(iv);
+      combined.set(new Uint8Array(enc), 12);
+      return btoa(String.fromCharCode(...combined));
+    }
+
+    async function _decSens(cipher) {
+      if (!cipher) return '';
+      try {
+        const key = await _getSensKey();
+        const raw = Uint8Array.from(atob(cipher), c => c.charCodeAt(0));
+        const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(0,12) }, key, raw.slice(12));
+        return new TextDecoder().decode(dec);
+      } catch { return ''; }
+    }
+
+    /** IPアドレスをマスク表示する（実体は返さない）*/
+    function maskIp(ip) {
+      if (!ip) return '未設定';
+      const p = ip.split('.');
+      if (p.length === 4) return `${p[0]}.●●.●●●.●●`;
+      return '●●●.●●●.●●●.●●●';
+    }
+
+    /** センシティブフィールドを暗号化して保存 */
+    async function saveSensitiveData(data) {
+      const obj = {};
+      for (const [k, v] of Object.entries(data)) {
+        obj[k] = await _encSens(v || '');
+      }
+      localStorage.setItem(_SENS_STORE_KEY, JSON.stringify(obj));
+    }
+
+    /** センシティブフィールドを復号して返す */
+    async function loadSensitiveData() {
+      try {
+        const r = localStorage.getItem(_SENS_STORE_KEY);
+        if (!r) return {};
+        const enc = JSON.parse(r);
+        const out = {};
+        for (const [k, v] of Object.entries(enc)) {
+          out[k] = await _decSens(v);
+        }
+        return out;
+      } catch { return {}; }
+    }
+
+    /* =====================================================
        CONFIG
+       センシティブフィールド (tsMac / tsIphone / jinjerPass)
+       は _SENS_STORE_KEY に暗号化保存し、CFG_KEY には含めない。
        ===================================================== */
     function loadConfig() {
       try {
         const r = localStorage.getItem(CFG_KEY);
-        return r ? JSON.parse(r) : {};
+        const cfg = r ? JSON.parse(r) : {};
+        // 旧バージョンから平文IPが残っていたら削除（マイグレーション）
+        if (cfg.tsMac || cfg.tsIphone || cfg.jinjerPass) {
+          // 暗号化済みが未保存ならマイグレーション
+          if (!localStorage.getItem(_SENS_STORE_KEY)) {
+            saveSensitiveData({
+              tsMac:     cfg.tsMac     || '',
+              tsIphone:  cfg.tsIphone  || '',
+              jinjerPass: cfg.jinjerPass || '',
+            });
+          }
+          delete cfg.tsMac;
+          delete cfg.tsIphone;
+          delete cfg.jinjerPass;
+          localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+        }
+        return cfg;
       } catch { return {}; }
     }
     function saveConfig(cfg) {
-      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+      // センシティブフィールドがあっても保存しない（念のため除外）
+      const safe = { ...cfg };
+      delete safe.tsMac;
+      delete safe.tsIphone;
+      delete safe.jinjerPass;
+      localStorage.setItem(CFG_KEY, JSON.stringify(safe));
     }
 
     /* =====================================================
@@ -2961,8 +3272,9 @@
 
     // 全期間一括同期（開始月 ～ 今月）
     async function _doJinjerFullSync() {
-      const cfg = loadConfig();
-      const macIp = cfg.tsMac || '';
+      const cfg  = loadConfig();
+      const sens = await loadSensitiveData();
+      const macIp = sens.tsMac || '';
       const statusEl = document.getElementById('jinjer-sync-status');
       const cmdBox   = document.getElementById('jinjer-sync-cmd-box');
       const optsEl   = document.getElementById('jinjer-sync-opts');
@@ -3022,8 +3334,9 @@
     }
 
     async function _doJinjerAutoSync() {
-      const cfg = loadConfig();
-      const macIp = cfg.tsMac || '';
+      const cfg  = loadConfig();
+      const sens = await loadSensitiveData();
+      const macIp = sens.tsMac || '';
       const statusEl = document.getElementById('jinjer-sync-status');
       const cmdBox = document.getElementById('jinjer-sync-cmd-box');
       const optsEl = document.getElementById('jinjer-sync-opts');
@@ -3173,8 +3486,9 @@
     /* =====================================================
        SETTINGS MODAL
        ===================================================== */
-    document.getElementById('btn-settings').addEventListener('click', () => {
-      const cfg = loadConfig();
+    document.getElementById('btn-settings').addEventListener('click', async () => {
+      const cfg  = loadConfig();
+      const sens = await loadSensitiveData();
       document.getElementById('settings-vault').value     = cfg.vault     || 'Phi_Memo';
       document.getElementById('settings-subdir').value   = cfg.subdir   || '【業務】/勤怠';
       document.getElementById('settings-jinjer-url').value = cfg.jinjerUrl || 'https://kintai.jinjer.biz/staffs/top';
@@ -3182,12 +3496,12 @@
       document.getElementById('settings-style-gender').value = cfg.styleGender   || 'メンズ';
       document.getElementById('settings-style-type').value   = cfg.styleType     || 'casual';
       document.getElementById('settings-style-color').value  = cfg.styleColor    || 'basic';
-      document.getElementById('settings-ts-mac').value       = cfg.tsMac         || '100.65.221.66';
-      document.getElementById('settings-ts-iphone').value    = cfg.tsIphone      || '100.93.30.114';
-      document.getElementById('settings-ts-user').value      = cfg.tsUser        || '';
+      document.getElementById('settings-ts-mac').value       = sens.tsMac     || '';
+      document.getElementById('settings-ts-iphone').value    = sens.tsIphone  || '';
+      document.getElementById('settings-ts-user').value      = cfg.tsUser     || '';
       document.getElementById('settings-jinjer-company').value    = cfg.jinjerCompany    || '';
       document.getElementById('settings-jinjer-email').value      = cfg.jinjerEmail      || '';
-      document.getElementById('settings-jinjer-pass').value       = cfg.jinjerPass       || '';
+      document.getElementById('settings-jinjer-pass').value       = sens.jinjerPass      || '';
       document.getElementById('settings-jinjer-start-month').value = cfg.jinjerStartMonth || '2025-10';
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
@@ -3199,7 +3513,7 @@
     document.getElementById('settings-cancel').addEventListener('click', () => {
       document.getElementById('settings-modal').classList.remove('show');
     });
-    document.getElementById('settings-save').addEventListener('click', () => {
+    document.getElementById('settings-save').addEventListener('click', async () => {
       const rawJinjer = document.getElementById('settings-jinjer-url').value.trim();
       const cfg = {
         vault:     document.getElementById('settings-vault').value.trim()  || 'Phi_Memo',
@@ -3209,14 +3523,17 @@
         styleGender: document.getElementById('settings-style-gender').value,
         styleType:   document.getElementById('settings-style-type').value,
         styleColor:  document.getElementById('settings-style-color').value,
-        tsMac:          document.getElementById('settings-ts-mac').value.trim(),
-        tsIphone:       document.getElementById('settings-ts-iphone').value.trim(),
         tsUser:         document.getElementById('settings-ts-user').value.trim(),
         jinjerCompany:     document.getElementById('settings-jinjer-company').value.trim(),
         jinjerEmail:       document.getElementById('settings-jinjer-email').value.trim(),
-        jinjerPass:        document.getElementById('settings-jinjer-pass').value,
         jinjerStartMonth:  document.getElementById('settings-jinjer-start-month').value.trim() || '2025-10',
       };
+      // センシティブ項目は暗号化して別途保存
+      await saveSensitiveData({
+        tsMac:     document.getElementById('settings-ts-mac').value.trim(),
+        tsIphone:  document.getElementById('settings-ts-iphone').value.trim(),
+        jinjerPass: document.getElementById('settings-jinjer-pass').value,
+      });
       // 都市 or スタイルが変わったら天気キャッシュをクリアして再取得
       const prevCfg = loadConfig();
       if (prevCfg.city !== cfg.city || prevCfg.styleType !== cfg.styleType ||
@@ -4096,6 +4413,7 @@
         if (tabName === 'hub')     { renderLauncher(); renderTailscaleCard(); }
         if (tabName === 'study')   renderStudy();
         if (tabName === 'project') renderProjects();
+        if (tabName === 'report')  { initReportTab(); }
       }
 
       tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
@@ -4428,6 +4746,297 @@
       renderProjects();
       toast('✅ プロジェクトを追加しました');
     });
+
+    /* =====================================================
+       REPORT TAB — 業務報告書管理
+       ===================================================== */
+    const REPORT_SERVER = 'http://localhost:8899';
+    let _reportList       = [];   // ファイル一覧キャッシュ
+    let _reportData       = null; // 現在表示中の月データ
+    let _reportMonth      = null; // 'YYYY-MM'
+    let _reportServerOk   = false;
+    let _reportInitDone   = false;
+
+    async function checkReportServer() {
+      try {
+        const r = await fetch(`${REPORT_SERVER}/api/reports`, { signal: AbortSignal.timeout(2000) });
+        _reportServerOk = r.ok;
+      } catch {
+        _reportServerOk = false;
+      }
+      return _reportServerOk;
+    }
+
+    async function initReportTab() {
+      if (_reportInitDone) { renderReportMonthNav(); return; }
+      _reportInitDone = true;
+
+      // 自動化パネル
+      const toggle = document.getElementById('report-auto-toggle');
+      const body   = document.getElementById('report-auto-body');
+      const arrow  = document.getElementById('report-auto-arrow');
+      toggle?.addEventListener('click', () => {
+        const open = body.classList.toggle('open');
+        arrow.style.transform = open ? 'rotate(90deg)' : '';
+        if (open) loadLaunchdStatus();
+      });
+
+      // ボタンイベント
+      document.getElementById('btn-report-load')?.addEventListener('click', async () => {
+        if (!_reportMonth) { toast('月を選択してください'); return; }
+        await loadReportData(_reportMonth);
+      });
+
+      document.getElementById('btn-report-sync')?.addEventListener('click', async () => {
+        if (!_reportMonth) { toast('月を選択してください'); return; }
+        await syncKintaiToReport(_reportMonth);
+      });
+
+      document.getElementById('btn-report-generate')?.addEventListener('click', async () => {
+        if (!_reportMonth) { toast('月を選択してください'); return; }
+        await generateNextMonthReport(_reportMonth);
+      });
+
+      await checkReportServer();
+      const banner = document.getElementById('report-server-banner');
+      if (banner) banner.style.display = _reportServerOk ? 'none' : 'block';
+
+      if (_reportServerOk) {
+        await loadReportList();
+      } else {
+        renderReportMonthNav();
+      }
+    }
+
+    async function loadReportList() {
+      try {
+        const r = await fetch(`${REPORT_SERVER}/api/reports`);
+        _reportList = await r.json();
+      } catch {
+        _reportList = [];
+      }
+      renderReportMonthNav();
+    }
+
+    function renderReportMonthNav() {
+      const nav = document.getElementById('report-month-nav');
+      if (!nav) return;
+      nav.innerHTML = '';
+
+      if (_reportList.length === 0) {
+        nav.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">ファイルなし</span>';
+        return;
+      }
+
+      _reportList.forEach(item => {
+        const label = `${item.year}-${item.month}`;
+        const btn = document.createElement('button');
+        btn.className = 'report-month-chip' + (_reportMonth === label ? ' active' : '');
+        const icon = item.status === 'approved' ? '✅' : item.status === 'reviewing' ? '🔍' : '📝';
+        btn.textContent = `${icon} ${label}`;
+        btn.onclick = () => {
+          _reportMonth = label;
+          document.querySelectorAll('.report-month-chip').forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          loadReportData(item.year, item.month);
+        };
+        nav.appendChild(btn);
+      });
+    }
+
+    async function loadReportData(yearOrLabel, month) {
+      let year, mon;
+      if (month) {
+        year = yearOrLabel; mon = month;
+      } else {
+        [year, mon] = yearOrLabel.split('-');
+      }
+      mon = mon.padStart(2, '0');
+
+      const tableArea = document.getElementById('report-table-area');
+      tableArea.innerHTML = '<div class="report-loading">読み込み中...</div>';
+
+      try {
+        const r = await fetch(`${REPORT_SERVER}/api/reports/read?year=${year}&month=${mon}`);
+        if (!r.ok) throw new Error(await r.text());
+        _reportData = await r.json();
+        renderReportStatusCard(_reportData);
+        renderReportMeta(_reportData.meta);
+        renderReportSummary(_reportData.days);
+        renderReportTable(_reportData.days);
+      } catch (e) {
+        tableArea.innerHTML = `<div class="report-empty">⚠️ 読み込み失敗<br><span style="font-size:11px;">${e.message}</span></div>`;
+      }
+    }
+
+    function renderReportStatusCard(data) {
+      const area = document.getElementById('report-status-area');
+      if (!area) return;
+      const badgeClass = { approved: 'report-badge-approved', reviewing: 'report-badge-reviewing', draft: 'report-badge-draft' }[data.status] || 'report-badge-draft';
+      const badgeText  = { approved: '✅ 承認済み', reviewing: '🔍 確認中', draft: '📝 作成中' }[data.status] || '?';
+      area.innerHTML = `
+        <div class="report-status-card">
+          <span class="report-status-badge ${badgeClass}">${badgeText}</span>
+          <span class="report-filename">${data.filename}</span>
+        </div>`;
+    }
+
+    function renderReportMeta(meta) {
+      const grid = document.getElementById('report-meta-grid');
+      if (!grid) return;
+      if (!meta) { grid.style.display = 'none'; return; }
+      grid.style.display = 'grid';
+      const items = [
+        ['取引先', meta.client],
+        ['案件名', meta.project],
+        ['部署',   meta.dept],
+        ['担当者', meta.tech],
+      ];
+      grid.innerHTML = items.map(([label, val]) => `
+        <div class="report-meta-item">
+          <div class="report-meta-label">${label}</div>
+          <div class="report-meta-value">${val || '-'}</div>
+        </div>`).join('');
+    }
+
+    function renderReportSummary(days) {
+      const bar = document.getElementById('report-summary-bar');
+      if (!bar) return;
+      if (!days?.length) { bar.style.display = 'none'; return; }
+      bar.style.display = 'flex';
+
+      let home = 0, office = 0, vacation = 0, totalMin = 0;
+      days.forEach(d => {
+        if (d.note === '在宅') home++;
+        else if (d.note === '出社') office++;
+        else if (d.note === '有給') vacation++;
+        if (d.total) {
+          const [h, m] = d.total.split(':').map(Number);
+          if (!isNaN(h)) totalMin += h * 60 + (m || 0);
+        }
+      });
+      const totalH = Math.floor(totalMin / 60);
+      const totalM = totalMin % 60;
+
+      bar.innerHTML = [
+        office  ? `<span class="stat-chip stat-office"><b>${office}</b>日 出社</span>` : '',
+        home    ? `<span class="stat-chip stat-home"><b>${home}</b>日 在宅</span>` : '',
+        vacation? `<span class="stat-chip stat-off"><b>${vacation}</b>日 休暇</span>` : '',
+        totalH  ? `<span class="stat-chip stat-hours"><b>${totalH}h${totalM ? totalM + 'm' : ''}</b> 合計</span>` : '',
+      ].filter(Boolean).join('');
+    }
+
+    function renderReportTable(days) {
+      const area = document.getElementById('report-table-area');
+      if (!area) return;
+      if (!days?.length) {
+        area.innerHTML = '<div class="report-empty">データなし</div>';
+        return;
+      }
+
+      const noteToRowClass = { '在宅': 'report-row-home', '出社': 'report-row-office', '有給': 'report-row-vacation', '祝日': 'report-row-holiday' };
+      const noteToNoteClass = { '在宅': 'report-note-在宅', '出社': 'report-note-出社', '有給': 'report-note-有給', '祝日': 'report-note-祝日', '休日': 'report-note-休日' };
+
+      const rows = days.map(d => {
+        const wd = d.weekday;
+        const isWeekend = wd === '土' || wd === '日';
+        const noteClass = noteToNoteClass[d.note] || '';
+        const rowClass  = isWeekend ? 'report-row-weekend' : (noteToRowClass[d.note] || '');
+        const noteHTML  = d.note ? `<span class="report-note-badge ${noteClass}">${d.note}</span>` : '';
+        const timeStr   = d.start ? `${d.start}–${d.end}` : '';
+        return `<tr class="${rowClass}">
+          <td style="text-align:center;font-weight:700;">${d.date.slice(5)}</td>
+          <td style="text-align:center;color:${wd==='日'?'#c62828':wd==='土'?'#1565c0':'inherit'};font-weight:700;">${wd}</td>
+          <td style="text-align:center;">${noteHTML}</td>
+          <td style="text-align:center;white-space:nowrap;">${timeStr}</td>
+          <td style="text-align:center;">${d.total || ''}</td>
+          <td style="font-size:11px;max-width:200px;">${d.content || ''}</td>
+        </tr>`;
+      }).join('');
+
+      area.innerHTML = `
+        <div class="report-table-wrap">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>日付</th><th>曜</th><th>区分</th>
+                <th>時間</th><th>合計</th><th>作業内容</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    async function syncKintaiToReport(label) {
+      if (!_reportServerOk) { toast('⚠️ サーバー未起動'); return; }
+      const [year, mon] = label.split('-');
+      const monthKey = label;
+      const monthResult = getMonthData ? getMonthData(monthKey) : null;
+      const kdata = monthResult?.data ?? null;
+      if (!kdata || Object.keys(kdata).length === 0) {
+        toast('⚠️ kintai にデータがありません');
+        return;
+      }
+      try {
+        const r = await fetch(`${REPORT_SERVER}/api/reports/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ year, month: mon, kintai_data: kdata }),
+        });
+        const res = await r.json();
+        if (res.ok) {
+          toast(`✅ ${res.updated} 行を Excel に書き込みました`);
+          await loadReportData(year, mon);
+        } else {
+          toast(`⚠️ ${res.error}`);
+        }
+      } catch (e) {
+        toast(`⚠️ 同期失敗: ${e.message}`);
+      }
+    }
+
+    async function generateNextMonthReport(label) {
+      if (!_reportServerOk) { toast('⚠️ サーバー未起動'); return; }
+      const [year, mon] = label.split('-');
+      try {
+        const r = await fetch(`${REPORT_SERVER}/api/reports/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ year, month: mon }),
+        });
+        const res = await r.json();
+        if (res.ok) {
+          toast(`✅ ${res.filename} を生成しました`);
+          _reportInitDone = false;
+          await loadReportList();
+        } else {
+          toast(`ℹ️ ${res.error}`);
+        }
+      } catch (e) {
+        toast(`⚠️ 生成失敗: ${e.message}`);
+      }
+    }
+
+    async function loadLaunchdStatus() {
+      const el = document.getElementById('report-auto-launchd-status');
+      if (!el) return;
+      if (!_reportServerOk) {
+        el.innerHTML = '<div style="font-size:11px;color:var(--text-muted);">⚠️ launchd 状態確認にはサーバー起動が必要です</div>';
+        return;
+      }
+      try {
+        const r = await fetch(`${REPORT_SERVER}/api/structure`);
+        if (!r.ok) { el.innerHTML = ''; return; }
+        const text = await r.text();
+        const match = text.match(/## launchd 自動化ジョブ状態\n([\s\S]*?)\n\n/);
+        if (match) {
+          el.innerHTML = `<div style="font-size:11px;background:rgba(245,246,251,0.9);border-radius:10px;padding:8px 10px;margin-bottom:6px;">${
+            match[1].replace(/- \*\*(.*?)\*\*: /g, (_, name) => `<b>${name}:</b> `).replace(/\n/g, '<br>')
+          }</div>`;
+        }
+      } catch { el.innerHTML = ''; }
+    }
 
     /* =====================================================
        WEATHER FORECAST + OUTFIT RECOMMENDATION
@@ -5490,32 +6099,36 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
 
     /* =====================================================
        TAILSCALE VPN / SSH
+       IPアドレスは常に暗号化保存 / マスク表示
        ===================================================== */
-    function renderTailscaleCard() {
-      const cfg = loadConfig();
-      const macIp   = cfg.tsMac   || '';
-      const iphone  = cfg.tsIphone || '';
-      const user    = cfg.tsUser  || '';
-      const wrap    = document.getElementById('ts-card-wrap');
+    async function renderTailscaleCard() {
+      const cfg  = loadConfig();
+      const sens = await loadSensitiveData();
+      const macIp  = sens.tsMac   || '';
+      const iphone = sens.tsIphone || '';
+      const user   = cfg.tsUser   || '';
+      const wrap   = document.getElementById('ts-card-wrap');
       if (!wrap) return;
       if (!macIp && !iphone) { wrap.style.display = 'none'; return; }
       wrap.style.display = '';
-      document.getElementById('ts-mac-ip-disp').textContent    = macIp   || '未設定';
-      document.getElementById('ts-iphone-ip-disp').textContent = iphone  || '未設定';
+      // 表示は常にマスク（実IPは画面に出さない）
+      document.getElementById('ts-mac-ip-disp').textContent    = maskIp(macIp);
+      document.getElementById('ts-iphone-ip-disp').textContent = maskIp(iphone);
 
+      // SSH/SFTPリンクはURLに実IPを含むが、href属性はブラウザが管理（画面上には表示しない）
       const sshUrl  = user && macIp ? `ssh://${user}@${macIp}` : '#';
       const sftpUrl = user && macIp ? `ftp://${user}@${macIp}:22` : '#';
       document.getElementById('ts-ssh-btn').href  = sshUrl;
       document.getElementById('ts-sftp-btn').href = sftpUrl;
 
-      // コピーボタン
+      // コピーボタン（実IPをクリップボードにコピー、ログには記録しない）
       const copyMac = document.getElementById('ts-copy-mac');
       const copyIph = document.getElementById('ts-copy-iphone');
       copyMac.onclick = () => {
-        navigator.clipboard?.writeText(macIp).then(() => toast('📋 MacBook IP をコピー'));
+        navigator.clipboard?.writeText(macIp).then(() => toast('📋 MacBook IP をコピーしました'));
       };
       copyIph.onclick = () => {
-        navigator.clipboard?.writeText(iphone).then(() => toast('📋 iPhone IP をコピー'));
+        navigator.clipboard?.writeText(iphone).then(() => toast('📋 iPhone IP をコピーしました'));
       };
 
       // 疎通確認（Tailscale経由でMacにアクセス可能かチェック）
@@ -5526,24 +6139,27 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         res.textContent = '📡 確認中…';
         dot.className = 'ts-status-dot offline';
         document.getElementById('ts-status-label').textContent = '確認中…';
-        if (!macIp) { res.textContent = '⚠️ MacBook IPが未設定です'; return; }
+        // 最新のIPを都度取得（クロージャ内の古い値を使わない）
+        const curSens = await loadSensitiveData();
+        const curIp = curSens.tsMac || '';
+        if (!curIp) { res.textContent = '⚠️ MacBook IPが未設定です'; return; }
         try {
           const ctrl = new AbortController();
           setTimeout(() => ctrl.abort(), 4000);
-          await fetch(`http://${macIp}:22`, { signal: ctrl.signal, mode: 'no-cors' });
+          await fetch(`http://${curIp}:22`, { signal: ctrl.signal, mode: 'no-cors' });
           dot.className = 'ts-status-dot';
           document.getElementById('ts-status-label').textContent = '接続可能';
-          res.textContent = `✅ ${macIp} は到達可能です`;
-          _appLog('info', 'tailscale', `疎通確認成功: ${macIp}`);
+          // 結果にはIPを表示しない（マスク表示）
+          res.textContent = `✅ ${maskIp(curIp)} — 到達可能`;
+          _appLog('info', 'tailscale', '疎通確認成功');
         } catch(e) {
-          // no-corsでfetchが失敗してもSSH portが開いていれば「接続拒否」エラーになる
           const reachable = e.name !== 'AbortError';
-          dot.className   = reachable ? 'ts-status-dot' : 'ts-status-dot offline';
+          dot.className = reachable ? 'ts-status-dot' : 'ts-status-dot offline';
           document.getElementById('ts-status-label').textContent = reachable ? '接続可能' : 'タイムアウト';
           res.textContent = reachable
-            ? `✅ ${macIp} に到達できます（SSH接続可能）`
-            : `❌ ${macIp} に到達できません（VPN確認）`;
-          _appLog(reachable ? 'info' : 'warn', 'tailscale', `疎通確認: ${macIp} → ${e.name}`);
+            ? `✅ ${maskIp(curIp)} — SSH接続可能`
+            : `❌ ${maskIp(curIp)} — 到達不可（VPN確認）`;
+          _appLog(reachable ? 'info' : 'warn', 'tailscale', `疎通確認: ${e.name}`);
         }
       };
     }
