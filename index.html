@@ -912,6 +912,36 @@
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       pointer-events: none; user-select: none;
     }
+    /* フラットレイ clothing display */
+    .vp-flatlay {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
+      width: 108px; flex-shrink: 0; align-content: start;
+    }
+    .fl-card {
+      background: var(--card-bg); border-radius: 9px; padding: 6px 4px;
+      text-align: center; border: 1px solid var(--border-soft);
+    }
+    .fl-card-em { font-size: 22px; line-height: 1; }
+    .fl-card-nm {
+      font-size: 8px; color: var(--text-sub); margin-top: 2px;
+      line-height: 1.2; overflow: hidden; display: -webkit-box;
+      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    /* jinjer sync option buttons */
+    .jinjer-sync-opt-btn {
+      width: 100%; text-align: left; padding: 12px 14px; border-radius: 12px;
+      border: 1.5px solid var(--border-soft); background: var(--card-bg);
+      cursor: pointer; font-family: inherit; margin-bottom: 8px; display: block;
+    }
+    .jinjer-sync-opt-btn:active { opacity: 0.7; }
+    .jinjer-sync-opt-title { font-size: 14px; font-weight: 800; color: var(--text-primary); }
+    .jinjer-sync-opt-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    /* outfit gender sections */
+    .outfit-gender-section { margin-bottom: 10px; }
+    .outfit-gender-label {
+      font-size: 11px; font-weight: 800; color: var(--text-muted);
+      margin-bottom: 6px; letter-spacing: 0.03em;
+    }
     .vp-item {
       position: absolute; left: 50%; transform: translateX(-50%);
       font-size: 22px; line-height: 1; text-decoration: none;
@@ -1796,7 +1826,18 @@
         <button class="modal-close" id="jinjer-sync-close">✕</button>
       </div>
       <div style="padding:4px 16px 16px;">
-        <div id="jinjer-sync-status" style="font-size:13px;color:var(--text-sub);text-align:center;padding:16px 0;line-height:1.6;"></div>
+        <!-- 同期方法の選択 -->
+        <div id="jinjer-sync-opts">
+          <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-file">
+            <div class="jinjer-sync-opt-title">📂 ファイルから同期</div>
+            <div class="jinjer-sync-opt-sub">iCloud kintaiフォルダのJSONを読み込む</div>
+          </button>
+          <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-auto">
+            <div class="jinjer-sync-opt-title">🖥 Macから自動同期</div>
+            <div class="jinjer-sync-opt-sub">Tailscale経由でMacのサーバーから取得</div>
+          </button>
+        </div>
+        <div id="jinjer-sync-status" style="font-size:13px;color:var(--text-sub);text-align:center;padding:16px 0;line-height:1.6;display:none;"></div>
         <div id="jinjer-sync-cmd-box" style="display:none;margin-top:4px;">
           <div style="font-size:11px;font-weight:800;color:var(--text-muted);margin-bottom:6px;">Macで以下を実行してサーバーを起動:</div>
           <div style="background:#1a1a2e;color:#e0f2fe;border-radius:10px;padding:10px 12px;font-family:monospace;font-size:11px;line-height:1.6;word-break:break-all;" id="jinjer-sync-cmd-text"></div>
@@ -1837,6 +1878,7 @@
       <div style="display:flex;border-bottom:1px solid var(--border-soft);margin:0 -16px;padding:0 16px;flex-shrink:0;">
         <button id="min-tab-rec"  style="flex:1;padding:8px 0;font-size:12px;font-weight:800;font-family:inherit;border:none;background:none;border-bottom:2.5px solid var(--accent-blue);color:var(--accent-blue);cursor:pointer;">🎙 録音</button>
         <button id="min-tab-hist" style="flex:1;padding:8px 0;font-size:12px;font-weight:800;font-family:inherit;border:none;background:none;border-bottom:2.5px solid transparent;color:var(--text-muted);cursor:pointer;">📁 履歴</button>
+        <button id="min-tab-video" style="flex:1;padding:8px 0;font-size:12px;font-weight:800;font-family:inherit;border:none;background:none;border-bottom:2.5px solid transparent;color:var(--text-muted);cursor:pointer;">🎬 動画</button>
       </div>
       <!-- 録音パネル -->
       <div id="min-panel-rec" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;padding-top:10px;">
@@ -1865,6 +1907,34 @@
       <!-- 履歴パネル -->
       <div id="min-panel-hist" style="flex:1;display:none;flex-direction:column;min-height:0;overflow:hidden;padding-top:8px;">
         <div id="min-hist-list" style="overflow-y:auto;flex:1;"></div>
+      </div>
+      <!-- 動画文字起こしパネル -->
+      <div id="min-panel-video" style="flex:1;display:none;flex-direction:column;min-height:0;overflow:hidden;padding-top:10px;">
+        <input id="min-video-title" class="settings-input" type="text" placeholder="ファイル名（自動入力）" style="flex-shrink:0;margin-bottom:6px;">
+        <div style="flex-shrink:0;margin-bottom:8px;">
+          <button class="min-action-btn" id="min-video-pick" style="width:100%;font-size:13px;padding:10px 0;">📁 動画・音声ファイルを選択</button>
+          <input type="file" id="min-video-file" accept="video/*,audio/*" style="display:none">
+        </div>
+        <div id="min-video-player-wrap" style="display:none;flex-shrink:0;margin-bottom:8px;padding:0 2px;">
+          <audio id="min-video-audio" controls style="width:100%;height:36px;"></audio>
+          <div id="min-video-file-info" style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:center;"></div>
+        </div>
+        <div id="min-video-status" style="font-size:12px;font-weight:700;color:var(--accent-blue);text-align:center;padding:4px 0;display:none;flex-shrink:0;"></div>
+        <div class="min-transcript" id="min-video-transcript" style="flex:1;overflow-y:auto;">
+          <div id="min-video-transcript-body">
+            <div style="text-align:center;color:var(--text-muted);padding:28px 0;font-size:12px;line-height:1.8;">
+              📁 動画または音声ファイルを選択して<br>「文字起こし開始」を押してください<br>
+              <span style="font-size:11px;opacity:0.8;">⚠️ スピーカー再生＋マイク認識方式<br>ヘッドフォンを外してご使用ください</span>
+            </div>
+          </div>
+        </div>
+        <div class="min-actions" style="flex-shrink:0;">
+          <button class="min-action-btn" id="min-video-start">▶ 文字起こし開始</button>
+          <button class="min-action-btn" id="min-video-stop" style="display:none;color:#c62828;">⏹ 停止</button>
+          <button class="min-action-btn" id="min-video-copy">📋 コピー</button>
+          <button class="min-action-btn" id="min-video-save">💾 保存</button>
+          <button class="min-action-btn" id="min-video-clear" style="color:#c62828;">🗑 クリア</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2871,7 +2941,10 @@
       const macIp = cfg.tsMac || '';
       const statusEl = document.getElementById('jinjer-sync-status');
       const cmdBox = document.getElementById('jinjer-sync-cmd-box');
+      const optsEl = document.getElementById('jinjer-sync-opts');
       document.getElementById('jinjer-sync-modal').classList.add('show');
+      optsEl.style.display = 'none';
+      statusEl.style.display = '';
       cmdBox.style.display = 'none';
       if (!macIp) {
         statusEl.textContent = '⚠️ 設定でTailscale MacBook IPを設定してください';
@@ -2904,7 +2977,20 @@
       }
     }
 
-    document.getElementById('btn-jinjer').addEventListener('click', () => _doJinjerAutoSync());
+    document.getElementById('btn-jinjer').addEventListener('click', () => {
+      const optsEl = document.getElementById('jinjer-sync-opts');
+      const statusEl = document.getElementById('jinjer-sync-status');
+      const cmdBox = document.getElementById('jinjer-sync-cmd-box');
+      optsEl.style.display = '';
+      statusEl.style.display = 'none';
+      cmdBox.style.display = 'none';
+      document.getElementById('jinjer-sync-modal').classList.add('show');
+    });
+    document.getElementById('jinjer-sync-opt-file').addEventListener('click', () => {
+      document.getElementById('jinjer-sync-modal').classList.remove('show');
+      document.getElementById('file-jinjer').click();
+    });
+    document.getElementById('jinjer-sync-opt-auto').addEventListener('click', () => _doJinjerAutoSync());
     document.getElementById('jinjer-sync-close').addEventListener('click', () =>
       document.getElementById('jinjer-sync-modal').classList.remove('show'));
 
@@ -4306,10 +4392,10 @@
       return { emoji, label, q: [baseQ, g, c].filter(Boolean).join(' ') };
     }
 
-    function _outfitAdvice(maxTemp, minTemp, weatherCode, windspeed) {
+    function _outfitAdvice(maxTemp, minTemp, weatherCode, windspeed, genderOverride) {
       const cfg    = loadConfig();
       const style  = cfg.styleType   || 'casual';
-      const gender = cfg.styleGender || 'メンズ';
+      const gender = genderOverride || cfg.styleGender || 'メンズ';
       const color  = cfg.styleColor  || 'basic';
       const p      = { gender, color };
       const items  = [], warn = [];
@@ -4317,104 +4403,198 @@
       const isSnow  = [71,73,75,77,85,86].includes(weatherCode);
       const isThund = [95,96,99].includes(weatherCode);
 
+      const isF = (gender === 'レディース');
       // ─── 気温 × スタイル別トップス・ボトムス ───
       if (maxTemp >= 30) {
-        if (style === 'business') {
-          items.push(_item('👔','ユニクロ エアリズムポロシャツ','UNIQLO エアリズム ポロシャツ 吸汗速乾 クールビズ',p));
-          items.push(_item('👖','ユニクロ スマートアンクルパンツ','UNIQLO スマートアンクルパンツ 夏 軽量 ストレッチ',p));
-        } else if (style === 'sports') {
-          items.push(_item('🏃','ナイキ ドライフィットTシャツ','NIKE ドライフィット 半袖Tシャツ 吸汗速乾 UPF50',p));
-          items.push(_item('🩳','ナイキ フレックスランショーツ','NIKE フレックス ランニングショーツ 速乾 5インチ',p));
-        } else if (style === 'street') {
-          items.push(_item('👕','チャンピオン オーバーサイズT','Champion リバースウィーブ Tシャツ オーバーサイズ ストリート',p));
-          items.push(_item('🩳','GU カーゴショーツ','GU カーゴショーツ バギー ストリート ハーフパンツ',p));
-        } else if (style === 'outdoor') {
-          items.push(_item('🏕','コロンビア サンシールドシャツ','Columbia サンシールド 長袖シャツ UPF50 速乾 アウトドア',p));
-          items.push(_item('🩳','モンベル トレッキングショーツ','mont-bell トレッキングショーツ 軽量 速乾',p));
+        if (isF) {
+          if (style === 'business') {
+            items.push(_item('👗','ユニクロ ノースリーブブラウス','UNIQLO エアリズム ノースリーブ ブラウス ビジネス 夏',p));
+            items.push(_item('👗','ユニクロ フレアスカート','UNIQLO フレアスカート 薄手 ひざ丈 ビジネス 夏',p));
+          } else if (style === 'sports') {
+            items.push(_item('🏃','ナイキ ドライフィット タンクトップ','NIKE ドライフィット タンクトップ レディース 吸汗速乾',p));
+            items.push(_item('🩳','ナイキ ランニングショーツ レディース','NIKE レディース ランニングショーツ 速乾 インナー付き',p));
+          } else if (style === 'street') {
+            items.push(_item('👕','GU オーバーサイズT レディース','GU オーバーサイズ Tシャツ レディース ストリート',p));
+            items.push(_item('🩳','GU バイカーショーツ','GU バイカーショーツ レディース 夏 ストリート',p));
+          } else {
+            items.push(_item('👗','ユニクロ リネンブレンドシャツワンピース','UNIQLO リネン シャツワンピース 夏 涼しい レディース',p));
+            items.push(_item('🩴','ユニクロ フットベッドサンダル','UNIQLO フットベッド サンダル レディース 歩きやすい',p));
+          }
         } else {
-          items.push(_item('👕','ユニクロ ドライEX Tシャツ','UNIQLO ドライEX 半袖Tシャツ 吸汗速乾 UVカット',p));
-          items.push(_item('🩳','GU リラックスショーツ','GU リラックスフィット カジュアルショーツ 綿',p));
+          if (style === 'business') {
+            items.push(_item('👔','ユニクロ エアリズムポロシャツ','UNIQLO エアリズム ポロシャツ 吸汗速乾 クールビズ',p));
+            items.push(_item('👖','ユニクロ スマートアンクルパンツ','UNIQLO スマートアンクルパンツ 夏 軽量 ストレッチ',p));
+          } else if (style === 'sports') {
+            items.push(_item('🏃','ナイキ ドライフィットTシャツ','NIKE ドライフィット 半袖Tシャツ 吸汗速乾 UPF50',p));
+            items.push(_item('🩳','ナイキ フレックスランショーツ','NIKE フレックス ランニングショーツ 速乾 5インチ',p));
+          } else if (style === 'street') {
+            items.push(_item('👕','チャンピオン オーバーサイズT','Champion リバースウィーブ Tシャツ オーバーサイズ ストリート',p));
+            items.push(_item('🩳','GU カーゴショーツ','GU カーゴショーツ バギー ストリート ハーフパンツ',p));
+          } else if (style === 'outdoor') {
+            items.push(_item('🏕','コロンビア サンシールドシャツ','Columbia サンシールド 長袖シャツ UPF50 速乾 アウトドア',p));
+            items.push(_item('🩳','モンベル トレッキングショーツ','mont-bell トレッキングショーツ 軽量 速乾',p));
+          } else {
+            items.push(_item('👕','ユニクロ ドライEX Tシャツ','UNIQLO ドライEX 半袖Tシャツ 吸汗速乾 UVカット',p));
+            items.push(_item('🩳','GU リラックスショーツ','GU リラックスフィット カジュアルショーツ 綿',p));
+          }
         }
         warn.push('🥵 熱中症注意！こまめな水分補給を');
       } else if (maxTemp >= 25) {
-        if (style === 'business') {
-          items.push(_item('👔','ORIHICA ノーアイロンシャツ','ORIHICA ノーアイロン 半袖シャツ ビジネス イージーケア',p));
-          items.push(_item('👖','ユニクロ スマートスラックス','UNIQLO スマートスラックス 夏 ウォッシャブル ストレッチ',p));
-        } else if (style === 'sports') {
-          items.push(_item('🏃','アンダーアーマー コンプレッション','Under Armour コンプレッションシャツ 半袖 吸汗速乾',p));
-          items.push(_item('🩳','ナイキ スポーツパンツ','NIKE スポーツパンツ インナー付き 夏 ランニング',p));
-        } else if (style === 'street') {
-          items.push(_item('👕','ナイキ ルーズフィットT','NIKE ルーズフィット Tシャツ ストリート ドロップショルダー',p));
-          items.push(_item('👖','GU ワイドバギーデニム','GU ワイドバギーデニム ストリート ゆったり',p));
+        if (isF) {
+          if (style === 'business') {
+            items.push(_item('👔','ユニクロ 半袖ブラウス','UNIQLO ポプリン 半袖 ブラウス ビジネス レディース',p));
+            items.push(_item('👗','ユニクロ チノタイトスカート','UNIQLO チノ タイトスカート ひざ丈 ビジネス',p));
+          } else if (style === 'sports') {
+            items.push(_item('🏃','アンダーアーマー レディースTシャツ','Under Armour テック Tシャツ レディース 半袖 吸汗',p));
+            items.push(_item('🩳','アディダス レギンスショーツ','adidas レギンス ショーツ レディース スポーツ',p));
+          } else if (style === 'street') {
+            items.push(_item('👕','ナイキ ウィメンズT','NIKE ウィメンズ ルーズフィット Tシャツ ストリート',p));
+            items.push(_item('👗','GU フレアミニスカート','GU フレア ミニスカート レディース ストリート カジュアル',p));
+          } else {
+            items.push(_item('👗','ユニクロ コットンリネンワンピース','UNIQLO コットン リネン ノースリーブワンピース 夏',p));
+            items.push(_item('🩴','GU クロスストラップサンダル','GU クロスストラップ サンダル レディース 夏',p));
+          }
         } else {
-          items.push(_item('👕','ユニクロ コットンリラックスT','UNIQLO コットン 半袖Tシャツ リラックスフィット 無地',p));
-          items.push(_item('👖','ユニクロ スリムチノパンツ','UNIQLO スリムフィット チノパンツ 薄手 ストレッチ',p));
+          if (style === 'business') {
+            items.push(_item('👔','ORIHICA ノーアイロンシャツ','ORIHICA ノーアイロン 半袖シャツ ビジネス イージーケア',p));
+            items.push(_item('👖','ユニクロ スマートスラックス','UNIQLO スマートスラックス 夏 ウォッシャブル ストレッチ',p));
+          } else if (style === 'sports') {
+            items.push(_item('🏃','アンダーアーマー コンプレッション','Under Armour コンプレッションシャツ 半袖 吸汗速乾',p));
+            items.push(_item('🩳','ナイキ スポーツパンツ','NIKE スポーツパンツ インナー付き 夏 ランニング',p));
+          } else if (style === 'street') {
+            items.push(_item('👕','ナイキ ルーズフィットT','NIKE ルーズフィット Tシャツ ストリート ドロップショルダー',p));
+            items.push(_item('👖','GU ワイドバギーデニム','GU ワイドバギーデニム ストリート ゆったり',p));
+          } else {
+            items.push(_item('👕','ユニクロ コットンリラックスT','UNIQLO コットン 半袖Tシャツ リラックスフィット 無地',p));
+            items.push(_item('👖','ユニクロ スリムチノパンツ','UNIQLO スリムフィット チノパンツ 薄手 ストレッチ',p));
+          }
         }
       } else if (maxTemp >= 20) {
-        if (style === 'business') {
-          items.push(_item('👔','ユニクロ エクストラファインコットンシャツ','UNIQLO エクストラファインコットン ボタンダウン 長袖',p));
-          items.push(_item('🧥','ユニクロ ストレッチジャケット','UNIQLO ストレッチ テーラードジャケット ビジネス セットアップ',p));
-          items.push(_item('👖','ユニクロ スリムスラックス','UNIQLO スリムフィット スラックス ストレッチ ビジネス',p));
-        } else if (style === 'formal') {
-          items.push(_item('🎩','青山 スリムスーツ','洋服の青山 スリムスーツ ジャケット フォーマル',p));
-          items.push(_item('👔','ユニクロ 形態安定シャツ','UNIQLO 形態安定 ドレスシャツ ホワイト フォーマル',p));
-          items.push(_item('👖','AOKIスラックス センタープレス','AOKI フォーマルスラックス スリム センタープレス',p));
-        } else if (style === 'street') {
-          items.push(_item('👕','グラミチ ロゴロンT','Gramicci ロゴ 長袖Tシャツ ストリート オーバーサイズ',p));
-          items.push(_item('🧥','オープンカラーシャツ（ストリート）','オープンカラーシャツ 柄シャツ アロハ ストリート',p));
-          items.push(_item('👖','リーバイス 511 スリムデニム','Levis 511 スリムフィット ストレッチデニム テーパード',p));
+        if (isF) {
+          if (style === 'business') {
+            items.push(_item('👔','ユニクロ 長袖ブラウス','UNIQLO 長袖 ブラウス ビジネス レディース ポプリン',p));
+            items.push(_item('🧥','ユニクロ テーラードジャケット レディース','UNIQLO ストレッチ テーラードジャケット レディース',p));
+            items.push(_item('👗','ユニクロ プリーツパンツ レディース','UNIQLO プリーツ パンツ レディース ビジネスカジュアル',p));
+          } else if (style === 'street') {
+            items.push(_item('👕','グラミチ ウィメンズロンT','Gramicci ロゴ 長袖Tシャツ レディース オーバーサイズ',p));
+            items.push(_item('🧥','ユニクロ デニムジャケット レディース','UNIQLO デニムジャケット レディース オーバーサイズ',p));
+            items.push(_item('👗','GU マーメイドスカート','GU マーメイドスカート レディース ストリート',p));
+          } else {
+            items.push(_item('👗','ユニクロ ニットワンピース','UNIQLO ニット ワンピース レディース 秋 春 薄手',p));
+            if (minTemp < 15) items.push(_item('🧥','ユニクロ コットンカーディガン レディース','UNIQLO コットン カーディガン レディース 薄手 羽織り',p));
+          }
         } else {
-          items.push(_item('👕','ユニクロ プレミアムリネンシャツ','UNIQLO プレミアムリネン シャツ 長袖 薄手',p));
-          if (minTemp < 15) items.push(_item('🧥','ユニクロ コットンカーディガン','UNIQLO コットン カーディガン 薄手 羽織り',p));
-          items.push(_item('👖','ユニクロ テーパードデニム','UNIQLO テーパードフィット デニム ストレッチ',p));
+          if (style === 'business') {
+            items.push(_item('👔','ユニクロ エクストラファインコットンシャツ','UNIQLO エクストラファインコットン ボタンダウン 長袖',p));
+            items.push(_item('🧥','ユニクロ ストレッチジャケット','UNIQLO ストレッチ テーラードジャケット ビジネス セットアップ',p));
+            items.push(_item('👖','ユニクロ スリムスラックス','UNIQLO スリムフィット スラックス ストレッチ ビジネス',p));
+          } else if (style === 'formal') {
+            items.push(_item('🎩','青山 スリムスーツ','洋服の青山 スリムスーツ ジャケット フォーマル',p));
+            items.push(_item('👔','ユニクロ 形態安定シャツ','UNIQLO 形態安定 ドレスシャツ ホワイト フォーマル',p));
+            items.push(_item('👖','AOKIスラックス センタープレス','AOKI フォーマルスラックス スリム センタープレス',p));
+          } else if (style === 'street') {
+            items.push(_item('👕','グラミチ ロゴロンT','Gramicci ロゴ 長袖Tシャツ ストリート オーバーサイズ',p));
+            items.push(_item('🧥','オープンカラーシャツ（ストリート）','オープンカラーシャツ 柄シャツ アロハ ストリート',p));
+            items.push(_item('👖','リーバイス 511 スリムデニム','Levis 511 スリムフィット ストレッチデニム テーパード',p));
+          } else {
+            items.push(_item('👕','ユニクロ プレミアムリネンシャツ','UNIQLO プレミアムリネン シャツ 長袖 薄手',p));
+            if (minTemp < 15) items.push(_item('🧥','ユニクロ コットンカーディガン','UNIQLO コットン カーディガン 薄手 羽織り',p));
+            items.push(_item('👖','ユニクロ テーパードデニム','UNIQLO テーパードフィット デニム ストレッチ',p));
+          }
         }
       } else if (maxTemp >= 15) {
-        if (style === 'business') {
-          items.push(_item('🧥','ユニクロ ウールブレンドジャケット','UNIQLO ウール混 テーラードジャケット ビジネスカジュアル',p));
-          items.push(_item('👔','ユニクロ 形態安定ビジネスシャツ','UNIQLO 形態安定 ストレッチ ビジネスシャツ 長袖',p));
-          items.push(_item('👖','ユニクロ スリムスラックス（秋冬）','UNIQLO スラックス スリム ストレッチ 秋冬',p));
-        } else if (style === 'outdoor') {
-          items.push(_item('🧥','ノースフェイス フリースジャケット','The North Face フリースジャケット アウトドア 軽量 保温',p));
-          items.push(_item('👖','コロンビア トレッキングパンツ','Columbia トレッキングパンツ ストレッチ 撥水 秋',p));
+        if (isF) {
+          if (style === 'business') {
+            items.push(_item('🧥','ユニクロ ウールブレンドジャケット レディース','UNIQLO ウール混 テーラードジャケット レディース',p));
+            items.push(_item('👔','ユニクロ 形態安定シャツ レディース','UNIQLO 形態安定 ストレッチ ビジネスシャツ レディース',p));
+            items.push(_item('👗','ユニクロ スマートアンクルパンツ レディース','UNIQLO スマートアンクル パンツ レディース ビジネス',p));
+          } else {
+            items.push(_item('🧥','ユニクロ スウィングコート','UNIQLO スウィング コート レディース 秋 薄手',p));
+            items.push(_item('👗','ユニクロ チェックフレアスカート','UNIQLO チェック フレアスカート レディース 秋',p));
+            items.push(_item('🧶','ユニクロ リブニットセーター レディース','UNIQLO リブ ニットセーター レディース 薄手 秋',p));
+          }
         } else {
-          items.push(_item('🧥','ユニクロ ライトウェイトブルゾン','UNIQLO ライトウェイト コンパクトジャケット 秋 軽量',p));
-          items.push(_item('👔','ユニクロ フランネルチェックシャツ','UNIQLO フランネル チェックシャツ 長袖 カジュアル',p));
-          items.push(_item('👖','リーバイス 512 テーパードデニム','Levis 512 スリムテーパード デニム ストレッチ',p));
+          if (style === 'business') {
+            items.push(_item('🧥','ユニクロ ウールブレンドジャケット','UNIQLO ウール混 テーラードジャケット ビジネスカジュアル',p));
+            items.push(_item('👔','ユニクロ 形態安定ビジネスシャツ','UNIQLO 形態安定 ストレッチ ビジネスシャツ 長袖',p));
+            items.push(_item('👖','ユニクロ スリムスラックス（秋冬）','UNIQLO スラックス スリム ストレッチ 秋冬',p));
+          } else if (style === 'outdoor') {
+            items.push(_item('🧥','ノースフェイス フリースジャケット','The North Face フリースジャケット アウトドア 軽量 保温',p));
+            items.push(_item('👖','コロンビア トレッキングパンツ','Columbia トレッキングパンツ ストレッチ 撥水 秋',p));
+          } else {
+            items.push(_item('🧥','ユニクロ ライトウェイトブルゾン','UNIQLO ライトウェイト コンパクトジャケット 秋 軽量',p));
+            items.push(_item('👔','ユニクロ フランネルチェックシャツ','UNIQLO フランネル チェックシャツ 長袖 カジュアル',p));
+            items.push(_item('👖','リーバイス 512 テーパードデニム','Levis 512 スリムテーパード デニム ストレッチ',p));
+          }
         }
       } else if (maxTemp >= 10) {
-        if (style === 'business') {
-          items.push(_item('🧥','ユニクロ ウールコート','UNIQLO ウール混 ステンカラーコート ビジネス 秋冬',p));
-          items.push(_item('👔','ユニクロ Vネックニット','UNIQLO ウール混 Vネックニット セーター ビジネスカジュアル',p));
-        } else if (style === 'outdoor') {
-          items.push(_item('🧥','ノースフェイス マウンテンジャケット','The North Face マウンテンジャケット 防水 防風 アウトドア',p));
-          items.push(_item('🧤','ブラックダイヤモンド グローブ','Black Diamond アウトドアグローブ 防寒 防風 保温',p));
+        if (isF) {
+          if (style === 'business') {
+            items.push(_item('🧥','ユニクロ ウールコート レディース','UNIQLO ウール混 チェスターコート レディース ビジネス',p));
+            items.push(_item('🧶','ユニクロ メリノニット レディース','UNIQLO メリノウール Vネックニット レディース',p));
+          } else {
+            items.push(_item('🧥','ユニクロ ダウンコート レディース','UNIQLO ウルトラライトダウン コート レディース 軽量',p));
+            items.push(_item('🧶','ユニクロ ニットセーター レディース','UNIQLO ウール混 タートルネック セーター レディース',p));
+          }
+          items.push(_item('👗','ユニクロ 極暖スキニー レディース','UNIQLO ヒートテック 極暖 スキニー レディース 保温',p));
         } else {
-          items.push(_item('🧥','ユニクロ スウェットフルジップパーカ','UNIQLO スウェット フルジップパーカ 裏起毛 プルオーバー',p));
-          items.push(_item('👕','ユニクロ クルーネックセーター','UNIQLO ウール混 クルーネックセーター 薄手 秋冬',p));
+          if (style === 'business') {
+            items.push(_item('🧥','ユニクロ ウールコート','UNIQLO ウール混 ステンカラーコート ビジネス 秋冬',p));
+            items.push(_item('👔','ユニクロ Vネックニット','UNIQLO ウール混 Vネックニット セーター ビジネスカジュアル',p));
+          } else if (style === 'outdoor') {
+            items.push(_item('🧥','ノースフェイス マウンテンジャケット','The North Face マウンテンジャケット 防水 防風 アウトドア',p));
+            items.push(_item('🧤','ブラックダイヤモンド グローブ','Black Diamond アウトドアグローブ 防寒 防風 保温',p));
+          } else {
+            items.push(_item('🧥','ユニクロ スウェットフルジップパーカ','UNIQLO スウェット フルジップパーカ 裏起毛 プルオーバー',p));
+            items.push(_item('👕','ユニクロ クルーネックセーター','UNIQLO ウール混 クルーネックセーター 薄手 秋冬',p));
+          }
+          items.push(_item('👖','ユニクロ 裏起毛ストレッチパンツ','UNIQLO 暖パン 裏起毛 ストレッチ スキニー 保温',p));
         }
-        items.push(_item('👖','ユニクロ 裏起毛ストレッチパンツ','UNIQLO 暖パン 裏起毛 ストレッチ スキニー 保温',p));
       } else if (maxTemp >= 5) {
-        items.push(_item('🧥','ユニクロ ウルトラライトダウンロングコート','UNIQLO ウルトラライトダウン ロングコート 防寒 軽量',p));
-        items.push(_item('🧣','GU リブニットマフラー','GU リブニット マフラー 防寒 ロング 冬',p));
-        items.push(_item('👖','ユニクロ 暖パン テーパード','UNIQLO 暖パン ウォームEX テーパード 防寒 冬',p));
+        if (isF) {
+          items.push(_item('🧥','ユニクロ ウルトラライトダウンロングコート レディース','UNIQLO ウルトラライトダウン ロングコート レディース 防寒',p));
+          items.push(_item('🧣','GU ウールライクマフラー レディース','GU ウールライク マフラー レディース 防寒 冬',p));
+          items.push(_item('👗','ユニクロ 極暖ヒートテックレギンス','UNIQLO 極暖 ヒートテック レギンス レディース 冬 防寒',p));
+        } else {
+          items.push(_item('🧥','ユニクロ ウルトラライトダウンロングコート','UNIQLO ウルトラライトダウン ロングコート 防寒 軽量',p));
+          items.push(_item('🧣','GU リブニットマフラー','GU リブニット マフラー 防寒 ロング 冬',p));
+          items.push(_item('👖','ユニクロ 暖パン テーパード','UNIQLO 暖パン ウォームEX テーパード 防寒 冬',p));
+        }
       } else {
-        items.push(_item('🧥','ユニクロ ウルトラライトダウンパーカ','UNIQLO ウルトラライトダウン パーカ 極暖 防風 撥水',p));
-        items.push(_item('🧣','ユニクロ フリースマフラー＆手袋セット','UNIQLO フリース マフラー 手袋 セット 極暖 防寒',p));
-        items.push(_item('👖','ユニクロ 極暖ヒートテックパンツ','UNIQLO 極暖 ヒートテック テーパードパンツ 冬',p));
+        if (isF) {
+          items.push(_item('🧥','ユニクロ ウルトラライトダウンパーカ レディース','UNIQLO ウルトラライトダウン パーカ レディース 極暖 防風',p));
+          items.push(_item('🧣','ユニクロ フリースマフラー レディース','UNIQLO フリース マフラー 手袋 セット レディース 極暖',p));
+          items.push(_item('👗','ユニクロ 極暖ヒートテックレギンスパンツ','UNIQLO 極暖 ヒートテック レギンスパンツ レディース 厚手',p));
+        } else {
+          items.push(_item('🧥','ユニクロ ウルトラライトダウンパーカ','UNIQLO ウルトラライトダウン パーカ 極暖 防風 撥水',p));
+          items.push(_item('🧣','ユニクロ フリースマフラー＆手袋セット','UNIQLO フリース マフラー 手袋 セット 極暖 防寒',p));
+          items.push(_item('👖','ユニクロ 極暖ヒートテックパンツ','UNIQLO 極暖 ヒートテック テーパードパンツ 冬',p));
+        }
         warn.push('🥶 防寒対策を万全に！');
       }
 
       // ─── シューズ ───
-      const hasShoe = items.some(it => ['👟','👞','🥾'].includes(it.emoji));
+      const hasShoe = items.some(it => ['👟','👞','🥾','🩴','👠','🥿'].includes(it.emoji));
       if (!hasShoe) {
-        if (style === 'business' || style === 'formal')
-          items.push(_item('👞','スコッチグレイン プレーントゥ','スコッチグレイン ビジネスシューズ プレーントゥ 本革 国産',p));
-        else if (style === 'sports')
-          items.push(_item('👟','ナイキ ペガサス ランシューズ','NIKE ペガサス ランニングシューズ クッション 軽量',p));
-        else if (style === 'outdoor')
-          items.push(_item('🥾','サロモン ハイキングブーツ','Salomon X-ULTRA ゴアテックス ハイキングブーツ 防水',p));
-        else
-          items.push(_item('👟','コンバース オールスター','Converse Chuck Taylor All Star ローカット キャンバス 定番',p));
+        if (isF) {
+          if (style === 'business' || style === 'formal')
+            items.push(_item('👠','ユニクロ バレエシューズ','UNIQLO バレエシューズ レディース ビジネス フラット 本革',p));
+          else if (style === 'sports')
+            items.push(_item('👟','ナイキ フリーラン レディース','NIKE Free Run レディース ランニングシューズ 軽量',p));
+          else if (style === 'outdoor')
+            items.push(_item('🥾','サロモン ハイキングシューズ レディース','Salomon XA PRO ゴアテックス レディース ハイキング',p));
+          else
+            items.push(_item('👟','コンバース オールスター レディース','Converse All Star レディース ローカット キャンバス',p));
+        } else {
+          if (style === 'business' || style === 'formal')
+            items.push(_item('👞','スコッチグレイン プレーントゥ','スコッチグレイン ビジネスシューズ プレーントゥ 本革 国産',p));
+          else if (style === 'sports')
+            items.push(_item('👟','ナイキ ペガサス ランシューズ','NIKE ペガサス ランニングシューズ クッション 軽量',p));
+          else if (style === 'outdoor')
+            items.push(_item('🥾','サロモン ハイキングブーツ','Salomon X-ULTRA ゴアテックス ハイキングブーツ 防水',p));
+          else
+            items.push(_item('👟','コンバース オールスター','Converse Chuck Taylor All Star ローカット キャンバス 定番',p));
+        }
       }
 
       // ─── 雨雪 ───
@@ -4437,7 +4617,7 @@
       if (maxTemp >= 22 && !isRain)
         items.push(_item('🧴','アネッサ パーフェクトUV','ANESSA パーフェクトUV スキンケアミルク SPF50+ PA++++',p));
 
-      return { items, warn, style, maxT: maxTemp, minT: minTemp };
+      return { items, warn, style, maxT: maxTemp, minT: minTemp, weatherCode, windspeed };
     }
 
     function _loadWeatherCache() {
@@ -4638,33 +4818,52 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       return '';
     }
 
-    // 服装ボードHTML生成（着衣マネキン・HA・キャッシュ対応）
+    // フラットレイ服表示（マネキンSVGの代わり）
+    function _buildFlatLay(items) {
+      const shown = items.slice(0, 6);
+      const cards = shown.map(it => {
+        const shortName = it.label.replace(/^(ユニクロ|UNIQLO|GU|ナイキ|NIKE|コンバース|Champion|チャンピオン|アシックス|ASICS|アンダーアーマー|ノースフェイス|コロンビア|モンベル)\s/i, '');
+        return `<div class="fl-card"><div class="fl-card-em">${it.emoji}</div><div class="fl-card-nm">${_esc(shortName)}</div></div>`;
+      }).join('');
+      return `<div class="vp-flatlay">${cards}</div>`;
+    }
+
+    // 服装ボードHTML生成（メンズ＋レディース両方表示・キャッシュ対応）
     function _buildOutfitBoard(outfit, cacheKey) {
       if (cacheKey && cacheKey === _outfitBoardCache.key) return _outfitBoardCache.html;
-      const { items, warn, style } = outfit;
+      const { warn, style } = outfit;
       const styleLabel = STYLE_LABEL[style] || style;
-      const colorKey   = loadConfig().styleColor || 'basic';
 
-      const mannequin = `<div class="vp-mannequin">${_buildMannequinSVG(items, colorKey)}</div>`;
+      // レディースコーデも計算
+      const outfitF = _outfitAdvice(outfit.maxT, outfit.minT, outfit.weatherCode, outfit.windspeed, 'レディース');
+      const outfitM = _outfitAdvice(outfit.maxT, outfit.minT, outfit.weatherCode, outfit.windspeed, 'メンズ');
 
-      const cards = items.map(it => {
-        const reason = _outfitReason(it.emoji, outfit.maxT || 20, outfit.minT || 10);
-        return `<a href="${_esc(_amzUrl(it.q))}" target="_blank" rel="noopener" class="oic">` +
-          `<div class="oic-em">${it.emoji}</div>` +
-          `<div class="oic-nm">${_esc(it.label)}</div>` +
-          (reason ? `<div class="oic-why">${_esc(reason)}</div>` : '') +
-          `<div class="oic-amz">🛒 Amazon</div>` +
-        `</a>`;
-      }).join('');
+      function _buildSection(o, label) {
+        const flatlay = _buildFlatLay(o.items);
+        const cards = o.items.map(it => {
+          const reason = _outfitReason(it.emoji, o.maxT || 20, o.minT || 10);
+          return `<a href="${_esc(_amzUrl(it.q))}" target="_blank" rel="noopener" class="oic">` +
+            `<div class="oic-em">${it.emoji}</div>` +
+            `<div class="oic-nm">${_esc(it.label)}</div>` +
+            (reason ? `<div class="oic-why">${_esc(reason)}</div>` : '') +
+            `<div class="oic-amz">🛒 Amazon</div>` +
+          `</a>`;
+        }).join('');
+        return `<div class="outfit-gender-section">` +
+          `<div class="outfit-gender-label">${_esc(label)}</div>` +
+          `<div class="outfit-mannequin-row">${flatlay}<div class="oic-grid" style="flex:1;">${cards}</div></div>` +
+        `</div>`;
+      }
 
       const warnHtml = warn.length
         ? `<div class="outfit-warn-row">${warn.map(w => `<div class="outfit-warn">${w}</div>`).join('')}</div>`
         : '';
 
-      const allQ = items.map(it => it.label).join(' ') + ' ' + (loadConfig().styleGender || '');
+      const allQ = outfitM.items.map(it => it.label).join(' ');
       const html = `<div class="outfit-board-wrap">` +
         `<div class="outfit-board-title">👗 今日のコーデ提案 <span class="outfit-style-tag">${_esc(styleLabel)}</span></div>` +
-        `<div class="outfit-mannequin-row">${mannequin}<div class="oic-grid" style="flex:1;">${cards}</div></div>` +
+        _buildSection(outfitM, '👔 メンズ') +
+        _buildSection(outfitF, '👗 レディース') +
         warnHtml +
         `<a href="${_esc(_amzUrl(allQ))}" target="_blank" rel="noopener" class="outfit-all-btn">🛒 コーデ全体をAmazonで探す</a>` +
       `</div>`;
@@ -5410,14 +5609,17 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
 
     // Tab toggle
     function _minSwitchTab(tab) {
-      const isRec = tab === 'rec';
-      document.getElementById('min-panel-rec').style.display  = isRec ? 'flex' : 'none';
-      document.getElementById('min-panel-hist').style.display = isRec ? 'none' : 'flex';
-      document.getElementById('min-tab-rec').style.borderBottomColor  = isRec ? 'var(--accent-blue)' : 'transparent';
-      document.getElementById('min-tab-rec').style.color  = isRec ? 'var(--accent-blue)' : 'var(--text-muted)';
-      document.getElementById('min-tab-hist').style.borderBottomColor = isRec ? 'transparent' : 'var(--accent-blue)';
-      document.getElementById('min-tab-hist').style.color = isRec ? 'var(--text-muted)' : 'var(--accent-blue)';
-      if (!isRec) _minRenderHistory();
+      ['rec','hist','video'].forEach(t => {
+        const panel = document.getElementById('min-panel-' + t);
+        const btn   = document.getElementById('min-tab-' + t);
+        const active = t === tab;
+        if (panel) panel.style.display = active ? 'flex' : 'none';
+        if (btn) {
+          btn.style.borderBottomColor = active ? 'var(--accent-blue)' : 'transparent';
+          btn.style.color = active ? 'var(--accent-blue)' : 'var(--text-muted)';
+        }
+      });
+      if (tab === 'hist') _minRenderHistory();
     }
 
     function openMinModal() {
@@ -5430,8 +5632,9 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       if (_minActive) _minStop();
       document.getElementById('min-modal').classList.remove('show');
     });
-    document.getElementById('min-tab-rec').addEventListener('click',  () => _minSwitchTab('rec'));
-    document.getElementById('min-tab-hist').addEventListener('click', () => _minSwitchTab('hist'));
+    document.getElementById('min-tab-rec').addEventListener('click',   () => _minSwitchTab('rec'));
+    document.getElementById('min-tab-hist').addEventListener('click',  () => _minSwitchTab('hist'));
+    document.getElementById('min-tab-video').addEventListener('click', () => _minSwitchTab('video'));
     document.getElementById('min-rec-btn').addEventListener('click', () => {
       _minActive ? _minStop() : _minStart();
     });
@@ -5673,6 +5876,149 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       vidEl.addEventListener('loadedmetadata', _resize);
       window.addEventListener('resize', () => {
         if (document.getElementById('measure-modal').classList.contains('show')) _resize();
+      });
+    })();
+
+    /* =====================================================
+       動画・音声ファイル 文字起こし
+       ===================================================== */
+    (() => {
+      let _vsr = null;         // SpeechRecognition instance
+      let _vBlocks = [];       // transcript blocks [{text, ts}]
+      let _vAudioEl = null;
+
+      function _vRender() {
+        const body = document.getElementById('min-video-transcript-body');
+        if (!body) return;
+        if (!_vBlocks.length) {
+          body.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:28px 0;font-size:12px;line-height:1.8;">📁 動画または音声ファイルを選択して<br>「文字起こし開始」を押してください<br><span style="font-size:11px;opacity:0.8;">⚠️ スピーカー再生＋マイク認識方式<br>ヘッドフォンを外してご使用ください</span></div>';
+          return;
+        }
+        body.innerHTML = _vBlocks.map((b, i) =>
+          `<div class="min-block" data-i="${i}"><span class="min-ts">${b.ts}</span><span class="min-text">${_esc(b.text)}</span></div>`
+        ).join('');
+        body.scrollTop = body.scrollHeight;
+      }
+
+      function _vStop() {
+        const statusEl = document.getElementById('min-video-status');
+        const startBtn = document.getElementById('min-video-start');
+        const stopBtn  = document.getElementById('min-video-stop');
+        if (_vsr) { try { _vsr.stop(); } catch(e) {} _vsr = null; }
+        if (_vAudioEl) { _vAudioEl.pause(); }
+        if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
+        if (startBtn) startBtn.style.display = '';
+        if (stopBtn)  stopBtn.style.display  = 'none';
+      }
+
+      function _vStart() {
+        const audio = document.getElementById('min-video-audio');
+        const statusEl = document.getElementById('min-video-status');
+        const startBtn = document.getElementById('min-video-start');
+        const stopBtn  = document.getElementById('min-video-stop');
+        _vAudioEl = audio;
+
+        if (!audio.src || audio.src === window.location.href) {
+          toast('⚠️ 先にファイルを選択してください'); return;
+        }
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { toast('❌ このブラウザは音声認識に対応していません'); return; }
+
+        _vBlocks = [];
+        _vRender();
+
+        const sr = new SR();
+        _vsr = sr;
+        sr.lang = 'ja-JP';
+        sr.continuous = true;
+        sr.interimResults = false;
+        sr.maxAlternatives = 1;
+
+        sr.onresult = e => {
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const txt = e.results[i][0].transcript.trim();
+            if (!txt) continue;
+            const now = new Date();
+            const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+            _vBlocks.push({ text: txt, ts });
+          }
+          _vRender();
+        };
+        sr.onerror = e => {
+          if (e.error === 'aborted') return;
+          if (statusEl) statusEl.textContent = `⚠️ 認識エラー: ${e.error}`;
+        };
+        sr.onend = () => {
+          // Restart if audio is still playing
+          if (_vsr && _vAudioEl && !_vAudioEl.paused && !_vAudioEl.ended) {
+            try { _vsr.start(); } catch(ex) {}
+          } else {
+            _vStop();
+          }
+        };
+
+        sr.start();
+        audio.play().catch(err => {
+          toast(`⚠️ 再生エラー: ${err.message}`);
+          _vStop();
+        });
+        audio.onended = () => _vStop();
+
+        if (statusEl) { statusEl.textContent = '🎙 再生中・文字起こし中…'; statusEl.style.display = ''; }
+        if (startBtn) startBtn.style.display = 'none';
+        if (stopBtn)  stopBtn.style.display  = '';
+      }
+
+      // File picker
+      document.getElementById('min-video-pick').addEventListener('click', () => {
+        document.getElementById('min-video-file').click();
+      });
+      document.getElementById('min-video-file').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        e.target.value = '';
+        const url = URL.createObjectURL(file);
+        const audio = document.getElementById('min-video-audio');
+        audio.src = url;
+        document.getElementById('min-video-player-wrap').style.display = '';
+        document.getElementById('min-video-file-info').textContent = `📄 ${file.name}  (${(file.size/1024/1024).toFixed(1)} MB)`;
+        document.getElementById('min-video-title').value = file.name.replace(/\.[^.]+$/, '');
+        _vBlocks = [];
+        _vRender();
+      });
+
+      document.getElementById('min-video-start').addEventListener('click', _vStart);
+      document.getElementById('min-video-stop').addEventListener('click',  _vStop);
+
+      document.getElementById('min-video-copy').addEventListener('click', () => {
+        if (!_vBlocks.length) { toast('⚠️ 文字起こし内容がありません'); return; }
+        const txt = _vBlocks.map(b => `[${b.ts}] ${b.text}`).join('\n');
+        navigator.clipboard?.writeText(txt).then(() => toast('📋 テキストをコピーしました'))
+          .catch(() => toast('❌ クリップボードへのアクセスが拒否されました'));
+      });
+
+      document.getElementById('min-video-save').addEventListener('click', () => {
+        if (!_vBlocks.length) { toast('⚠️ 内容がありません'); return; }
+        const title = document.getElementById('min-video-title').value || '動画文字起こし';
+        const now = new Date();
+        const dStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+        const content = `# ${title}\n\n作成日: ${dStr}\n\n` + _vBlocks.map(b => `[${b.ts}] ${b.text}`).join('\n');
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${title}_${dStr}.txt`;
+        a.click();
+        toast('💾 テキストファイルを保存しました');
+      });
+
+      document.getElementById('min-video-clear').addEventListener('click', () => {
+        _vStop();
+        _vBlocks = [];
+        _vRender();
+        const audio = document.getElementById('min-video-audio');
+        audio.src = '';
+        document.getElementById('min-video-player-wrap').style.display = 'none';
+        document.getElementById('min-video-title').value = '';
       });
     })();
 
