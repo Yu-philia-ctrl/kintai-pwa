@@ -35,6 +35,23 @@ except ImportError as e:
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8899
 _cache = {}   # month → { ts, data }
 CACHE_TTL = 300  # 5分
+ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
+
+
+def _save_to_icloud(target_months: list, pwa_data: dict):
+    """スクレイプ結果を iCloud Drive の kintai フォルダに保存する"""
+    try:
+        ICLOUD_DIR.mkdir(parents=True, exist_ok=True)
+        if len(target_months) == 1:
+            filename = f'jinjer_sync_{target_months[0]}.json'
+        else:
+            filename = f'jinjer_sync_{target_months[0]}_to_{target_months[-1]}.json'
+        content = json.dumps(pwa_data, ensure_ascii=False, indent=2)
+        icloud_path = ICLOUD_DIR / filename
+        icloud_path.write_text(content, encoding='utf-8')
+        print(f'☁️  iCloud Drive → {icloud_path}')
+    except Exception as e:
+        print(f'⚠️  iCloud Driveへの保存失敗: {e}')
 
 class JinjerHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
@@ -87,6 +104,8 @@ class JinjerHandler(BaseHTTPRequestHandler):
             all_rows = asyncio.run(scrape_months(target_months))
             pwa_data = convert_all(all_rows)
             _cache[cache_key] = {'ts': time.time(), 'data': pwa_data}
+            # iCloud Drive にも保存
+            _save_to_icloud(target_months, pwa_data)
             self._send_json(pwa_data)
         except Exception as e:
             print(f'[ERROR] スクレイプ失敗: {e}')

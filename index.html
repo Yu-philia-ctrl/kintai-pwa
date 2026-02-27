@@ -969,6 +969,17 @@
     .outfit-fallback { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; font-size: 13px; color: var(--text-muted); }
     .oic-why { font-size: 9px; color: var(--text-muted); text-align: center; line-height: 1.3; }
 
+    /* ======= CAMERA MEASUREMENT ======= */
+    .measure-ref-btn, .measure-type-btn {
+      padding: 5px 10px; border-radius: 20px;
+      border: 2px solid var(--border-soft); background: var(--bg-card);
+      color: var(--text-sub); font-size: 11px; font-weight: 700;
+      font-family: inherit; cursor: pointer; transition: all 0.15s;
+    }
+    .measure-ref-btn.active, .measure-type-btn.active {
+      background: var(--accent-blue); color: white; border-color: var(--accent-blue);
+    }
+
     /* ======= HOURLY DATE SEPARATOR ======= */
     .h-date-sep {
       flex-shrink: 0; display: flex; flex-direction: column;
@@ -1273,6 +1284,7 @@
         <button class="data-btn" id="btn-migrate">🔄 iSH版を取り込む</button>
         <button class="data-btn" id="btn-jinjer">🏢 jinjer同期</button>
         <button class="data-btn" id="btn-minutes">📝 議事録</button>
+        <button class="data-btn" id="btn-measure">📏 サイズ計測</button>
         <button class="data-btn" id="btn-settings">⚙️ 設定</button>
         <button class="data-btn" id="btn-recover" style="color:#c62828;border-color:#ffcdd2;background:rgba(255,235,238,0.7);">🚨 緊急復旧</button>
       </div>
@@ -1775,37 +1787,21 @@
     </div>
   </div>
 
-  <!-- jinjer 同期方法選択モーダル -->
+  <!-- jinjer 同期ステータスモーダル -->
   <div class="modal-backdrop" id="jinjer-sync-modal">
-    <div class="modal-sheet" style="max-height:80vh;">
+    <div class="modal-sheet" style="max-height:70vh;">
       <div class="modal-handle"></div>
       <div class="modal-header">
         <div class="modal-title">🏢 jinjer同期</div>
         <button class="modal-close" id="jinjer-sync-close">✕</button>
       </div>
       <div style="padding:4px 16px 16px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">
-          同期方法を選択してください。
-        </div>
-        <div class="jinjer-sync-opt" id="jinjer-sync-opt-file">
-          <div class="jinjer-sync-opt-icon">📂</div>
-          <div>
-            <div class="jinjer-sync-opt-title">ファイルからインポート</div>
-            <div class="jinjer-sync-opt-sub">sync_jinjer.py で生成したJSONを選択します</div>
-          </div>
-        </div>
-        <div class="jinjer-sync-opt" id="jinjer-sync-opt-auto">
-          <div class="jinjer-sync-opt-icon">🖥</div>
-          <div>
-            <div class="jinjer-sync-opt-title">Macから自動同期</div>
-            <div class="jinjer-sync-opt-sub">Tailscale経由でMacのデータサーバーに接続します</div>
-          </div>
-        </div>
-        <div id="jinjer-sync-status" style="font-size:12px;color:var(--text-muted);text-align:center;padding:8px 0;display:none;"></div>
-        <div id="jinjer-sync-cmd-box" style="display:none;margin-top:8px;">
+        <div id="jinjer-sync-status" style="font-size:13px;color:var(--text-sub);text-align:center;padding:16px 0;line-height:1.6;"></div>
+        <div id="jinjer-sync-cmd-box" style="display:none;margin-top:4px;">
           <div style="font-size:11px;font-weight:800;color:var(--text-muted);margin-bottom:6px;">Macで以下を実行してサーバーを起動:</div>
           <div style="background:#1a1a2e;color:#e0f2fe;border-radius:10px;padding:10px 12px;font-family:monospace;font-size:11px;line-height:1.6;word-break:break-all;" id="jinjer-sync-cmd-text"></div>
           <button class="btn-secondary" id="jinjer-sync-cmd-copy" style="width:100%;margin-top:8px;font-size:11px;">📋 コマンドをコピー</button>
+          <button class="btn-secondary" id="jinjer-sync-retry" style="width:100%;margin-top:6px;font-size:11px;">🔄 再試行</button>
         </div>
       </div>
     </div>
@@ -1869,6 +1865,56 @@
       <!-- 履歴パネル -->
       <div id="min-panel-hist" style="flex:1;display:none;flex-direction:column;min-height:0;overflow:hidden;padding-top:8px;">
         <div id="min-hist-list" style="overflow-y:auto;flex:1;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- カメラ サイズ計測モーダル -->
+  <div class="modal-backdrop" id="measure-modal">
+    <div class="modal-sheet" style="max-height:98vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title">📏 サイズ計測</div>
+        <button class="modal-close" id="measure-close">✕</button>
+      </div>
+      <!-- カメラビューポート -->
+      <div id="measure-cam-wrap" style="position:relative;background:#111;overflow:hidden;flex:1;min-height:180px;max-height:46vh;">
+        <video id="measure-video" style="width:100%;height:100%;object-fit:cover;display:block;" playsinline muted></video>
+        <canvas id="measure-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;touch-action:none;"></canvas>
+        <div id="measure-cam-msg" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.75);font-size:13px;pointer-events:none;text-align:center;padding:16px;background:rgba(0,0,0,0.55);">📷 カメラを起動中...</div>
+      </div>
+      <!-- ステップ表示 -->
+      <div id="measure-step" style="padding:8px 16px 2px;font-size:12px;font-weight:700;color:var(--accent-blue);text-align:center;flex-shrink:0;min-height:26px;"></div>
+      <!-- コントロール -->
+      <div style="padding:4px 16px 14px;flex-shrink:0;overflow-y:auto;">
+        <!-- ① 基準物 -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:800;color:var(--text-muted);margin-bottom:6px;">① 基準物を画面内に置いてタップで指定:</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="measure-ref-btn active" data-w="85.6" data-label="クレカ幅">💳 クレカ (85.6mm)</button>
+            <button class="measure-ref-btn" data-w="26.5" data-label="500円玉径">🪙 500円玉 (26.5mm)</button>
+            <button class="measure-ref-btn" data-w="210" data-label="A4幅">📄 A4幅 (210mm)</button>
+          </div>
+        </div>
+        <!-- ② 計測箇所 -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:800;color:var(--text-muted);margin-bottom:6px;">② 計測する箇所を選択:</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="measure-type-btn active" data-type="foot">👟 足の長さ</button>
+            <button class="measure-type-btn" data-type="shoulder">👔 肩幅</button>
+            <button class="measure-type-btn" data-type="waist">👖 ウエスト</button>
+            <button class="measure-type-btn" data-type="custom">📐 自由計測</button>
+          </div>
+        </div>
+        <!-- 計測結果 -->
+        <div id="measure-result" style="display:none;background:var(--bg-hover);border-radius:14px;padding:12px;text-align:center;margin-bottom:10px;">
+          <div id="measure-result-mm" style="font-size:22px;font-weight:900;color:var(--accent-blue);"></div>
+          <div id="measure-result-size" style="font-size:12px;color:var(--text-sub);margin-top:4px;line-height:1.7;"></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-secondary" id="measure-reset" style="flex:1;font-size:12px;">🗑 リセット</button>
+          <button class="btn-secondary" id="measure-flip" style="flex:1;font-size:12px;">🔄 カメラ切替</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2820,52 +2866,32 @@
     /* =====================================================
        JINJER 同期（マージインポート）
        ===================================================== */
-    document.getElementById('btn-jinjer').addEventListener('click', () => {
-      // 選択モーダルを表示
-      document.getElementById('jinjer-sync-status').style.display = 'none';
-      document.getElementById('jinjer-sync-cmd-box').style.display = 'none';
-      document.getElementById('jinjer-sync-modal').classList.add('show');
-    });
-
-    document.getElementById('jinjer-sync-close').addEventListener('click', () =>
-      document.getElementById('jinjer-sync-modal').classList.remove('show'));
-
-    // ① ファイルインポート選択
-    document.getElementById('jinjer-sync-opt-file').addEventListener('click', () => {
-      document.getElementById('jinjer-sync-modal').classList.remove('show');
-      document.getElementById('file-jinjer').click();
-    });
-
-    // ② Tailscale経由の自動同期
-    document.getElementById('jinjer-sync-opt-auto').addEventListener('click', async () => {
+    async function _doJinjerAutoSync() {
       const cfg = loadConfig();
       const macIp = cfg.tsMac || '';
       const statusEl = document.getElementById('jinjer-sync-status');
       const cmdBox = document.getElementById('jinjer-sync-cmd-box');
+      document.getElementById('jinjer-sync-modal').classList.add('show');
+      cmdBox.style.display = 'none';
       if (!macIp) {
-        statusEl.style.display = '';
         statusEl.textContent = '⚠️ 設定でTailscale MacBook IPを設定してください';
         return;
       }
-      statusEl.style.display = '';
       statusEl.textContent = '📡 Macのサーバーに接続中…';
-      cmdBox.style.display = 'none';
       const today = new Date();
       const month = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
       const port = cfg.jinjerServerPort || '8899';
       try {
         const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 8000);
+        setTimeout(() => ctrl.abort(), 12000);
         const res = await fetch(`http://${macIp}:${port}/api/jinjer?months=${month}`, { signal: ctrl.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const jinjer = await res.json();
         document.getElementById('jinjer-sync-modal').classList.remove('show');
-        // JSONをファイル経由と同じパスで処理
         _processJinjerData(jinjer);
         _appLog('info', 'jinjer', `Tailscale自動同期: ${month}`);
       } catch(e) {
-        statusEl.textContent = `❌ サーバーに接続できませんでした。Macで以下を実行してください:`;
-        // コマンド表示
+        statusEl.textContent = `❌ サーバーに接続できませんでした`;
         const projDir = '~/root/attendance-pwa';
         const cmd = `cd ${projDir} && python3 jinjer_server.py`;
         document.getElementById('jinjer-sync-cmd-text').textContent = cmd;
@@ -2873,9 +2899,14 @@
         document.getElementById('jinjer-sync-cmd-copy').onclick = () => {
           navigator.clipboard?.writeText(cmd).then(() => toast('📋 コマンドをコピーしました'));
         };
+        document.getElementById('jinjer-sync-retry').onclick = () => _doJinjerAutoSync();
         _appLog('warn', 'jinjer', `Tailscale接続失敗: ${e.message}`);
       }
-    });
+    }
+
+    document.getElementById('btn-jinjer').addEventListener('click', () => _doJinjerAutoSync());
+    document.getElementById('jinjer-sync-close').addEventListener('click', () =>
+      document.getElementById('jinjer-sync-modal').classList.remove('show'));
 
     // jinjerデータ処理（ファイル/Tailscale両方から使う共通処理）
     async function _processJinjerData(jinjer) {
@@ -4472,7 +4503,7 @@
       pastel: { top:'#f8bbd0', btm:'#b3e5fc', out:'#c8e6c9', sho:'#ffccbc', sca:'#e1bee7', acc:'#f0f4c3' },
     };
 
-    // 着衣SVGマネキンを生成（グラデーション立体感 + アニメ調リアルデザイン）
+    // ファッションイラスト風アバターSVGを生成（スタイリッシュ 8頭身）
     function _buildMannequinSVG(items, colorKey) {
       const p = _CLOTH_PAL[colorKey] || _CLOTH_PAL.basic;
       const has = emoji => items.some(it => emoji.includes(it.emoji));
@@ -4484,151 +4515,114 @@
       const hasShoe  = has(['👟','👞','🥾','🥿']);
       const hasAcc   = has(['🧤']);
       const sleeveC  = hasOuter ? p.out : (hasTop ? p.top : null);
-      const u = Math.random().toString(36).slice(2,7); // unique IDs per render
+      const u = Math.random().toString(36).slice(2,7);
 
-      return `<svg class="vp-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
+      return `<svg class="vp-svg" viewBox="0 0 100 240" xmlns="http://www.w3.org/2000/svg">
 <defs>
-  <radialGradient id="fg${u}" cx="42%" cy="35%" r="58%"><stop offset="0%" stop-color="#FFE5C8"/><stop offset="100%" stop-color="#E8A870"/></radialGradient>
-  <radialGradient id="hg${u}" cx="38%" cy="28%" r="62%"><stop offset="0%" stop-color="#7B5635"/><stop offset="100%" stop-color="#2C1A0E"/></radialGradient>
-  <radialGradient id="bg${u}" cx="50%" cy="10%" r="75%"><stop offset="0%" stop-color="#F8D0A8"/><stop offset="100%" stop-color="#E09870"/></radialGradient>
-  <radialGradient id="lg${u}" cx="50%" cy="10%" r="80%"><stop offset="0%" stop-color="#F5C898"/><stop offset="100%" stop-color="#DC9468"/></radialGradient>
+  <linearGradient id="sk${u}" x1="30%" y1="0%" x2="70%" y2="100%">
+    <stop offset="0%" stop-color="#FDDBB4"/><stop offset="100%" stop-color="#F0B880"/>
+  </linearGradient>
+  <linearGradient id="lg${u}" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#F5C498"/><stop offset="100%" stop-color="#E0A070"/>
+  </linearGradient>
 </defs>
-<!-- Ground shadow -->
-<ellipse cx="50" cy="198" rx="21" ry="4" fill="rgba(0,0,0,0.12)"/>
-<!-- Hair back volume -->
-<ellipse cx="50" cy="14" rx="18" ry="14" fill="url(#hg${u})"/>
-<path d="M33 14 Q29 6 35 1 Q42 -3 50 -1 Q58 -3 65 1 Q71 6 67 14" fill="#2C1A0E"/>
-<!-- Side hair framing face -->
-<path d="M33 12 Q28 20 29 30 Q30 34 33 37 Q34 31 34 22 Q33 16 35 12 Z" fill="#3A2010"/>
-<path d="M67 12 Q72 20 71 30 Q70 34 67 37 Q66 31 66 22 Q67 16 65 12 Z" fill="#3A2010"/>
-<!-- Hair sheen highlight -->
-<path d="M40 3 Q50 0 60 3" stroke="rgba(255,255,255,0.22)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-<!-- Neck -->
-<path d="M44 37 Q50 35 56 37 L57 47 Q50 49 43 47 Z" fill="#F0B888"/>
-<path d="M44 37 Q50 35 56 37 L56 41 Q50 40 44 41 Z" fill="rgba(0,0,0,0.07)"/>
+<ellipse cx="50" cy="236" rx="20" ry="3.5" fill="rgba(0,0,0,0.10)"/>
+<!-- HAIR -->
+<path d="M36.5 13 Q36 1 50 0 Q64 1 63.5 13 Q66 8 65 20 Q64 30 62 36 Q56 40 50 40 Q44 40 38 36 Q36 30 35 20 Q34 8 36.5 13 Z" fill="#1c1410"/>
+<path d="M37 15 Q32 24 34 36 Q36 42 38 44 Q36 38 37 28 Q37 18 38 14 Z" fill="#221810"/>
+<path d="M63 15 Q68 24 66 36 Q64 42 62 44 Q64 38 63 28 Q63 18 62 14 Z" fill="#221810"/>
+<path d="M41 2 Q50 0 59 2" stroke="rgba(255,255,255,0.18)" stroke-width="1.8" fill="none" stroke-linecap="round"/>
 <!-- FACE -->
-<ellipse cx="50" cy="22" rx="16" ry="18" fill="url(#fg${u})"/>
-<!-- Face highlight cheek zone -->
-<ellipse cx="43" cy="15" rx="6" ry="4.5" fill="rgba(255,255,255,0.16)"/>
-<!-- Ears -->
-<ellipse cx="34.5" cy="23" rx="3.8" ry="5.5" fill="#F0B888"/>
-<ellipse cx="34.5" cy="23" rx="2.2" ry="3.4" fill="#E09068"/>
-<ellipse cx="65.5" cy="23" rx="3.8" ry="5.5" fill="#F0B888"/>
-<ellipse cx="65.5" cy="23" rx="2.2" ry="3.4" fill="#E09068"/>
-<!-- Eyebrows -->
-<path d="M38.5 14.8 Q42.5 13 46.5 14.8" stroke="#3A2010" stroke-width="2" fill="none" stroke-linecap="round"/>
-<path d="M53.5 14.8 Q57.5 13 61.5 14.8" stroke="#3A2010" stroke-width="2" fill="none" stroke-linecap="round"/>
-<!-- Left eye: white + iris + pupil + highlight -->
-<ellipse cx="43" cy="21.5" rx="5.2" ry="5.8" fill="white"/>
-<ellipse cx="43" cy="22.5" rx="4" ry="4.5" fill="#5A3EAD"/>
-<ellipse cx="43" cy="23" rx="2.4" ry="3" fill="#2A1880"/>
-<ellipse cx="43" cy="23.5" rx="1.4" ry="1.8" fill="#0D0820"/>
-<ellipse cx="41.2" cy="20.8" rx="1.4" ry="1.4" fill="white"/>
-<ellipse cx="45.2" cy="24.2" rx="0.7" ry="0.7" fill="rgba(255,255,255,0.65)"/>
-<!-- Left upper eyelid line + lash -->
-<path d="M37.8 17.5 Q43 15.2 48.2 17.5" stroke="#2C1A0E" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-<path d="M38.5 25.5 Q43 28 47.5 25.5" stroke="rgba(44,26,14,0.3)" stroke-width="0.9" fill="none" stroke-linecap="round"/>
-<!-- Right eye: white + iris + pupil + highlight -->
-<ellipse cx="57" cy="21.5" rx="5.2" ry="5.8" fill="white"/>
-<ellipse cx="57" cy="22.5" rx="4" ry="4.5" fill="#5A3EAD"/>
-<ellipse cx="57" cy="23" rx="2.4" ry="3" fill="#2A1880"/>
-<ellipse cx="57" cy="23.5" rx="1.4" ry="1.8" fill="#0D0820"/>
-<ellipse cx="55.2" cy="20.8" rx="1.4" ry="1.4" fill="white"/>
-<ellipse cx="59.2" cy="24.2" rx="0.7" ry="0.7" fill="rgba(255,255,255,0.65)"/>
-<!-- Right upper eyelid line + lash -->
-<path d="M51.8 17.5 Q57 15.2 62.2 17.5" stroke="#2C1A0E" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-<path d="M52.5 25.5 Q57 28 61.5 25.5" stroke="rgba(44,26,14,0.3)" stroke-width="0.9" fill="none" stroke-linecap="round"/>
-<!-- Nose (subtle shadow + tip) -->
-<path d="M47.5 29.5 Q50 31.5 52.5 29.5" stroke="#C08060" stroke-width="1" fill="none" stroke-linecap="round"/>
-<ellipse cx="50" cy="32" rx="3.2" ry="2" fill="rgba(200,130,90,0.22)"/>
-<!-- Mouth -->
-<path d="M46 35.5 Q50 39 54 35.5" stroke="#C0705A" stroke-width="1.9" fill="none" stroke-linecap="round"/>
-<path d="M47 35 Q48.5 33 50 33.5 Q51.5 33 53 35" stroke="#D08070" stroke-width="0.9" fill="none" stroke-linecap="round"/>
-<!-- Blush -->
-<ellipse cx="36.5" cy="29" rx="5.8" ry="3.4" fill="#FF9999" opacity="0.3"/>
-<ellipse cx="63.5" cy="29" rx="5.8" ry="3.4" fill="#FF9999" opacity="0.3"/>
-<!-- BODY SKIN BASE -->
-<!-- Left arm -->
-<path d="M20 50 C 11 57 4 86 5 111 C 5.5 118 10.5 121 16 120 C 20 119 22 112 23 106 C 25 88 23 64 23 50 Z" fill="#F0B888"/>
-<path d="M20 50 C 13 57 7 86 8 110 L16 120 C 10.5 121 5.5 118 5 111 C 4 86 11 57 20 50 Z" fill="rgba(0,0,0,0.06)"/>
-<!-- Right arm -->
-<path d="M80 50 C 89 57 96 86 95 111 C 94.5 118 89.5 121 84 120 C 80 119 78 112 77 106 C 75 88 77 64 77 50 Z" fill="#F0B888"/>
-<path d="M80 50 C 87 57 93 86 92 110 L84 120 C 89.5 121 94.5 118 95 111 C 96 86 89 57 80 50 Z" fill="rgba(0,0,0,0.06)"/>
-<!-- Hands -->
-<ellipse cx="10" cy="122" rx="7" ry="9" fill="#F0B888"/>
-<ellipse cx="90" cy="122" rx="7" ry="9" fill="#F0B888"/>
-<path d="M5 119.5 Q10 117 15 119.5" stroke="rgba(0,0,0,0.1)" stroke-width="0.9" fill="none"/>
-<path d="M5 123.5 Q10 121 15 123.5" stroke="rgba(0,0,0,0.07)" stroke-width="0.8" fill="none"/>
-<path d="M85 119.5 Q90 117 95 119.5" stroke="rgba(0,0,0,0.1)" stroke-width="0.9" fill="none"/>
-<path d="M85 123.5 Q90 121 95 123.5" stroke="rgba(0,0,0,0.07)" stroke-width="0.8" fill="none"/>
-<!-- Torso -->
-<path d="M22 49 Q20 47 50 45 Q80 47 78 49 L76 122 Q74 132 50 133 Q26 132 24 122 Z" fill="url(#bg${u})"/>
-<path d="M50 45 L50 133 Q62 133 70 128 L76 122 L78 49 Q64 47 50 45 Z" fill="rgba(0,0,0,0.045)"/>
-<!-- Shoulder line definition -->
-<path d="M22 49 Q28 52 23 55" stroke="rgba(0,0,0,0.07)" stroke-width="1" fill="none"/>
-<path d="M78 49 Q72 52 77 55" stroke="rgba(0,0,0,0.07)" stroke-width="1" fill="none"/>
-<!-- Hip transition -->
-<path d="M24 122 Q22 130 28 135 Q40 141 50 141 Q60 141 72 135 Q78 130 76 122 Q62 132 50 133 Q38 132 24 122 Z" fill="#E09068"/>
-<path d="M28 135 Q38 142 50 141 Q62 142 72 135 Q66 139 50 140 Q34 139 28 135 Z" fill="rgba(0,0,0,0.07)"/>
-<!-- Legs -->
-<path d="M28 135 C 26 150 26 174 28 192 C 29 198 35 200 39 199 C 43 198 45 191 45 185 L45 135 Z" fill="url(#lg${u})"/>
-<path d="M72 135 C 74 150 74 174 72 192 C 71 198 65 200 61 199 C 57 198 55 191 55 185 L55 135 Z" fill="url(#lg${u})"/>
-<!-- Knee definition -->
-<ellipse cx="37" cy="163" rx="8.5" ry="5.5" fill="rgba(0,0,0,0.055)"/>
-<ellipse cx="63" cy="163" rx="8.5" ry="5.5" fill="rgba(0,0,0,0.055)"/>
-<!-- Leg outer shading -->
-<path d="M28 135 L31 135 L32 192 L28 191 Z" fill="rgba(0,0,0,0.06)"/>
-<path d="M72 135 L69 135 L68 192 L72 191 Z" fill="rgba(0,0,0,0.06)"/>
-<!-- Bare feet/ankles -->
-<path d="M24 192 Q19 197 20 201 Q29 205 40 201 Q46 198 46 193 L38 191 Z" fill="#C8916E"/>
-<path d="M76 192 Q81 197 80 201 Q71 205 60 201 Q54 198 54 193 L62 191 Z" fill="#C8916E"/>
+<ellipse cx="50" cy="16" rx="12.5" ry="14.5" fill="url(#sk${u})"/>
+<path d="M40 19 Q40 29 44 32 Q47 34 50 34 Q53 34 56 32 Q60 29 60 19" fill="url(#sk${u})"/>
+<ellipse cx="37.8" cy="18" rx="2.8" ry="4" fill="#FDCBA0"/>
+<ellipse cx="62.2" cy="18" rx="2.8" ry="4" fill="#FDCBA0"/>
+<ellipse cx="37.8" cy="18" rx="1.5" ry="2.4" fill="#E8A878"/>
+<ellipse cx="62.2" cy="18" rx="1.5" ry="2.4" fill="#E8A878"/>
+<!-- Eyebrows — thin arched -->
+<path d="M39.5 10.5 Q42.5 8.5 46.5 10.5" stroke="#221810" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+<path d="M53.5 10.5 Q57.5 8.5 60.5 10.5" stroke="#221810" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+<!-- Eyes — almond/cat-eye -->
+<path d="M38.5 16 Q42.5 12.5 46.5 16 Q42.5 20 38.5 16 Z" fill="white"/>
+<ellipse cx="42.5" cy="16.2" rx="2" ry="2.5" fill="#2a1a10"/>
+<circle cx="41.6" cy="15.3" r="0.75" fill="rgba(255,255,255,0.90)"/>
+<path d="M38.5 16 Q42.5 12.5 46.5 16" stroke="#1c1410" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+<path d="M53.5 16 Q57.5 12.5 61.5 16 Q57.5 20 53.5 16 Z" fill="white"/>
+<ellipse cx="57.5" cy="16.2" rx="2" ry="2.5" fill="#2a1a10"/>
+<circle cx="56.6" cy="15.3" r="0.75" fill="rgba(255,255,255,0.90)"/>
+<path d="M53.5 16 Q57.5 12.5 61.5 16" stroke="#1c1410" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+<!-- Nose subtle -->
+<path d="M48.5 23 Q50 25 51.5 23" stroke="#C08862" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+<!-- Lips -->
+<path d="M45.5 28.5 Q47.5 31 50 30.5 Q52.5 31 54.5 28.5" stroke="#B84848" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+<path d="M45.5 28.5 Q50 27 54.5 28.5" stroke="#D46060" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+<ellipse cx="37" cy="23" rx="4" ry="2.2" fill="rgba(255,110,100,0.16)"/>
+<ellipse cx="63" cy="23" rx="4" ry="2.2" fill="rgba(255,110,100,0.16)"/>
+<!-- NECK -->
+<path d="M45.5 33 L44.5 44 L55.5 44 L54.5 33" fill="#FDCBA0"/>
+<path d="M45.5 33 L45 39 L50 38.5 L50 33 Z" fill="rgba(0,0,0,0.05)"/>
+<!-- ARMS skin -->
+<path d="M19 54 C 11 70 9 107 11 128 C 12 135 15.5 138 20 136 C 23 135 24 128 24 122 L24 54 Z" fill="#FDCBA0"/>
+<path d="M81 54 C 89 70 91 107 89 128 C 88 135 84.5 138 80 136 C 77 135 76 128 76 122 L76 54 Z" fill="#FDCBA0"/>
+<ellipse cx="15" cy="138" rx="6" ry="7.5" fill="#FDCBA0"/>
+<ellipse cx="85" cy="138" rx="6" ry="7.5" fill="#FDCBA0"/>
+<path d="M10 135.5 Q15 133 20 135.5" stroke="rgba(0,0,0,0.08)" stroke-width="0.8" fill="none"/>
+<path d="M80 135.5 Q85 133 90 135.5" stroke="rgba(0,0,0,0.08)" stroke-width="0.8" fill="none"/>
+<!-- TORSO skin -->
+<path d="M24 53 Q22 51 50 47 Q78 51 76 53 L74 126 Q72 138 50 139 Q28 138 26 126 Z" fill="#FDCBA0"/>
+<path d="M26 126 Q24 137 28 143 Q40 152 50 152 Q60 152 72 143 Q76 137 74 126 Q60 139 50 139 Q40 139 26 126 Z" fill="#E8A870"/>
+<!-- LEGS skin -->
+<path d="M28 143 C 26 165 26 196 28 218 C 29 227 34 230 40 229 C 45 228 47 220 47 213 L47 143 Z" fill="url(#lg${u})"/>
+<path d="M72 143 C 74 165 74 196 72 218 C 71 227 66 230 60 229 C 55 228 53 220 53 213 L53 143 Z" fill="url(#lg${u})"/>
+<ellipse cx="37" cy="180" rx="6.5" ry="4" fill="rgba(255,255,255,0.14)"/>
+<ellipse cx="63" cy="180" rx="6.5" ry="4" fill="rgba(255,255,255,0.14)"/>
+<path d="M28 143 L31 143 L31 218 L28 217 Z" fill="rgba(0,0,0,0.055)"/>
+<path d="M72 143 L69 143 L69 218 L72 217 Z" fill="rgba(0,0,0,0.055)"/>
+<!-- Bare feet -->
+<path d="M24 218 Q18 225 19 230 Q29 235 42 230 Q49 226 48 218 L40 217 Z" fill="#C88A68"/>
+<path d="M76 218 Q82 225 81 230 Q71 235 58 230 Q51 226 52 218 L60 217 Z" fill="#C88A68"/>
 <!-- CLOTHING LAYERS -->
-${hasBot ? `<path d="M28 130 Q24 139 29 143 Q41 150 50 150 Q59 150 71 143 Q76 139 72 130 Q60 141 50 133 Q40 141 28 130 Z" fill="${p.btm}"/>
-<path d="M29 143 L41 143 L41 193 L33 195 Q26 196 23 192 Z" fill="${p.btm}"/>
-<path d="M71 143 L59 143 L59 193 L67 195 Q74 196 77 192 Z" fill="${p.btm}"/>
-<line x1="50" y1="143" x2="50" y2="193" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
-<path d="M29 143 L33 143 L33 193 L29 192 Z" fill="rgba(0,0,0,0.08)"/>
-<path d="M71 143 L67 143 L67 193 L71 192 Z" fill="rgba(0,0,0,0.08)"/>
-<path d="M39 145 L41 143 L41 189 L39 191 Z" fill="rgba(255,255,255,0.13)"/>
-<path d="M61 145 L59 143 L59 189 L61 191 Z" fill="rgba(255,255,255,0.13)"/>` : ''}
-${sleeveC ? `<path d="M20 52 C 11 59 5 87 6 111 C 6.5 117 10 120 16 119 C 20 118 22 111 23 105 L23 52 Z" fill="${sleeveC}"/>
-<path d="M80 52 C 89 59 95 87 94 111 C 93.5 117 90 120 84 119 C 80 118 78 111 77 105 L77 52 Z" fill="${sleeveC}"/>
-<path d="M20 52 C 13 58 7 86 8 110 L16 119 C 10 120 6.5 117 6 111 C 5 87 11 59 20 52 Z" fill="rgba(0,0,0,0.09)"/>
-<path d="M80 52 C 87 58 93 86 92 110 L84 119 C 90 120 93.5 117 94 111 C 95 87 89 59 80 52 Z" fill="rgba(0,0,0,0.09)"/>
-<path d="M21 53 C 15 60 10 88 11 110 C 12 110 13 109 14 107 C 13 88 18 61 22 54 Z" fill="rgba(255,255,255,0.13)"/>` : ''}
-${hasTop ? `<path d="M23 51 Q22 50 50 47 Q78 50 77 51 L76 126 Q74 134 50 135 Q26 134 24 126 Z" fill="${p.top}"/>
-<path d="M50 47 L50 135 Q62 135 70 130 L76 126 L77 51 Q64 50 50 47 Z" fill="rgba(0,0,0,0.065)"/>
-<path d="M30 53 Q28 53 28 55 L28 126 Q28 130 30 131 Q27 130 26 126 L26 55 Z" fill="rgba(255,255,255,0.13)"/>
-<path d="M44 47 Q50 44 56 47 L54 52 Q50 50 46 52 Z" fill="rgba(0,0,0,0.09)"/>
-<path d="M46 52 Q50 56 54 52" stroke="rgba(0,0,0,0.22)" stroke-width="0.9" fill="none"/>` : ''}
-${hasOuter ? `<path d="M16 49 Q14 47 50 44 Q86 47 84 49 L81 116 Q79 126 50 127 Q21 126 19 116 Z" fill="${p.out}"/>
-<path d="M50 44 L50 127 Q62 127 70 122 L81 116 L84 49 Q67 47 50 44 Z" fill="rgba(0,0,0,0.08)"/>
-<path d="M48 44 L44 55 Q46 55 50 59 Q54 55 56 55 L52 44 Z" fill="rgba(0,0,0,0.12)"/>
-<path d="M22 50 Q20 50 20 52 L20 116 Q20 122 22 124 Q19.5 122 19 116 L19 52 Z" fill="rgba(255,255,255,0.13)"/>
-<line x1="50" y1="59" x2="50" y2="127" stroke="rgba(0,0,0,0.1)" stroke-width="0.9"/>
-<circle cx="50" cy="76" r="1.6" fill="rgba(0,0,0,0.22)"/>
-<circle cx="50" cy="93" r="1.6" fill="rgba(0,0,0,0.22)"/>
-<circle cx="50" cy="110" r="1.6" fill="rgba(0,0,0,0.22)"/>` : ''}
-${hasScarf ? `<path d="M36 41 Q50 37 64 41 Q65 47 64 49 Q50 45 36 49 Q35 47 36 41 Z" fill="${p.sca}"/>
-<path d="M44 49 L44 65 Q44 68 47 68 L49 68 Q50 68 50 65 L50 49 Z" fill="${p.sca}"/>
-<path d="M36 43 Q50 39 64 43" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" fill="none"/>
-<path d="M36 47 Q50 43 64 47" stroke="rgba(0,0,0,0.1)" stroke-width="0.9" fill="none"/>` : ''}
-${hasHat ? `<ellipse cx="50" cy="7" rx="23" ry="6.5" fill="${p.out}"/>
-<path d="M34 7 Q37 -3 50 -5 Q63 -3 66 7 Z" fill="${p.out}"/>
-<path d="M34 7 Q37 -3 50 -5 Q56 -3 58 4 Q52 5.5 50 5.5 Q42 5.5 40 7 Z" fill="rgba(0,0,0,0.13)"/>
-<path d="M36 6 Q50 2 64 6" stroke="rgba(255,255,255,0.32)" stroke-width="1.6" fill="none"/>` : ''}
-${hasAcc ? `<ellipse cx="9.5" cy="122" rx="7.8" ry="9.5" fill="${p.acc}"/>
-<ellipse cx="90.5" cy="122" rx="7.8" ry="9.5" fill="${p.acc}"/>
-<path d="M4 119 Q9.5 116 15 119" stroke="rgba(255,255,255,0.32)" stroke-width="0.9" fill="none"/>
-<path d="M85.5 119 Q91 116 96 119" stroke="rgba(255,255,255,0.32)" stroke-width="0.9" fill="none"/>
-<path d="M4.5 123.5 Q9.5 120.5 14.5 123.5" stroke="rgba(255,255,255,0.2)" stroke-width="0.8" fill="none"/>
-<path d="M86 123.5 Q91 120.5 96 123.5" stroke="rgba(255,255,255,0.2)" stroke-width="0.8" fill="none"/>` : ''}
-${hasShoe ? `<path d="M23 192 Q17 198 18 202 Q27 206 40 202 Q46 199 46 194 L38 191 Z" fill="${p.sho}"/>
-<path d="M77 192 Q83 198 82 202 Q73 206 60 202 Q54 199 54 194 L62 191 Z" fill="${p.sho}"/>
-<path d="M23 192 Q17 198 18 200 Q27 202 40 199 L46 194 Q40 197 27 196 Q19 195 23 192 Z" fill="rgba(255,255,255,0.18)"/>
-<path d="M77 192 Q83 198 82 200 Q73 202 60 199 L54 194 Q60 197 73 196 Q81 195 77 192 Z" fill="rgba(255,255,255,0.18)"/>
-<path d="M18 201 Q27 205 40 201" stroke="rgba(0,0,0,0.16)" stroke-width="0.9" fill="none"/>
-<path d="M82 201 Q73 205 60 201" stroke="rgba(0,0,0,0.16)" stroke-width="0.9" fill="none"/>` : ''}
+${hasBot ? `<path d="M26 137 Q24 147 28 155 Q40 164 50 164 Q60 164 72 155 Q76 147 74 137 Q60 149 50 151 Q40 149 26 137 Z" fill="${p.btm}"/>
+<path d="M28 155 L40 155 L40 219 L32 222 Q24 222 22 218 Z" fill="${p.btm}"/>
+<path d="M72 155 L60 155 L60 219 L68 222 Q76 222 78 218 Z" fill="${p.btm}"/>
+<line x1="50" y1="155" x2="50" y2="219" stroke="rgba(0,0,0,0.09)" stroke-width="0.9"/>
+<path d="M28 155 L32 155 L32 219 L28 218 Z" fill="rgba(0,0,0,0.07)"/>
+<path d="M72 155 L68 155 L68 219 L72 218 Z" fill="rgba(0,0,0,0.07)"/>
+<path d="M39 157 L40 155 L40 215 L39 217 Z" fill="rgba(255,255,255,0.12)"/>
+<path d="M61 157 L60 155 L60 215 L61 217 Z" fill="rgba(255,255,255,0.12)"/>` : ''}
+${sleeveC ? `<path d="M19 56 C 11 72 9 107 11 128 C 12 134 15 137 19 136 L24 136 C 24 126 24 106 24 56 Z" fill="${sleeveC}"/>
+<path d="M81 56 C 89 72 91 107 89 128 C 88 134 85 137 81 136 L76 136 C 76 126 76 106 76 56 Z" fill="${sleeveC}"/>
+<path d="M20 57 C 12 72 10 106 12 126 L17 136 C 11 135 11.5 133 11 128 C 9 107 11 72 19 56 Z" fill="rgba(0,0,0,0.08)"/>
+<path d="M80 57 C 88 72 90 106 88 126 L83 136 C 89 135 88.5 133 89 128 C 91 107 89 72 81 56 Z" fill="rgba(0,0,0,0.08)"/>` : ''}
+${hasTop ? `<path d="M24 54 Q22 52 50 48 Q78 52 76 54 L74 131 Q72 140 50 141 Q28 140 26 131 Z" fill="${p.top}"/>
+<path d="M50 48 L50 141 Q62 141 70 136 L74 131 L76 54 Q63 52 50 48 Z" fill="rgba(0,0,0,0.055)"/>
+<path d="M44 48 Q50 45 56 48 L54 54 Q50 52 46 54 Z" fill="rgba(0,0,0,0.075)"/>
+<path d="M46 54 Q50 58 54 54" stroke="rgba(0,0,0,0.14)" stroke-width="0.9" fill="none"/>
+<path d="M27 57 L26 131 Q26 136 28 138 L24 131 L24 54 Z" fill="rgba(255,255,255,0.09)"/>` : ''}
+${hasOuter ? `<path d="M15 51 Q13 49 50 45 Q87 49 85 51 L82 126 Q80 136 50 137 Q20 136 18 126 Z" fill="${p.out}"/>
+<path d="M50 45 L50 137 Q64 137 72 131 L82 126 L85 51 Q68 49 50 45 Z" fill="rgba(0,0,0,0.07)"/>
+<path d="M48 45 L43 58 Q47 58 50 62 Q53 58 57 58 L52 45 Z" fill="rgba(0,0,0,0.09)"/>
+<line x1="50" y1="62" x2="50" y2="137" stroke="rgba(0,0,0,0.08)" stroke-width="0.85"/>
+<circle cx="50" cy="80" r="1.3" fill="rgba(0,0,0,0.18)"/>
+<circle cx="50" cy="98" r="1.3" fill="rgba(0,0,0,0.18)"/>
+<circle cx="50" cy="116" r="1.3" fill="rgba(0,0,0,0.18)"/>
+<path d="M20 54 L18 126 Q18 130 20 132 L15 51 Z" fill="rgba(255,255,255,0.11)"/>` : ''}
+${hasScarf ? `<path d="M36 40 Q50 35 64 40 Q66 47 64 50 Q50 46 36 50 Q34 47 36 40 Z" fill="${p.sca}"/>
+<path d="M44 50 L43 67 Q43 70 46 70 L50 70 Q50 70 50 67 L50 50 Z" fill="${p.sca}"/>
+<path d="M36 42 Q50 37 64 42" stroke="rgba(255,255,255,0.26)" stroke-width="1.1" fill="none"/>
+<path d="M36 47 Q50 43 64 47" stroke="rgba(0,0,0,0.08)" stroke-width="0.8" fill="none"/>` : ''}
+${hasHat ? `<ellipse cx="50" cy="5" rx="23" ry="6" fill="${p.out}"/>
+<path d="M34 5 Q37 -5 50 -7 Q63 -5 66 5 Z" fill="${p.out}"/>
+<path d="M36 4.5 Q50 1 64 4.5" stroke="rgba(255,255,255,0.30)" stroke-width="1.5" fill="none"/>
+<path d="M34 5 Q37 -5 50 -7 Q56 -4 58 3 Q52 5 50 5 Q42 5 40 5 Z" fill="rgba(0,0,0,0.11)"/>` : ''}
+${hasAcc ? `<ellipse cx="15" cy="138" rx="6.5" ry="8" fill="${p.acc}"/>
+<ellipse cx="85" cy="138" rx="6.5" ry="8" fill="${p.acc}"/>
+<path d="M9.5 135 Q15 132 20.5 135" stroke="rgba(255,255,255,0.26)" stroke-width="0.9" fill="none"/>
+<path d="M79.5 135 Q85 132 90.5 135" stroke="rgba(255,255,255,0.26)" stroke-width="0.9" fill="none"/>` : ''}
+${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 217 Z" fill="${p.sho}"/>
+<path d="M76 218 Q82 226 81 230 Q70 235 57 230 Q51 226 52 219 L60 217 Z" fill="${p.sho}"/>
+<path d="M24 218 Q19 224 19 228 Q30 230 43 226 L48 219 Q40 222 27 221 Q19 220 24 218 Z" fill="rgba(255,255,255,0.16)"/>
+<path d="M76 218 Q81 224 81 228 Q70 230 57 226 L52 219 Q60 222 73 221 Q81 220 76 218 Z" fill="rgba(255,255,255,0.16)"/>` : ''}
 </svg>`;
     }
 
@@ -5480,6 +5474,207 @@ ${hasShoe ? `<path d="M23 192 Q17 198 18 202 Q27 206 40 202 Q46 199 46 194 L38 1
       document.getElementById('min-title').value = '';
       _minRenderTranscript('');
     });
+
+    /* =====================================================
+       CAMERA SIZE MEASUREMENT
+       ===================================================== */
+    (function() {
+      let _camStream = null;
+      let _camFacing = 'environment';
+      let _camScale  = null;   // px per mm (set after calibration)
+      let _camState  = 0;      // 0=ref pt1, 1=ref pt2, 2=meas pt1, 3=meas pt2, 4=done
+      let _camPts    = [];
+      let _camRefW   = 85.6;   // mm
+      let _camType   = 'foot';
+
+      const vidEl    = document.getElementById('measure-video');
+      const cvs      = document.getElementById('measure-canvas');
+      const ctx      = cvs.getContext('2d');
+      const stepEl   = document.getElementById('measure-step');
+      const camMsg   = document.getElementById('measure-cam-msg');
+      const resultEl = document.getElementById('measure-result');
+      const resultMm = document.getElementById('measure-result-mm');
+      const resultSz = document.getElementById('measure-result-size');
+
+      const STEPS = [
+        '① 基準物の端（A点）をタップ',
+        '② 基準物の逆端（B点）をタップ',
+        '③ 計測箇所の始点（C点）をタップ',
+        '④ 計測箇所の終点（D点）をタップ',
+        '✅ 計測完了！リセットで再計測できます',
+      ];
+
+      function _resize() {
+        const wrap = document.getElementById('measure-cam-wrap');
+        if (!wrap) return;
+        cvs.width  = wrap.offsetWidth;
+        cvs.height = wrap.offsetHeight;
+        _draw();
+      }
+
+      function _draw() {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        const colors = ['#FFD600','#FF6F00','#00BCD4','#00E676'];
+        const labels = ['A','B','C','D'];
+        _camPts.forEach((pt, i) => {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 9, 0, Math.PI * 2);
+          ctx.fillStyle = colors[i] + 'CC';
+          ctx.fill();
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(labels[i], pt.x, pt.y);
+        });
+        if (_camPts.length >= 2) {
+          ctx.beginPath();
+          ctx.moveTo(_camPts[0].x, _camPts[0].y);
+          ctx.lineTo(_camPts[1].x, _camPts[1].y);
+          ctx.strokeStyle = '#FFD600CC';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([7, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        if (_camPts.length >= 4) {
+          ctx.beginPath();
+          ctx.moveTo(_camPts[2].x, _camPts[2].y);
+          ctx.lineTo(_camPts[3].x, _camPts[3].y);
+          ctx.strokeStyle = '#00E676CC';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([7, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
+      function _ptFromEvent(e) {
+        const rect = cvs.getBoundingClientRect();
+        const sx = cvs.width / rect.width;
+        const sy = cvs.height / rect.height;
+        const src = e.touches ? e.touches[0] : e;
+        return { x: (src.clientX - rect.left) * sx, y: (src.clientY - rect.top) * sy };
+      }
+
+      function _dist(a, b) {
+        return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+      }
+
+      function _sizeSuggestion(mm, type) {
+        const cm = mm / 10;
+        if (type === 'foot') {
+          const sz = (Math.round(cm * 2) / 2).toFixed(1);
+          return `足の長さ: ${cm.toFixed(1)}cm\n推奨シューズ: ${sz}cm`;
+        }
+        if (type === 'shoulder') {
+          const sz = cm < 40 ? 'S' : cm < 44 ? 'M' : cm < 48 ? 'L' : 'XL';
+          return `肩幅: ${cm.toFixed(1)}cm → ${sz}サイズ`;
+        }
+        if (type === 'waist') {
+          const sz = cm < 72 ? 'S' : cm < 78 ? 'M' : cm < 84 ? 'L' : 'XL';
+          return `ウエスト: ${cm.toFixed(1)}cm → ${sz}サイズ`;
+        }
+        return `計測値: ${cm.toFixed(1)} cm`;
+      }
+
+      function _onTap(e) {
+        e.preventDefault();
+        if (_camState >= 4) return;
+        const pt = _ptFromEvent(e);
+        _camPts.push(pt);
+        if (_camState === 1) {
+          const px = _dist(_camPts[0], _camPts[1]);
+          _camScale = px / _camRefW;
+        }
+        if (_camState === 3) {
+          const px = _dist(_camPts[2], _camPts[3]);
+          const mm = px / _camScale;
+          resultMm.textContent = `${Math.round(mm)} mm (${(mm / 10).toFixed(1)} cm)`;
+          resultSz.textContent = _sizeSuggestion(mm, _camType);
+          resultSz.style.whiteSpace = 'pre-line';
+          resultEl.style.display = '';
+        }
+        _camState = Math.min(_camState + 1, 4);
+        stepEl.textContent = STEPS[_camState > 4 ? 4 : _camState];
+        _draw();
+      }
+
+      function _reset() {
+        _camState = 0; _camPts = []; _camScale = null;
+        resultEl.style.display = 'none';
+        stepEl.textContent = STEPS[0];
+        _draw();
+      }
+
+      async function _startCam() {
+        if (_camStream) { _camStream.getTracks().forEach(t => t.stop()); _camStream = null; }
+        camMsg.style.display = 'flex';
+        camMsg.textContent = '📷 カメラを起動中...';
+        try {
+          _camStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: _camFacing, width: { ideal: 1280 }, height: { ideal: 720 } }
+          });
+          vidEl.srcObject = _camStream;
+          await vidEl.play();
+          camMsg.style.display = 'none';
+        } catch(err) {
+          camMsg.textContent = `❌ カメラにアクセスできません: ${err.message}`;
+        }
+      }
+
+      function _stopCam() {
+        if (_camStream) { _camStream.getTracks().forEach(t => t.stop()); _camStream = null; }
+        vidEl.srcObject = null;
+      }
+
+      // Reference buttons
+      document.querySelectorAll('.measure-ref-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.measure-ref-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          _camRefW = parseFloat(btn.dataset.w);
+          _reset();
+        });
+      });
+
+      // Type buttons
+      document.querySelectorAll('.measure-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.measure-type-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          _camType = btn.dataset.type;
+        });
+      });
+
+      cvs.addEventListener('click', _onTap);
+      cvs.addEventListener('touchend', _onTap, { passive: false });
+      document.getElementById('measure-reset').addEventListener('click', _reset);
+      document.getElementById('measure-flip').addEventListener('click', async () => {
+        _camFacing = _camFacing === 'environment' ? 'user' : 'environment';
+        await _startCam();
+      });
+
+      document.getElementById('btn-measure').addEventListener('click', async () => {
+        document.getElementById('measure-modal').classList.add('show');
+        _reset();
+        setTimeout(_resize, 100);
+        await _startCam();
+      });
+
+      document.getElementById('measure-close').addEventListener('click', () => {
+        document.getElementById('measure-modal').classList.remove('show');
+        _stopCam();
+      });
+
+      vidEl.addEventListener('loadedmetadata', _resize);
+      window.addEventListener('resize', () => {
+        if (document.getElementById('measure-modal').classList.contains('show')) _resize();
+      });
+    })();
 
     /* =====================================================
        SERVICE WORKER
