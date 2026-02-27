@@ -1555,6 +1555,11 @@
           <div class="settings-hint">Tailscale経由の自動同期に使います。端末内にのみ保存されます。</div>
         </div>
         <div class="settings-row">
+          <div class="settings-label">📅 全期間同期の開始月</div>
+          <input id="settings-jinjer-start-month" class="settings-input" type="month" placeholder="例: 2025-10">
+          <div class="settings-hint">「全期間一括同期」ボタンで使う開始月。例: 2025-10（入社月など）</div>
+        </div>
+        <div class="settings-row">
           <div class="settings-label">📍 天気の取得場所</div>
           <select id="settings-city" class="settings-input">
             <option value="">📍 GPS 自動取得（推奨）</option>
@@ -1828,13 +1833,17 @@
       <div style="padding:4px 16px 16px;">
         <!-- 同期方法の選択 -->
         <div id="jinjer-sync-opts">
+          <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-full" style="border-color:var(--accent-blue);background:linear-gradient(135deg,rgba(79,141,253,0.08),rgba(124,95,230,0.08));">
+            <div class="jinjer-sync-opt-title" style="color:var(--accent-blue);">📊 全期間一括同期</div>
+            <div class="jinjer-sync-opt-sub" id="jinjer-sync-full-range">全月をMacから取得・iCloudに保存</div>
+          </button>
+          <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-auto">
+            <div class="jinjer-sync-opt-title">🖥 今月のみ自動同期</div>
+            <div class="jinjer-sync-opt-sub">Tailscale経由で今月分のみ取得</div>
+          </button>
           <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-file">
             <div class="jinjer-sync-opt-title">📂 ファイルから同期</div>
             <div class="jinjer-sync-opt-sub">iCloud kintaiフォルダのJSONを読み込む</div>
-          </button>
-          <button class="jinjer-sync-opt-btn" id="jinjer-sync-opt-auto">
-            <div class="jinjer-sync-opt-title">🖥 Macから自動同期</div>
-            <div class="jinjer-sync-opt-sub">Tailscale経由でMacのサーバーから取得</div>
           </button>
         </div>
         <div id="jinjer-sync-status" style="font-size:13px;color:var(--text-sub);text-align:center;padding:16px 0;line-height:1.6;display:none;"></div>
@@ -2936,6 +2945,82 @@
     /* =====================================================
        JINJER 同期（マージインポート）
        ===================================================== */
+
+    // 月範囲リスト生成（'YYYY-MM' 形式）
+    function _monthsInRange(start, end) {
+      const result = [];
+      let [y, m] = start.split('-').map(Number);
+      const [ey, em] = end.split('-').map(Number);
+      while (y < ey || (y === ey && m <= em)) {
+        result.push(`${y}-${String(m).padStart(2,'0')}`);
+        m++;
+        if (m > 12) { m = 1; y++; }
+      }
+      return result;
+    }
+
+    // 全期間一括同期（開始月 ～ 今月）
+    async function _doJinjerFullSync() {
+      const cfg = loadConfig();
+      const macIp = cfg.tsMac || '';
+      const statusEl = document.getElementById('jinjer-sync-status');
+      const cmdBox   = document.getElementById('jinjer-sync-cmd-box');
+      const optsEl   = document.getElementById('jinjer-sync-opts');
+      document.getElementById('jinjer-sync-modal').classList.add('show');
+      optsEl.style.display  = 'none';
+      statusEl.style.display = '';
+      cmdBox.style.display   = 'none';
+
+      if (!macIp) {
+        statusEl.textContent = '⚠️ 設定でTailscale MacBook IPを設定してください';
+        return;
+      }
+
+      const today = new Date();
+      const endMonth   = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+      const startMonth = cfg.jinjerStartMonth || '2025-10';
+      const months = _monthsInRange(startMonth, endMonth);
+      const port   = cfg.jinjerServerPort || '8899';
+
+      statusEl.innerHTML =
+        `📡 全期間一括同期中…<br>` +
+        `<span style="font-size:12px;font-weight:700;">${startMonth} ～ ${endMonth}（${months.length}ヶ月）</span><br>` +
+        `<span style="font-size:11px;opacity:0.7;">初回は数分かかる場合があります</span>`;
+
+      try {
+        const ctrl = new AbortController();
+        const timeoutMs = Math.max(90000, months.length * 18000); // 18秒/月、最低90秒
+        setTimeout(() => ctrl.abort(), timeoutMs);
+
+        const monthsParam = months.join(',');
+        const res = await fetch(
+          `http://${macIp}:${port}/api/jinjer?months=${monthsParam}`,
+          { signal: ctrl.signal }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const jinjer = await res.json();
+
+        const savedMonths = Object.keys(jinjer.months || {});
+        document.getElementById('jinjer-sync-modal').classList.remove('show');
+        await _processJinjerData(jinjer);
+        toast(`✅ 全期間同期完了 ${savedMonths.length}ヶ月`);
+        _appLog('info', 'jinjer', `全期間同期: ${startMonth}～${endMonth} (${savedMonths.length}ヶ月)`);
+      } catch(e) {
+        const isTimeout = e.name === 'AbortError';
+        statusEl.innerHTML =
+          `❌ 同期に失敗しました<br>` +
+          `<span style="font-size:11px;opacity:0.8;">${isTimeout ? 'タイムアウト — Macのサーバーが起動しているか確認してください' : e.message}</span>`;
+        const projDir = '~/root/attendance-pwa';
+        const cmd = `cd ${projDir} && python3 jinjer_server.py`;
+        document.getElementById('jinjer-sync-cmd-text').textContent = cmd;
+        cmdBox.style.display = '';
+        document.getElementById('jinjer-sync-cmd-copy').onclick = () =>
+          navigator.clipboard?.writeText(cmd).then(() => toast('📋 コマンドをコピーしました'));
+        document.getElementById('jinjer-sync-retry').onclick = () => _doJinjerFullSync();
+        _appLog('warn', 'jinjer', `全期間同期失敗: ${e.message}`);
+      }
+    }
+
     async function _doJinjerAutoSync() {
       const cfg = loadConfig();
       const macIp = cfg.tsMac || '';
@@ -2984,13 +3069,22 @@
       optsEl.style.display = '';
       statusEl.style.display = 'none';
       cmdBox.style.display = 'none';
+      // 全期間同期の月範囲をボタンの説明に表示
+      const cfg = loadConfig();
+      const today = new Date();
+      const endM = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+      const startM = cfg.jinjerStartMonth || '2025-10';
+      const months = _monthsInRange(startM, endM);
+      document.getElementById('jinjer-sync-full-range').textContent =
+        `${startM} ～ ${endM}（${months.length}ヶ月） Macから取得・iCloudに保存`;
       document.getElementById('jinjer-sync-modal').classList.add('show');
     });
+    document.getElementById('jinjer-sync-opt-full').addEventListener('click', () => _doJinjerFullSync());
+    document.getElementById('jinjer-sync-opt-auto').addEventListener('click', () => _doJinjerAutoSync());
     document.getElementById('jinjer-sync-opt-file').addEventListener('click', () => {
       document.getElementById('jinjer-sync-modal').classList.remove('show');
       document.getElementById('file-jinjer').click();
     });
-    document.getElementById('jinjer-sync-opt-auto').addEventListener('click', () => _doJinjerAutoSync());
     document.getElementById('jinjer-sync-close').addEventListener('click', () =>
       document.getElementById('jinjer-sync-modal').classList.remove('show'));
 
@@ -3091,9 +3185,10 @@
       document.getElementById('settings-ts-mac').value       = cfg.tsMac         || '100.65.221.66';
       document.getElementById('settings-ts-iphone').value    = cfg.tsIphone      || '100.93.30.114';
       document.getElementById('settings-ts-user').value      = cfg.tsUser        || '';
-      document.getElementById('settings-jinjer-company').value = cfg.jinjerCompany || '';
-      document.getElementById('settings-jinjer-email').value   = cfg.jinjerEmail   || '';
-      document.getElementById('settings-jinjer-pass').value    = cfg.jinjerPass    || '';
+      document.getElementById('settings-jinjer-company').value    = cfg.jinjerCompany    || '';
+      document.getElementById('settings-jinjer-email').value      = cfg.jinjerEmail      || '';
+      document.getElementById('settings-jinjer-pass').value       = cfg.jinjerPass       || '';
+      document.getElementById('settings-jinjer-start-month').value = cfg.jinjerStartMonth || '2025-10';
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
@@ -3117,9 +3212,10 @@
         tsMac:          document.getElementById('settings-ts-mac').value.trim(),
         tsIphone:       document.getElementById('settings-ts-iphone').value.trim(),
         tsUser:         document.getElementById('settings-ts-user').value.trim(),
-        jinjerCompany:  document.getElementById('settings-jinjer-company').value.trim(),
-        jinjerEmail:    document.getElementById('settings-jinjer-email').value.trim(),
-        jinjerPass:     document.getElementById('settings-jinjer-pass').value,
+        jinjerCompany:     document.getElementById('settings-jinjer-company').value.trim(),
+        jinjerEmail:       document.getElementById('settings-jinjer-email').value.trim(),
+        jinjerPass:        document.getElementById('settings-jinjer-pass').value,
+        jinjerStartMonth:  document.getElementById('settings-jinjer-start-month').value.trim() || '2025-10',
       };
       // 都市 or スタイルが変わったら天気キャッシュをクリアして再取得
       const prevCfg = loadConfig();
