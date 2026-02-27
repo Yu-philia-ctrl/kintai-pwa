@@ -13,6 +13,7 @@ jinjer同期サーバー — PWAからのTailscale経由リクエストに応答
   POST /api/reports/sync                 kintai データ → Excel 書き込み
   POST /api/reports/generate             翌月 Excel 自動生成
   GET  /api/structure                    STRUCTURE.md の内容
+  GET  /api/jobs?categories=1,2,3&keywords=Python&platforms=crowdworks,lancers  案件一覧
 
 必要なパッケージ:
   pip install playwright openpyxl
@@ -20,8 +21,12 @@ jinjer同期サーバー — PWAからのTailscale経由リクエストに応答
 """
 import asyncio
 import json
+import re
 import sys
 import time
+import urllib.request
+import xml.etree.ElementTree as ET
+from datetime import datetime as _dt
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 from pathlib import Path
@@ -51,6 +56,89 @@ _cache = {}   # cache_key → { ts, data }
 CACHE_TTL = 300  # 5分
 ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
 STRUCTURE_MD = _HERE / 'STRUCTURE.md'
+
+# ===== フリーランス案件フィード =====
+JOBS_CACHE_TTL = 3600  # 1時間
+_jobs_cache: dict = {}
+
+# Crowdworks カテゴリ ID → 表示名
+CW_CATEGORIES = {
+    '1':  'システム開発',
+    '2':  'Web制作・Webデザイン',
+    '3':  'スマホアプリ開発',
+    '7':  'ECサイト構築',
+    '9':  'データ入力',
+}
+# Lancers work_type → 表示名
+LANCERS_TYPES = {
+    'system': 'システム開発',
+    'web':    'Web制作',
+    'app':    'アプリ開発',
+}
+_JOBS_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (kintai-pwa/1.0)'
+_ATOM_NS = 'http://www.w3.org/2005/Atom'
+
+
+def _atom_text(entry, tag: str) -> str:
+    return entry.findtext(f'{{{_ATOM_NS}}}{tag}', '') or ''
+
+
+def _parse_atom_feed(data: bytes, platform: str, category_label: str) -> list:
+    """Atom XML バイト列をパースして案件リストを返す"""
+    root = ET.fromstring(data)
+    jobs = []
+    for entry in root.findall(f'{{{_ATOM_NS}}}entry'):
+        title   = _atom_text(entry, 'title').strip()
+        link_el = entry.find(f'{{{_ATOM_NS}}}link')
+        url     = (link_el.get('href', '') if link_el is not None else '')
+        summary = (_atom_text(entry, 'summary') or _atom_text(entry, 'content'))
+        updated = _atom_text(entry, 'updated')
+        uid     = _atom_text(entry, 'id') or url
+        # 予算抽出（数字+円）
+        budget = ''
+        m = re.search(r'([\d,]+)\s*円', summary)
+        if m:
+            budget = f"¥{m.group(1)}"
+        # HTMLタグ除去して短い要約を作成
+        clean = re.sub(r'<[^>]+>', '', summary)[:160].strip()
+        jobs.append({
+            'platform':    platform,
+            'category':    category_label,
+            'title':       title,
+            'url':         url,
+            'summary':     clean,
+            'budget':      budget,
+            'updated':     updated,
+            'id':          uid,
+            'match_score': 0,
+        })
+    return jobs
+
+
+def _fetch_cw_feed(cat_id: str) -> list:
+    """Crowdworks カテゴリ Atom フィードを取得してパース"""
+    url = f'https://crowdworks.jp/public/jobs/category/{cat_id}.atom'
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': _JOBS_UA})
+        with urllib.request.urlopen(req, timeout=12) as res:
+            data = res.read()
+        return _parse_atom_feed(data, 'crowdworks', CW_CATEGORIES.get(cat_id, cat_id))
+    except Exception as e:
+        print(f'[jobs] CW cat={cat_id}: {e}')
+        return []
+
+
+def _fetch_lancers_feed(work_type: str) -> list:
+    """Lancers 検索 Atom フィードを取得してパース"""
+    url = f'https://www.lancers.jp/work/search.atom?work_type[]={work_type}&order=new'
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': _JOBS_UA})
+        with urllib.request.urlopen(req, timeout=12) as res:
+            data = res.read()
+        return _parse_atom_feed(data, 'lancers', LANCERS_TYPES.get(work_type, work_type))
+    except Exception as e:
+        print(f'[jobs] Lancers type={work_type}: {e}')
+        return []
 
 
 def _save_to_icloud(target_months: list, pwa_data: dict):
@@ -150,6 +238,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
             else:
                 self._send_text('STRUCTURE.md が生成されていません。generate_structure.py を実行してください。', 404)
 
+        # ===== /api/jobs =====
+        elif path == '/api/jobs':
+            self._handle_jobs(params)
+
         else:
             self._send_json({'error': 'Not found'}, 404)
 
@@ -191,6 +283,47 @@ class JinjerHandler(BaseHTTPRequestHandler):
         else:
             self._send_json({'error': 'Not found'}, 404)
 
+    # ===== 内部: フリーランス案件フィード =====
+    def _handle_jobs(self, params: dict):
+        platforms_str  = params.get('platforms',  ['crowdworks,lancers'])[0]
+        categories_str = params.get('categories', ['1,2,3'])[0]
+        keywords_str   = params.get('keywords',   [''])[0]
+
+        platforms  = [p.strip() for p in platforms_str.split(',')  if p.strip()]
+        cat_ids    = [c.strip() for c in categories_str.split(',') if c.strip()]
+        keywords   = [k.strip().lower() for k in keywords_str.split(',') if k.strip()]
+
+        cache_key = f"{','.join(sorted(platforms))}|{','.join(sorted(cat_ids))}|{keywords_str}"
+        if cache_key in _jobs_cache and time.time() - _jobs_cache[cache_key]['ts'] < JOBS_CACHE_TTL:
+            print(f'[jobs cache hit] {cache_key}')
+            self._send_json(_jobs_cache[cache_key]['data'])
+            return
+
+        all_jobs: list = []
+        if 'crowdworks' in platforms:
+            for cat in cat_ids:
+                all_jobs.extend(_fetch_cw_feed(cat))
+        if 'lancers' in platforms:
+            for wtype in ['system', 'web', 'app']:
+                all_jobs.extend(_fetch_lancers_feed(wtype))
+
+        # キーワードマッチスコアを計算してフィルタリング
+        if keywords:
+            for job in all_jobs:
+                text = (job['title'] + ' ' + job['summary']).lower()
+                job['match_score'] = sum(1 for kw in keywords if kw in text)
+            all_jobs.sort(key=lambda j: (-j['match_score'], j.get('updated', '')))
+        else:
+            all_jobs.sort(key=lambda j: j.get('updated', ''), reverse=True)
+
+        result = {
+            'jobs':       all_jobs,
+            'total':      len(all_jobs),
+            'fetched_at': _dt.now().isoformat(),
+        }
+        _jobs_cache[cache_key] = {'ts': time.time(), 'data': result}
+        self._send_json(result)
+
     # ===== 内部: jinjer 同期 =====
     def _handle_jinjer(self, params: dict):
         if not _SCRAPER_OK:
@@ -231,6 +364,7 @@ if __name__ == '__main__':
     print(f'  POST /api/reports/sync                — kintai データ → Excel 書き込み')
     print(f'  POST /api/reports/generate            — 翌月 Excel 自動生成')
     print(f'  GET  /api/structure                   — STRUCTURE.md の内容')
+    print(f'  GET  /api/jobs?categories=1,2,3&keywords=Python — フリーランス案件フィード')
     print('Ctrl+C で終了')
     try:
         server.serve_forever()

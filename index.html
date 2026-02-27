@@ -634,6 +634,54 @@
     .fab-today .fab-label { font-size:9px; opacity:.85; }
     .fab-today.hidden { opacity:0; pointer-events:none; }
 
+    /* ======= JOBS TAB ======= */
+    .jobs-server-banner {
+      background: #fff8e1; border: 1px solid #ffe0b2; border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 10px; font-size: 12px; color: #e65100;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .jobs-server-banner code { background: rgba(0,0,0,0.07); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #333; }
+    .jobs-filter-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .jobs-platform-chips { display: flex; gap: 6px; }
+    .jobs-platform-chip {
+      padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 700;
+      background: #f4f4f6; color: var(--text-muted); cursor: pointer;
+      border: 1px solid transparent; transition: all 0.15s; user-select: none;
+    }
+    .jobs-platform-chip.active { background: var(--accent-blue); color: #fff; }
+    .jobs-skill-display { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+    .jobs-skill-tag { padding: 2px 8px; background: #e8f5e9; color: #2e7d32; border-radius: 999px; font-size: 10px; font-weight: 600; }
+    .jobs-refresh-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px; -webkit-tap-highlight-color: transparent; transition: transform 0.3s; margin-left: auto; }
+    .jobs-refresh-btn.spinning { animation: spin 0.6s linear; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .jobs-fetch-status { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+    .jobs-section-title { font-size: 13px; font-weight: 800; margin-bottom: 10px; color: var(--text-main); }
+    .jobs-pickup-list { display: flex; flex-direction: column; gap: 8px; }
+    .jobs-cards-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 80px; }
+    .jobs-card {
+      background: var(--card-bg); border: 1px solid var(--border-soft);
+      border-radius: 12px; padding: 12px; cursor: pointer;
+      transition: box-shadow 0.15s, transform 0.1s; -webkit-tap-highlight-color: transparent;
+    }
+    .jobs-card:active { transform: scale(0.98); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .jobs-card-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+    .jobs-platform-badge { font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 4px; }
+    .jobs-badge-cw { background: #e3f2fd; color: #1565c0; }
+    .jobs-badge-lancers { background: #fce4ec; color: #c62828; }
+    .jobs-category-tag { font-size: 10px; background: #f4f4f6; color: var(--text-muted); padding: 2px 7px; border-radius: 4px; }
+    .jobs-match-score { font-size: 10px; color: #f57f17; font-weight: 700; }
+    .jobs-updated { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+    .jobs-title {
+      font-size: 13px; font-weight: 700; color: var(--text-main); line-height: 1.4; margin-bottom: 4px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .jobs-budget { font-size: 11px; color: #2e7d32; font-weight: 600; display: block; margin-bottom: 4px; }
+    .jobs-summary {
+      font-size: 11px; color: var(--text-muted); line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .jobs-empty { text-align: center; padding: 40px 20px; font-size: 13px; color: var(--text-muted); line-height: 1.8; }
+
     /* ======= BOTTOM TAB NAVIGATION ======= */
     .bottom-tabs {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 800;
@@ -1653,6 +1701,36 @@
     </div>
   </div>
 
+  <!-- ===== TAB: フリーランス案件 ===== -->
+  <div id="page-jobs" class="tab-page">
+    <!-- サーバー未起動バナー -->
+    <div class="jobs-server-banner" id="jobs-server-banner" style="display:none;">
+      <span>⚡ ローカルサーバー (port 8899) が必要です。</span>
+      <code>python3 jinjer_server.py</code>
+    </div>
+    <!-- フィルターバー -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="jobs-filter-bar">
+        <div id="jobs-platform-chips" class="jobs-platform-chips">
+          <span class="jobs-platform-chip active" data-platform="crowdworks">CW</span>
+          <span class="jobs-platform-chip active" data-platform="lancers">Lancers</span>
+        </div>
+        <div id="jobs-skill-display" class="jobs-skill-display"></div>
+        <button class="jobs-refresh-btn" id="jobs-refresh-btn" title="案件を再取得">🔄</button>
+      </div>
+      <div id="jobs-fetch-status" class="jobs-fetch-status"></div>
+    </div>
+    <!-- 今日のおすすめ案件 -->
+    <div class="card" style="margin-bottom:10px;" id="jobs-pickup-card">
+      <div class="jobs-section-title">🎯 今日のおすすめ案件</div>
+      <div id="jobs-pickup-list" class="jobs-pickup-list"></div>
+    </div>
+    <!-- 全案件リスト -->
+    <div id="jobs-list-container">
+      <div class="jobs-empty" id="jobs-empty-state">💼 案件を読み込んでいます...</div>
+    </div>
+  </div>
+
   <!-- 編集モーダル -->
   <div class="modal-backdrop" id="memo-modal">
     <div class="modal-sheet">
@@ -1904,6 +1982,30 @@
         </div>
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
+          <div class="settings-label">💼 スキルタグ（案件フィルター）</div>
+          <input id="settings-job-skills" class="settings-input" type="text"
+            placeholder="例: Python,JavaScript,React" autocomplete="off">
+          <div class="settings-hint">カンマ区切りで入力。案件タブでのキーワードマッチングに使います。</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">📂 Crowdworks カテゴリ</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="job-cat-1" value="1"> システム開発</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="job-cat-2" value="2"> Web制作</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="job-cat-3" value="3"> スマホアプリ</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="job-cat-7" value="7"> ECサイト</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="job-cat-9" value="9"> データ入力</label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">🌐 対象プラットフォーム</div>
+          <div style="display:flex;gap:16px;margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="job-platform-crowdworks" value="crowdworks"> Crowdworks</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="job-platform-lancers" value="lancers"> Lancers</label>
+          </div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
+        <div class="settings-row">
           <div class="settings-label">🔐 セキュリティPIN</div>
           <div class="settings-hint" id="pin-status-hint" style="margin-bottom:6px;"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1991,6 +2093,9 @@
     </button>
     <button class="tab-btn" data-tab="report">
       <span class="tab-icon">📋</span>報告書
+    </button>
+    <button class="tab-btn" data-tab="jobs">
+      <span class="tab-icon">💼</span>案件
     </button>
   </nav>
 
@@ -3503,6 +3608,18 @@
       document.getElementById('settings-jinjer-email').value      = cfg.jinjerEmail      || '';
       document.getElementById('settings-jinjer-pass').value       = sens.jinjerPass      || '';
       document.getElementById('settings-jinjer-start-month').value = cfg.jinjerStartMonth || '2025-10';
+      // 案件タブ設定
+      document.getElementById('settings-job-skills').value = cfg.jobSkills || '';
+      const activeCats = (cfg.jobCategories || '1,2,3').split(',');
+      ['1','2','3','7','9'].forEach(id => {
+        const el = document.getElementById('job-cat-' + id);
+        if (el) el.checked = activeCats.includes(id);
+      });
+      const activePlatforms = (cfg.jobPlatforms || 'crowdworks,lancers').split(',');
+      ['crowdworks','lancers'].forEach(p => {
+        const el = document.getElementById('job-platform-' + p);
+        if (el) el.checked = activePlatforms.includes(p);
+      });
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
@@ -3527,6 +3644,9 @@
         jinjerCompany:     document.getElementById('settings-jinjer-company').value.trim(),
         jinjerEmail:       document.getElementById('settings-jinjer-email').value.trim(),
         jinjerStartMonth:  document.getElementById('settings-jinjer-start-month').value.trim() || '2025-10',
+        jobSkills:     document.getElementById('settings-job-skills').value.trim(),
+        jobCategories: ['1','2','3','7','9'].filter(id => document.getElementById('job-cat-'+id)?.checked).join(',') || '1,2,3',
+        jobPlatforms:  ['crowdworks','lancers'].filter(p => document.getElementById('job-platform-'+p)?.checked).join(',') || 'crowdworks,lancers',
       };
       // センシティブ項目は暗号化して別途保存
       await saveSensitiveData({
@@ -4414,6 +4534,7 @@
         if (tabName === 'study')   renderStudy();
         if (tabName === 'project') renderProjects();
         if (tabName === 'report')  { initReportTab(); }
+        if (tabName === 'jobs')    { initJobsTab(); }
       }
 
       tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
@@ -5036,6 +5157,150 @@
           }</div>`;
         }
       } catch { el.innerHTML = ''; }
+    }
+
+    /* =====================================================
+       JOBS TAB — フリーランス案件フィード
+       jinjer_server.py /api/jobs 経由で Crowdworks / Lancers を取得
+       ===================================================== */
+    let _jobsData = null;
+    let _jobsInitDone = false;
+
+    async function initJobsTab() {
+      if (_jobsInitDone) return;
+      _jobsInitDone = true;
+      // プラットフォームチップのクリックイベント
+      document.querySelectorAll('.jobs-platform-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          chip.classList.toggle('active');
+        });
+      });
+      document.getElementById('jobs-refresh-btn')?.addEventListener('click', async () => {
+        _jobsInitDone = false;  // 強制再取得
+        _jobsData = null;
+        _jobsInitDone = true;
+        await _loadJobsData();
+      });
+      await _loadJobsData();
+    }
+
+    async function _loadJobsData() {
+      const cfg      = loadConfig();
+      const skills   = (cfg.jobSkills    || '').trim();
+      const cats     = (cfg.jobCategories || '1,2,3').split(',').filter(Boolean);
+      const platforms= (cfg.jobPlatforms  || 'crowdworks,lancers').split(',').filter(Boolean);
+      // アクティブなプラットフォームチップの状態を反映
+      const activeChips = [...document.querySelectorAll('.jobs-platform-chip.active')]
+        .map(c => c.dataset.platform).filter(Boolean);
+      const effectivePlatforms = activeChips.length ? activeChips : platforms;
+
+      const statusEl  = document.getElementById('jobs-fetch-status');
+      const banner    = document.getElementById('jobs-server-banner');
+      const container = document.getElementById('jobs-list-container');
+      const refreshBtn = document.getElementById('jobs-refresh-btn');
+
+      if (statusEl) statusEl.textContent = '📡 読み込み中...';
+      if (refreshBtn) refreshBtn.classList.add('spinning');
+
+      // スキルタグ表示
+      const skillDisplay = document.getElementById('jobs-skill-display');
+      if (skillDisplay) {
+        const tags = skills.split(',').map(s => s.trim()).filter(Boolean);
+        skillDisplay.innerHTML = tags.map(s =>
+          `<span class="jobs-skill-tag">${s}</span>`).join('');
+      }
+
+      const params = new URLSearchParams({
+        categories: cats.join(','),
+        platforms:  effectivePlatforms.join(','),
+        keywords:   skills,
+      });
+
+      try {
+        const res = await fetch(`http://localhost:8899/api/jobs?${params}`,
+          { signal: AbortSignal.timeout(20000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        _jobsData = await res.json();
+        if (banner) banner.style.display = 'none';
+
+        _renderJobsPickup(_jobsData.jobs);
+        _renderJobCards(_jobsData.jobs);
+
+        const fetchTime = _jobsData.fetched_at
+          ? new Date(_jobsData.fetched_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+          : '';
+        if (statusEl) statusEl.textContent =
+          `${_jobsData.total}件 取得済 (${fetchTime})`;
+      } catch (e) {
+        if (banner) banner.style.display = 'flex';
+        if (container) container.innerHTML =
+          `<div class="jobs-empty">⚠️ 取得できませんでした<br>
+           <small style="color:var(--text-muted)">ローカルサーバーを起動してください<br>
+           <code style="font-size:11px;">python3 jinjer_server.py</code></small></div>`;
+        if (statusEl) statusEl.textContent = '';
+      } finally {
+        if (refreshBtn) refreshBtn.classList.remove('spinning');
+      }
+    }
+
+    function _renderJobsPickup(jobs) {
+      const el = document.getElementById('jobs-pickup-list');
+      if (!el) return;
+      // スコアが高い順 or 最新3件
+      const withScore = jobs.filter(j => (j.match_score || 0) > 0);
+      const top = (withScore.length > 0 ? withScore : jobs).slice(0, 3);
+      if (top.length === 0) {
+        el.innerHTML = '<div class="jobs-empty" style="font-size:11px;padding:10px;">おすすめ案件なし</div>';
+        return;
+      }
+      el.innerHTML = top.map(j => _jobCardHtml(j, true)).join('');
+      _attachJobClicks(el);
+    }
+
+    function _renderJobCards(jobs) {
+      const container = document.getElementById('jobs-list-container');
+      if (!container) return;
+      if (jobs.length === 0) {
+        container.innerHTML = '<div class="jobs-empty">案件が見つかりません<br><small>スキルタグや設定を変更してみてください</small></div>';
+        return;
+      }
+      container.innerHTML = `<div class="jobs-cards-list">${jobs.map(j => _jobCardHtml(j, false)).join('')}</div>`;
+      _attachJobClicks(container);
+    }
+
+    function _jobCardHtml(job, compact) {
+      const badge = job.platform === 'crowdworks'
+        ? '<span class="jobs-platform-badge jobs-badge-cw">CW</span>'
+        : '<span class="jobs-platform-badge jobs-badge-lancers">L</span>';
+      const score = (job.match_score > 0)
+        ? `<span class="jobs-match-score">⭐${job.match_score}</span>` : '';
+      const budget = job.budget
+        ? `<span class="jobs-budget">💴 ${job.budget}</span>` : '';
+      const summary = (!compact && job.summary)
+        ? `<div class="jobs-summary">${job.summary}</div>` : '';
+      const upd = job.updated
+        ? new Date(job.updated).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })
+        : '';
+      return `<div class="jobs-card" data-url="${job.url || ''}">
+        <div class="jobs-card-header">
+          ${badge}
+          <span class="jobs-category-tag">${job.category || ''}</span>
+          ${score}
+          <span class="jobs-updated">${upd}</span>
+        </div>
+        <div class="jobs-title">${job.title || '（タイトルなし）'}</div>
+        ${budget}
+        ${summary}
+      </div>`;
+    }
+
+    function _attachJobClicks(container) {
+      container.querySelectorAll('.jobs-card[data-url]').forEach(card => {
+        card.addEventListener('click', () => {
+          const url = card.dataset.url;
+          if (url) window.open(url, '_blank', 'noopener');
+        });
+      });
     }
 
     /* =====================================================
