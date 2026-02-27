@@ -18,8 +18,16 @@ from pathlib import Path
 try:
     import openpyxl
     from openpyxl.styles import PatternFill
+    _OPENPYXL_OK = True
 except ImportError:
-    raise SystemExit('openpyxl が必要です: pip install openpyxl')
+    openpyxl = None          # type: ignore
+    PatternFill = None       # type: ignore
+    _OPENPYXL_OK = False
+
+
+def _require_openpyxl():
+    if not _OPENPYXL_OK:
+        raise ImportError('openpyxl が必要です: pip install openpyxl')
 
 try:
     import urllib.request
@@ -146,6 +154,7 @@ def list_reports() -> list[dict]:
 
 def read_report(year: str, month: str) -> dict | None:
     """指定年月の作業報告書 Excel を読み込んで dict に変換する"""
+    _require_openpyxl()
     target = f'{year}{month}'
     found = None
     if not WORK_REPORT_DIR.exists():
@@ -256,6 +265,7 @@ def write_report_from_kintai(year: str, month: str, kintai_data: dict) -> dict:
     }
     戻り値: {"ok": True, "path": "...", "updated": N}
     """
+    _require_openpyxl()
     target = f'{year}{month}'
     found = None
     if not WORK_REPORT_DIR.exists():
@@ -370,6 +380,7 @@ def create_next_month_report(year: str, month: str) -> dict:
     year: '2026', month: '02' → 2026年3月分を生成
     戻り値: {"ok": True, "path": "...", "filename": "..."}
     """
+    _require_openpyxl()
     # 翌月を計算
     y, m = int(year), int(month)
     m += 1

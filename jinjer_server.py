@@ -20,8 +20,12 @@ jinjer同期サーバー — PWAからのTailscale経由リクエストに応答
   playwright install chromium
 """
 import asyncio
+import errno as _errno
 import json
+import os
 import re
+import signal as _signal
+import subprocess
 import sys
 import time
 import urllib.request
@@ -47,8 +51,8 @@ try:
         write_report_from_kintai, create_next_month_report,
     )
     _REPORT_OK = True
-except ImportError as e:
-    print(f'[ERROR] report_sync.py のインポートに失敗: {e}')
+except (ImportError, SystemExit) as e:
+    print(f'[WARN] report_sync.py のインポートに失敗 (報告書機能は無効): {e}')
     _REPORT_OK = False
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8899
@@ -157,6 +161,11 @@ def _save_to_icloud(target_months: list, pwa_data: dict):
         print(f'⚠️  iCloud Driveへの保存失敗: {e}')
 
 
+class ReuseHTTPServer(HTTPServer):
+    """SO_REUSEADDR を有効にして TIME_WAIT 状態のソケットでも即起動できる HTTPServer"""
+    allow_reuse_address = True
+
+
 class JinjerHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print(f'[jinjer_server] {fmt % args}')
@@ -204,8 +213,16 @@ class JinjerHandler(BaseHTTPRequestHandler):
         path   = parsed.path
         params = parse_qs(parsed.query)
 
+        # ===== /api/health =====
+        if path == '/api/health':
+            self._send_json({
+                'status': 'ok',
+                'report': _REPORT_OK,
+                'scraper': _SCRAPER_OK,
+            })
+
         # ===== /api/jinjer =====
-        if path == '/api/jinjer':
+        elif path == '/api/jinjer':
             self._handle_jinjer(params)
 
         # ===== /api/reports =====
@@ -355,17 +372,75 @@ class JinjerHandler(BaseHTTPRequestHandler):
             self._send_json({'error': str(e)}, 500)
 
 
+def _server_is_alive(port: int) -> bool:
+    """ポートで自サーバーが応答するか確認 (タイムアウト 2 秒)"""
+    try:
+        req = urllib.request.Request(f'http://127.0.0.1:{port}/api/structure')
+        with urllib.request.urlopen(req, timeout=2):
+            return True
+    except Exception:
+        return False
+
+
+def _kill_port(port: int) -> bool:
+    """指定ポートを使用している全プロセスに SIGTERM を送る。成功したら True を返す"""
+    try:
+        r = subprocess.run(['lsof', '-ti', f':{port}'], capture_output=True, text=True)
+        pids = [p.strip() for p in r.stdout.strip().splitlines() if p.strip()]
+        if not pids:
+            return False
+        for pid in pids:
+            try:
+                os.kill(int(pid), _signal.SIGTERM)
+                print(f'  既存プロセス (PID {pid}) を終了しました')
+            except ProcessLookupError:
+                pass
+        time.sleep(2.0)  # プロセス終了を待つ
+        return True
+    except Exception as ex:
+        print(f'  プロセス終了エラー: {ex}')
+        return False
+
+
+_BANNER = f"""jinjer同期サーバー起動: http://0.0.0.0:{{port}}
+  GET  /api/jinjer?months=2026-02       — jinjer 勤怠データ取得
+  GET  /api/reports                     — 作業報告書ファイル一覧
+  GET  /api/reports/read?year=2026&month=02 — 指定月 Excel → JSON
+  POST /api/reports/sync                — kintai データ → Excel 書き込み
+  POST /api/reports/generate            — 翌月 Excel 自動生成
+  GET  /api/structure                   — STRUCTURE.md の内容
+  GET  /api/jobs?categories=1,2,3&keywords=Python — フリーランス案件フィード
+Ctrl+C で終了"""
+
+
 if __name__ == '__main__':
-    server = HTTPServer(('0.0.0.0', PORT), JinjerHandler)
-    print(f'jinjer同期サーバー起動: http://0.0.0.0:{PORT}')
-    print(f'  GET  /api/jinjer?months=2026-02       — jinjer 勤怠データ取得')
-    print(f'  GET  /api/reports                     — 作業報告書ファイル一覧')
-    print(f'  GET  /api/reports/read?year=2026&month=02 — 指定月 Excel → JSON')
-    print(f'  POST /api/reports/sync                — kintai データ → Excel 書き込み')
-    print(f'  POST /api/reports/generate            — 翌月 Excel 自動生成')
-    print(f'  GET  /api/structure                   — STRUCTURE.md の内容')
-    print(f'  GET  /api/jobs?categories=1,2,3&keywords=Python — フリーランス案件フィード')
-    print('Ctrl+C で終了')
+    # ─── ステップ1: 既に自サーバーが稼働しているか確認 ───────────────────────
+    if _server_is_alive(PORT):
+        print(f'[OK] jinjer同期サーバーはポート {PORT} で既に稼働中です（launchd 常駐）。')
+        print(f'  再起動が必要な場合:')
+        print(f'    launchctl stop com.kintai.server')
+        print(f'    launchctl unload ~/Library/LaunchAgents/com.kintai.server.plist')
+        print(f'    python3 jinjer_server.py')
+        sys.exit(0)
+
+    # ─── ステップ2: バインドを試みる（SO_REUSEADDR で TIME_WAIT を回避）────
+    server = None
+    for attempt in range(3):
+        try:
+            server = ReuseHTTPServer(('0.0.0.0', PORT), JinjerHandler)
+            break
+        except OSError as e:
+            if e.errno != _errno.EADDRINUSE:
+                raise
+            if attempt >= 2:
+                print(f'[ERROR] ポート {PORT} の解放に失敗しました。')
+                print(f'  手動で確認: lsof -ti :{PORT}')
+                sys.exit(1)
+            # ゾンビソケットや他プロセスを排除して再試行
+            print(f'[警告] ポート {PORT} が使用中です。既存プロセスを終了して再試行します... ({attempt+1}/2)')
+            _kill_port(PORT)
+
+    print(_BANNER.format(port=PORT))
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -3378,15 +3378,23 @@
     // サーバーURL解決: localhostを最優先、なければTailscale IP
     async function _resolveServerUrl(port) {
       // Macブラウザ / ローカルサーバー起動中 → localhost が最速
+      // /api/health は常に200を返す専用エンドポイント
       try {
         const ctrl = new AbortController();
         setTimeout(() => ctrl.abort(), 2000);
-        const r = await fetch(`http://localhost:${port}/api/structure`, { signal: ctrl.signal });
+        const r = await fetch(`http://localhost:${port}/api/health`, { signal: ctrl.signal });
         if (r.ok) return `http://localhost:${port}`;
       } catch(_) {}
       // フォールバック: Tailscale IP
       const sens = await loadSensitiveData();
-      if (sens.tsMac) return `http://${sens.tsMac}:${port}`;
+      if (sens.tsMac) {
+        try {
+          const ctrl2 = new AbortController();
+          setTimeout(() => ctrl2.abort(), 2000);
+          const r2 = await fetch(`http://${sens.tsMac}:${port}/api/health`, { signal: ctrl2.signal });
+          if (r2.ok) return `http://${sens.tsMac}:${port}`;
+        } catch(_) {}
+      }
       return null;
     }
 
