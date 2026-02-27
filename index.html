@@ -1486,6 +1486,7 @@
       </div>
       <!-- Health status bar -->
       <div class="health-bar" id="health-bar">
+        <span class="health-item" id="health-srv-item" title="ローカルサーバー (port 8899)"><span class="health-dot" id="health-dot-srv"></span><span id="health-srv">SRV: --</span></span>
         <span class="health-item"><span class="health-dot" id="health-dot-ls"></span><span id="health-ls">LS: --</span></span>
         <span class="health-item health-item-btn" id="health-idb-item" title="タップでログを確認"><span class="health-dot" id="health-dot-idb"></span><span id="health-idb">IDB: --</span></span>
         <span class="health-item health-item-btn" id="health-err-item" title="タップでエラーログを確認"><span class="health-dot" id="health-dot-err"></span><span id="health-err">エラー: --</span></span>
@@ -1544,6 +1545,14 @@
       <div style="font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:4px;">
         ➕ をタップしてよく使うサービスを追加できます
       </div>
+    </div>
+
+    <!-- システム情報カード -->
+    <div class="card" id="sysinfo-card">
+      <div class="card-title">📁 システム情報</div>
+      <div id="sysinfo-summary" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">読み込み中…</div>
+      <button class="btn-secondary" id="sysinfo-open-btn" style="width:100%;margin-bottom:6px;">📂 ファイルブラウザを開く</button>
+      <button class="btn-secondary" id="sysinfo-structure-btn" style="width:100%;">📋 STRUCTURE.md を見る</button>
     </div>
 
     <!-- Tailscale VPN / SSH card -->
@@ -1611,8 +1620,8 @@
   <div id="page-report" class="tab-page">
     <!-- サーバー未起動バナー -->
     <div class="report-server-banner" id="report-server-banner" style="display:none;">
-      ⚠️ <strong>ローカルサーバー未接続</strong><br>
-      Excel 読み込み・同期機能を使うには <code>python3 jinjer_server.py</code> を起動してください（port 8899）。
+      ⚠️ <strong>ローカルサーバー未接続</strong>
+      <span id="report-srv-reconnecting" style="margin-left:8px;font-size:12px;opacity:0.85;">🔄 自動再接続中…</span>
     </div>
 
     <!-- 月選択ナビ -->
@@ -1705,8 +1714,8 @@
   <div id="page-jobs" class="tab-page">
     <!-- サーバー未起動バナー -->
     <div class="jobs-server-banner" id="jobs-server-banner" style="display:none;">
-      <span>⚡ ローカルサーバー (port 8899) が必要です。</span>
-      <code>python3 jinjer_server.py</code>
+      <span>⚡ ローカルサーバー未接続</span>
+      <span style="font-size:11px;opacity:0.8;">🔄 自動再接続中…</span>
     </div>
     <!-- フィルターバー -->
     <div class="card" style="margin-bottom:10px;">
@@ -2177,6 +2186,30 @@
     </div>
   </div>
 
+  <!-- ファイルブラウザモーダル -->
+  <div class="modal-backdrop" id="filebrowser-modal">
+    <div class="modal-sheet" style="max-height:94vh;height:92vh;display:flex;flex-direction:column;">
+      <div class="modal-handle"></div>
+      <div class="modal-header" style="padding:10px 16px 6px;flex-shrink:0;">
+        <div class="modal-title">📁 ファイルブラウザ</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="btn-secondary" id="filebrowser-refresh" style="padding:4px 10px;font-size:11px;">🔄</button>
+          <button class="modal-close" id="filebrowser-close">✕</button>
+        </div>
+      </div>
+      <!-- ファイル選択 -->
+      <div style="padding:0 12px 8px;flex-shrink:0;">
+        <select id="filebrowser-select" style="width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:10px;font-size:12px;background:#fff;color:#333;"></select>
+      </div>
+      <!-- ファイル情報 -->
+      <div id="filebrowser-meta" style="padding:0 12px 4px;font-size:10px;color:var(--text-muted);flex-shrink:0;"></div>
+      <!-- ファイル内容 -->
+      <div style="flex:1;overflow:auto;min-height:0;padding:0 12px 12px;">
+        <pre id="filebrowser-content" style="margin:0;padding:12px;background:#1a1a2e;color:#e0f2fe;border-radius:12px;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-all;min-height:200px;"></pre>
+      </div>
+    </div>
+  </div>
+
   <!-- パフォーマンスビューアーモーダル -->
   <div class="modal-backdrop" id="perf-modal">
     <div class="modal-sheet" style="max-height:88vh;overflow:hidden;display:flex;flex-direction:column;">
@@ -2511,6 +2544,10 @@
     /* =====================================================
        HA: ヘルスチェック & インジケーター
        ===================================================== */
+
+    // サーバー死活状態 (null=未確認, true=生存, false=停止)
+    let _srvAlive = null;
+
     async function runHealthCheck() {
       // localStorage サイズ推定
       let lsSize = 0;
@@ -2565,6 +2602,14 @@
         txtSnap.textContent = `スナップ: ${fmt}`;
       } else {
         txtSnap.textContent = 'スナップ: なし';
+      }
+
+      // SRV ドット更新（_srvAlive は heartbeat が更新する）
+      const dotSrv = document.getElementById('health-dot-srv');
+      const txtSrv = document.getElementById('health-srv');
+      if (dotSrv && _srvAlive !== null) {
+        dotSrv.className = 'health-dot ' + (_srvAlive ? 'health-dot-ok' : 'health-dot-error');
+        if (txtSrv) txtSrv.textContent = `SRV: ${_srvAlive ? '✓' : '✗'}`;
       }
     }
 
@@ -4116,6 +4161,198 @@
 
       // 初期状態がオフラインの場合
       if (!navigator.onLine) showBanner('📵 オフラインです — ローカルデータで動作中', 'offline', false);
+    })();
+
+    /* =====================================================
+       サーバーハートビート（30 秒ごとに死活確認 + 自動復旧）
+       ===================================================== */
+    (function initServerHeartbeat() {
+      async function _pingSrv() {
+        try {
+          const r = await fetch('http://localhost:8899/api/health',
+            { signal: AbortSignal.timeout(3000) });
+          return r.ok;
+        } catch { return false; }
+      }
+
+      function _updateSrvDot(alive) {
+        const dot = document.getElementById('health-dot-srv');
+        const txt = document.getElementById('health-srv');
+        if (!dot) return;
+        dot.className = 'health-dot ' + (alive ? 'health-dot-ok' : 'health-dot-error');
+        if (txt) txt.textContent = `SRV: ${alive ? '✓' : '✗'}`;
+      }
+
+      async function _tick() {
+        const alive = await _pingSrv();
+        const justRecovered = (alive && _srvAlive === false);
+        _srvAlive = alive;
+        _updateSrvDot(alive);
+
+        if (justRecovered) {
+          // ──── サーバー復旧: 各タブを自動リロード ────
+
+          // 報告書タブ: バナー非表示 + データ再ロード
+          if (!_reportServerOk) {
+            (async () => {
+              await checkReportServer();
+              const b = document.getElementById('report-server-banner');
+              if (b) b.style.display = _reportServerOk ? 'none' : 'block';
+              if (_reportServerOk) { try { await loadReportList(); } catch(e) {} }
+            })();
+          }
+
+          // 案件タブ: バナー非表示 + データ再ロード
+          const jb = document.getElementById('jobs-server-banner');
+          if (jb && jb.style.display !== 'none') {
+            _jobsData = null;
+            try { _loadJobsData(); } catch(e) {}
+          }
+        }
+      }
+
+      // 初回チェック: 起動 5 秒後（サーバーの起動完了を待つ）
+      setTimeout(() => {
+        _tick();
+        setInterval(_tick, 30000);  // 以降 30 秒ごと
+      }, 5000);
+    })();
+
+    /* =====================================================
+       ファイルブラウザ（システム情報カード → ファイル参照）
+       ===================================================== */
+    (function initFileBrowser() {
+      const API = 'http://localhost:8899';
+      let _files = null;
+
+      // ── ファイル一覧取得 ──────────────────────────────────────
+      async function _fetchFiles() {
+        try {
+          const r = await fetch(`${API}/api/files`, { signal: AbortSignal.timeout(5000) });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          const d = await r.json();
+          return d.files.filter(f => !f.is_dir);
+        } catch { return null; }
+      }
+
+      // ── ファイル種別アイコン ──────────────────────────────────
+      function _icon(path) {
+        const ext = path.split('.').pop().toLowerCase();
+        return { py:'🐍', html:'🌐', js:'⚡', md:'📝', json:'📊', log:'📋',
+                 sh:'🔧', yml:'⚙️', plist:'⚙️', txt:'📄', env:'🔐',
+                 gitignore:'🚫', css:'🎨' }[ext] || '📄';
+      }
+
+      // ── ドロップダウン構築 ────────────────────────────────────
+      function _buildSelect(files) {
+        const sel = document.getElementById('filebrowser-select');
+        if (!sel) return;
+        const byDir = {};
+        files.forEach(f => {
+          const idx = f.path.lastIndexOf('/');
+          const dir = idx >= 0 ? f.path.slice(0, idx) : '';
+          (byDir[dir] = byDir[dir] || []).push(f);
+        });
+        sel.innerHTML = '';
+        Object.keys(byDir).sort().forEach(dir => {
+          const grp = document.createElement('optgroup');
+          grp.label = dir || '(root)';
+          byDir[dir].forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.path;
+            const name = f.path.split('/').pop();
+            const kb = f.size > 0 ? ` ${(f.size/1024).toFixed(1)}KB` : '';
+            opt.textContent = `${_icon(f.path)} ${name}${kb}`;
+            grp.appendChild(opt);
+          });
+          sel.appendChild(grp);
+        });
+      }
+
+      // ── ファイル内容取得・表示 ────────────────────────────────
+      async function _showFile(path) {
+        const pre  = document.getElementById('filebrowser-content');
+        const meta = document.getElementById('filebrowser-meta');
+        if (!pre) return;
+        pre.textContent = '読み込み中…';
+        if (meta) meta.textContent = '';
+        try {
+          const r = await fetch(`${API}/api/files/read?path=${encodeURIComponent(path)}`,
+            { signal: AbortSignal.timeout(10000) });
+          const d = await r.json();
+          if (d.error) {
+            pre.textContent = `⚠️ ${d.error}`;
+          } else {
+            pre.textContent = d.content + (d.truncated ? '\n\n… (先頭200KB のみ表示)' : '');
+            if (meta) meta.textContent =
+              `${path}  |  ${(d.size/1024).toFixed(1)}KB${d.truncated ? '  |  ⚠️ 省略あり' : ''}`;
+          }
+        } catch(e) {
+          pre.textContent = `❌ エラー: ${e.message}`;
+        }
+      }
+
+      // ── モーダルを開く ────────────────────────────────────────
+      async function openFileBrowser(initialPath) {
+        const modal = document.getElementById('filebrowser-modal');
+        if (!modal) return;
+        modal.classList.add('show');
+
+        if (!_files) {
+          const sel = document.getElementById('filebrowser-select');
+          if (sel) sel.innerHTML = '<option>読み込み中…</option>';
+          _files = await _fetchFiles();
+        }
+        if (_files) {
+          _buildSelect(_files);
+          const sel = document.getElementById('filebrowser-select');
+          if (sel && initialPath) {
+            sel.value = initialPath;
+            if (!sel.value) sel.selectedIndex = 0;
+          }
+          const target = sel ? sel.value : initialPath;
+          if (target) _showFile(target);
+        } else {
+          const pre = document.getElementById('filebrowser-content');
+          if (pre) pre.textContent = '⚠️ サーバーに接続できません (port 8899)';
+        }
+      }
+
+      // ── イベント登録 ──────────────────────────────────────────
+      window.addEventListener('load', () => {
+        document.getElementById('sysinfo-open-btn')?.addEventListener('click',
+          () => openFileBrowser(null));
+        document.getElementById('sysinfo-structure-btn')?.addEventListener('click',
+          () => openFileBrowser('STRUCTURE.md'));
+        document.getElementById('filebrowser-close')?.addEventListener('click', () =>
+          document.getElementById('filebrowser-modal')?.classList.remove('show'));
+        document.getElementById('filebrowser-select')?.addEventListener('change', function() {
+          if (this.value) _showFile(this.value);
+        });
+        document.getElementById('filebrowser-refresh')?.addEventListener('click', async () => {
+          _files = null;
+          const sel = document.getElementById('filebrowser-select');
+          const cur = sel?.value;
+          await openFileBrowser(cur || null);
+        });
+
+        // システム情報カードのサマリー更新（起動5秒後）
+        setTimeout(async () => {
+          const el = document.getElementById('sysinfo-summary');
+          if (!el) return;
+          try {
+            const r = await fetch(`${API}/api/structure`, { signal: AbortSignal.timeout(3000) });
+            if (r.ok) {
+              const txt = await r.text();
+              const m   = txt.match(/最終更新: (.+)/);
+              const cnt = (txt.match(/^\| `[^`]+`/gm) || []).length;
+              el.textContent = `📅 最終更新: ${m ? m[1].trim() : '不明'}  |  ${cnt}ファイル`;
+            } else { el.textContent = '⚠️ サーバー未接続'; }
+          } catch { el.textContent = '⚠️ サーバー未接続'; }
+        }, 5000);
+      });
+
+      window.openFileBrowser = openFileBrowser;
     })();
 
     /* =====================================================

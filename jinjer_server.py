@@ -27,6 +27,7 @@ import re
 import signal as _signal
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -56,6 +57,7 @@ except (ImportError, SystemExit) as e:
     _REPORT_OK = False
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8899
+_START_TIME = time.time()           # uptime 計算用
 _cache = {}   # cache_key → { ts, data }
 CACHE_TTL = 300  # 5分
 ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
@@ -216,9 +218,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         # ===== /api/health =====
         if path == '/api/health':
             self._send_json({
-                'status': 'ok',
-                'report': _REPORT_OK,
-                'scraper': _SCRAPER_OK,
+                'status':          'ok',
+                'uptime_seconds':  int(time.time() - _START_TIME),
+                'report':          _REPORT_OK,
+                'scraper':         _SCRAPER_OK,
             })
 
         # ===== /api/jinjer =====
@@ -258,6 +261,14 @@ class JinjerHandler(BaseHTTPRequestHandler):
         # ===== /api/jobs =====
         elif path == '/api/jobs':
             self._handle_jobs(params)
+
+        # ===== /api/files =====
+        elif path == '/api/files':
+            self._handle_files_list()
+
+        # ===== /api/files/read =====
+        elif path == '/api/files/read':
+            self._handle_files_read(params)
 
         else:
             self._send_json({'error': 'Not found'}, 404)
@@ -371,6 +382,74 @@ class JinjerHandler(BaseHTTPRequestHandler):
             print(f'[ERROR] スクレイプ失敗: {e}')
             self._send_json({'error': str(e)}, 500)
 
+    # ===== ファイル一覧 =====
+    def _handle_files_list(self):
+        _EXCLUDE_DIRS  = {'.git', '__pycache__', 'node_modules', '.DS_Store'}
+        _EXCLUDE_EXTS  = {'.pyc', '.pyo'}
+        root = _HERE.resolve()
+        files = []
+        try:
+            for item in sorted(root.rglob('*')):
+                rel   = item.relative_to(root)
+                parts = rel.parts
+                # 除外ディレクトリ配下は全スキップ
+                if any(p in _EXCLUDE_DIRS or p.startswith('.') and p != '.env' and p != '.gitignore'
+                       for p in parts[:-1]):
+                    continue
+                if item.name in _EXCLUDE_DIRS:
+                    continue
+                if item.suffix in _EXCLUDE_EXTS:
+                    continue
+                try:
+                    stat = item.stat()
+                    files.append({
+                        'path':     str(rel).replace('\\', '/'),
+                        'is_dir':   item.is_dir(),
+                        'size':     0 if item.is_dir() else stat.st_size,
+                        'modified': _dt.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
+                    })
+                except OSError:
+                    pass
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+            return
+        self._send_json({'files': files})
+
+    # ===== ファイル内容取得 =====
+    def _handle_files_read(self, params: dict):
+        file_path = params.get('path', [''])[0]
+        if not file_path:
+            self._send_json({'error': 'path パラメータが必要です'}, 400)
+            return
+        # パストラバーサル防止
+        try:
+            target = (_HERE / file_path).resolve()
+            target.relative_to(_HERE.resolve())
+        except (ValueError, OSError):
+            self._send_json({'error': '不正なパスです'}, 403)
+            return
+        if not target.exists() or target.is_dir():
+            self._send_json({'error': 'ファイルが見つかりません'}, 404)
+            return
+        # バイナリファイルは返さない
+        _BINARY_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2',
+                        '.ttf', '.eot', '.pdf', '.xlsx', '.xls', '.zip', '.gz'}
+        if target.suffix.lower() in _BINARY_EXTS:
+            self._send_json({'error': 'バイナリファイルは表示できません'}, 400)
+            return
+        _MAX = 200 * 1024  # 200KB
+        try:
+            raw = target.read_text(encoding='utf-8', errors='replace')
+            truncated = len(raw) > _MAX
+            self._send_json({
+                'path':      file_path,
+                'content':   raw[:_MAX],
+                'size':      target.stat().st_size,
+                'truncated': truncated,
+            })
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
 
 def _server_is_alive(port: int) -> bool:
     """ポートで自サーバーが応答するか確認 (タイムアウト 2 秒)"""
@@ -414,8 +493,16 @@ Ctrl+C で終了"""
 
 
 if __name__ == '__main__':
+    # launchd 管理下かどうかを検出
+    # 方法1: plist の EnvironmentVariables で明示設定した KINTAI_MANAGED フラグ
+    # 方法2: 親プロセスが launchd (PID 1) かどうか
+    _IS_LAUNCHD = bool(os.environ.get('KINTAI_MANAGED')) or (os.getppid() == 1)
+
     # ─── ステップ1: 既に自サーバーが稼働しているか確認 ───────────────────────
-    if _server_is_alive(PORT):
+    # launchd 起動時はこのチェックをスキップ:
+    #   チェックが True → sys.exit(0) → launchd が KeepAlive で再起動 → 無限ループ
+    # 手動起動時のみ「既に稼働中」メッセージを表示して終了する。
+    if not _IS_LAUNCHD and _server_is_alive(PORT):
         print(f'[OK] jinjer同期サーバーはポート {PORT} で既に稼働中です（launchd 常駐）。')
         print(f'  再起動が必要な場合:')
         print(f'    launchctl stop com.kintai.server')
@@ -423,7 +510,12 @@ if __name__ == '__main__':
         print(f'    python3 jinjer_server.py')
         sys.exit(0)
 
-    # ─── ステップ2: バインドを試みる（SO_REUSEADDR で TIME_WAIT を回避）────
+    # ─── ステップ2: launchd 起動時は旧プロセスを先に掃除 ────────────────────
+    # クラッシュ直後は旧ソケットがまだ残っている場合があるため、先にポートを解放する。
+    if _IS_LAUNCHD:
+        _kill_port(PORT)
+
+    # ─── ステップ3: バインドを試みる（SO_REUSEADDR で TIME_WAIT を回避）────
     server = None
     for attempt in range(3):
         try:
@@ -441,6 +533,23 @@ if __name__ == '__main__':
             _kill_port(PORT)
 
     print(_BANNER.format(port=PORT))
+
+    # ─── バックグラウンドで STRUCTURE.md を最新化 ───────────────────────────
+    def _update_structure():
+        try:
+            r = subprocess.run(
+                [sys.executable, str(_HERE / 'generate_structure.py')],
+                cwd=str(_HERE), capture_output=True, text=True, timeout=30
+            )
+            if r.returncode == 0:
+                print('[INFO] STRUCTURE.md を更新しました', flush=True)
+            else:
+                print(f'[WARN] STRUCTURE.md 更新失敗: {r.stderr.strip()}', flush=True)
+        except Exception as e:
+            print(f'[WARN] STRUCTURE.md 更新エラー: {e}', flush=True)
+
+    threading.Thread(target=_update_structure, daemon=True, name='structure-updater').start()
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -85,8 +85,10 @@ def build_tree(base: Path, prefix: str = '', is_last: bool = True) -> list[str]:
 def launchd_status() -> dict[str, str]:
     """launchd ジョブの状態を確認する"""
     jobs = {
-        'com.kintai.structure': '毎朝 07:30 — STRUCTURE.md 更新',
-        'com.kintai.monthly':   '毎月 1日 08:00 — 翌月 Excel 自動生成',
+        'com.kintai.server':     'KeepAlive — API サーバー port 8899 (常時稼働)',
+        'com.kintai.watchdog':   '60秒ごと — サーバー死活監視・自動再起動',
+        'com.kintai.structure':  '毎朝 07:30 — STRUCTURE.md 更新',
+        'com.kintai.monthly':    '毎月 1日 08:00 — 翌月 Excel 自動生成',
         'com.kintai.jinjer-end': '毎月 28日 19:00 — jinjer 月末同期',
     }
     result = {}
@@ -153,9 +155,10 @@ def generate() -> str:
     lines.append('| スクリプト | 役割 | 実行タイミング |')
     lines.append('|---|---|---|')
     scripts = [
-        ('generate_structure.py', 'STRUCTURE.md を自動生成', 'launchd 毎朝 07:30'),
+        ('generate_structure.py', 'STRUCTURE.md を自動生成', 'launchd 毎朝 07:30 / サーバー起動時'),
+        ('watchdog.py',           'サーバー死活監視・自動 kickstart', 'launchd 60秒ごと'),
         ('sync_jinjer.py',        'jinjer から勤怠データを取得し JSON 出力', '手動 / launchd 毎月28日'),
-        ('jinjer_server.py',      'ローカル API サーバー (port 8899)', '手動 or launchd 起動時'),
+        ('jinjer_server.py',      'ローカル API サーバー (port 8899)', 'launchd 常時稼働 (KeepAlive)'),
         ('report_sync.py',        'Excel ↔ kintai データ変換', 'jinjer_server.py から呼び出し'),
         ('create_monthly_report.py', '翌月作業報告書 Excel を自動生成', 'launchd 毎月1日 08:00'),
         ('migrate_data.py',       '旧フォーマットデータ移行', '手動（必要時のみ）'),
