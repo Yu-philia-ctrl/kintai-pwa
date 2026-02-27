@@ -14,7 +14,7 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#7c5fe6">
   <link rel="manifest" href="manifest.json">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com http:;">
   <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
@@ -307,6 +307,7 @@
     .modal-sheet {
       width: 100%;
       max-width: 560px;
+      max-height: 92vh;
       background: rgba(255,255,255,0.95);
       backdrop-filter: blur(28px) saturate(1.4);
       -webkit-backdrop-filter: blur(28px) saturate(1.4);
@@ -314,6 +315,9 @@
       border-top: 1px solid rgba(255,255,255,0.8);
       padding: 12px 16px calc(max(var(--safe-bottom), 14px));
       box-shadow: 0 -8px 36px rgba(60,80,200,0.13);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     .modal-handle {
       width: 34px; height: 4px;
@@ -365,7 +369,7 @@
     .obs-row .btn-secondary { flex:1; }
     .modal-footer {
       margin-top:10px; display:flex;
-      justify-content:flex-end; gap:10px;
+      justify-content:flex-end; gap:10px; flex-shrink:0;
     }
     .btn-secondary {
       padding:10px 14px; font-size:13px;
@@ -385,7 +389,7 @@
     .btn-primary:active { transform: scale(0.97); }
 
     /* ======= SETTINGS MODAL ======= */
-    .settings-body { display:flex; flex-direction:column; gap:12px; }
+    .settings-body { display:flex; flex-direction:column; gap:12px; overflow-y:auto; -webkit-overflow-scrolling:touch; flex:1; min-height:0; }
     .settings-row { display:flex; flex-direction:column; gap:5px; }
     .settings-label { font-size:12px; font-weight:700; color:var(--text-muted); }
     .settings-input {
@@ -994,6 +998,58 @@
     .health-log-btn:active { opacity: 1; }
     .health-item-btn { cursor: pointer; border-radius: 6px; padding: 0 2px; transition: background 0.15s; }
     .health-item-btn:active { background: rgba(124,95,230,0.12); }
+    .log-badge-fatal { background: #880e4f; color: #fff; font-weight: 900; letter-spacing: 0.03em; }
+    .log-suggest { font-size: 10px; color: #283593; background: #e8eaf6; border-radius: 6px; padding: 3px 7px; margin-top: 3px; line-height: 1.5; display: flex; gap: 5px; align-items: flex-start; }
+    .log-suggest::before { content: "💡"; flex-shrink: 0; }
+
+    /* ======= PERFORMANCE MODAL ======= */
+    .perf-section { margin-bottom: 14px; }
+    .perf-section-title { font-size: 11px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+    .perf-bar-wrap { background: rgba(0,0,0,0.07); border-radius: 999px; height: 8px; overflow: hidden; margin: 3px 0 6px; }
+    .perf-bar { height: 100%; border-radius: 999px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+    .perf-bar-ok   { background: linear-gradient(90deg, #2e7d32, #66bb6a); }
+    .perf-bar-warn { background: linear-gradient(90deg, #e65100, #ffb300); }
+    .perf-bar-crit { background: linear-gradient(90deg, #b71c1c, #ef5350); }
+    .perf-metric { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border-soft); font-size: 12px; }
+    .perf-metric:last-child { border-bottom: none; }
+    .perf-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .perf-dot-ok   { background: #2e7d32; box-shadow: 0 0 5px rgba(46,125,50,0.6); }
+    .perf-dot-warn { background: #e65100; box-shadow: 0 0 5px rgba(230,81,0,0.6); }
+    .perf-dot-crit { background: #b71c1c; box-shadow: 0 0 5px rgba(183,28,28,0.6); }
+    .perf-label { flex: 1; color: var(--text-muted); font-weight: 700; }
+    .perf-val { font-weight: 800; font-family: monospace; font-size: 13px; }
+    .perf-fps-display { text-align: center; padding: 10px 0 4px; }
+    .perf-fps-num { font-size: 42px; font-weight: 900; line-height: 1; letter-spacing: -0.04em; }
+    .perf-fps-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-weight: 700; }
+
+    /* ======= JINJER SYNC CHOICE MODAL ======= */
+    .jinjer-sync-opt { display: flex; align-items: center; gap: 14px; padding: 14px 12px; border-radius: 16px; background: rgba(255,255,255,0.7); border: 1px solid var(--border-soft); cursor: pointer; transition: background 0.15s, transform 0.1s; -webkit-tap-highlight-color: transparent; margin-bottom: 10px; }
+    .jinjer-sync-opt:active { background: rgba(124,95,230,0.08); transform: scale(0.98); }
+    .jinjer-sync-opt-icon { font-size: 32px; flex-shrink: 0; }
+    .jinjer-sync-opt-title { font-size: 14px; font-weight: 800; color: var(--text-main); }
+    .jinjer-sync-opt-sub { font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: 2px; }
+
+    /* ======= 議事録 MODAL ======= */
+    .min-controls { display:flex; align-items:center; gap:10px; padding:6px 0 10px; flex-wrap:wrap; flex-shrink:0; }
+    .min-rec-btn { display:flex; align-items:center; gap:6px; padding:11px 20px; border-radius:999px; border:none; font-size:13px; font-weight:800; font-family:inherit; cursor:pointer; user-select:none; transition:transform .15s; }
+    .min-rec-btn:active { transform:scale(0.96); }
+    .min-rec-btn.start { background:linear-gradient(135deg,#e53935,#ef5350); color:#fff; box-shadow:0 4px 14px rgba(229,57,53,0.38); }
+    .min-rec-btn.stop  { background:#fff3e0; color:#bf360c; border:2px solid #ffccbc; }
+    .min-timer { font-size:20px; font-weight:900; font-variant-numeric:tabular-nums; color:var(--text-main); letter-spacing:.02em; }
+    .min-status-badge { font-size:11px; color:#2e7d32; background:#e8f5e9; padding:3px 10px; border-radius:999px; font-weight:700; animation:minPulse 1.5s ease-in-out infinite; }
+    @keyframes minPulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .min-transcript { overflow-y:auto; flex:1; min-height:0; border:1px solid var(--border-soft); border-radius:14px; padding:12px; background:#fafbff; }
+    .min-block { margin-bottom:12px; border-left:3px solid var(--accent-blue); padding-left:10px; }
+    .min-speaker { font-size:10px; font-weight:800; color:var(--text-muted); margin-bottom:2px; letter-spacing:.06em; text-transform:uppercase; }
+    .min-text { font-size:14px; line-height:1.75; color:var(--text-main); }
+    .min-text.interim { color:#9e9e9e; font-style:italic; }
+    .min-actions { display:flex; gap:8px; flex-wrap:wrap; padding:10px 0 0; flex-shrink:0; }
+    .min-action-btn { padding:8px 14px; font-size:12px; border-radius:999px; border:1px solid var(--border-soft); background:#f4f5f9; cursor:pointer; font-weight:700; font-family:inherit; user-select:none; }
+    .min-action-btn:active { transform:scale(0.96); }
+    .min-hist-item { padding:11px 14px; border-radius:12px; background:#f4f5f9; margin-bottom:8px; cursor:pointer; }
+    .min-hist-item:active { background:#e8eaf6; }
+    .min-hist-title { font-size:13px; font-weight:800; color:var(--text-main); }
+    .min-hist-meta { font-size:11px; color:var(--text-muted); margin-top:2px; }
 
     /* ======= TAILSCALE CARD ======= */
     .ts-card { background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 100%); border-radius: 16px; padding: 14px; margin-bottom: 10px; color: #e0e8f0; }
@@ -1216,6 +1272,7 @@
         <button class="data-btn" id="btn-import">📥 JSON読み込み</button>
         <button class="data-btn" id="btn-migrate">🔄 iSH版を取り込む</button>
         <button class="data-btn" id="btn-jinjer">🏢 jinjer同期</button>
+        <button class="data-btn" id="btn-minutes">📝 議事録</button>
         <button class="data-btn" id="btn-settings">⚙️ 設定</button>
         <button class="data-btn" id="btn-recover" style="color:#c62828;border-color:#ffcdd2;background:rgba(255,235,238,0.7);">🚨 緊急復旧</button>
       </div>
@@ -1226,6 +1283,7 @@
         <span class="health-item health-item-btn" id="health-err-item" title="タップでエラーログを確認"><span class="health-dot" id="health-dot-err"></span><span id="health-err">エラー: --</span></span>
         <span style="flex:1"></span>
         <span id="health-snap" style="font-size:10px;color:var(--text-muted);"></span>
+        <button class="health-log-btn" id="health-perf-btn" title="パフォーマンス">📊</button>
         <button class="health-log-btn" id="health-log-btn" title="システムログ">📋</button>
       </div>
       <input type="file" id="file-import"  accept=".json" style="display:none">
@@ -1440,6 +1498,19 @@
           <div class="settings-label">🏢 jinjer 打刻URL</div>
           <input id="settings-jinjer-url" class="settings-input" type="url" placeholder="https://kintai.jinjer.biz/staffs/top">
           <div class="settings-hint">ハブの「jinjer打刻」ボタンの遷移先URL。会社によっては異なるドメインの場合があります。</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">🏢 jinjer 会社コード</div>
+          <input id="settings-jinjer-company" class="settings-input" type="text" placeholder="例: 15733" autocomplete="off">
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">📧 jinjer メール / 社員コード</div>
+          <input id="settings-jinjer-email" class="settings-input" type="text" placeholder="メールアドレス or 社員コード" autocomplete="off">
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">🔑 jinjer パスワード</div>
+          <input id="settings-jinjer-pass" class="settings-input" type="password" placeholder="パスワード" autocomplete="new-password">
+          <div class="settings-hint">Tailscale経由の自動同期に使います。端末内にのみ保存されます。</div>
         </div>
         <div class="settings-row">
           <div class="settings-label">📍 天気の取得場所</div>
@@ -1683,8 +1754,13 @@
         <div class="modal-title">📋 システムログ</div>
         <button class="modal-close" id="log-close">✕</button>
       </div>
+      <div style="padding:0 14px 6px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">📅 日付:</span>
+        <select id="log-date-sel" style="font-size:11px;border:1px solid var(--border-soft);border-radius:8px;padding:3px 8px;background:#f4f5f9;font-family:inherit;flex:1;min-width:0;"></select>
+      </div>
       <div class="log-filter-bar">
         <button class="log-filter-btn active" data-filter="all">すべて</button>
+        <button class="log-filter-btn" data-filter="fatal">💀 致命</button>
         <button class="log-filter-btn" data-filter="error">🔴 エラー</button>
         <button class="log-filter-btn" data-filter="warn">🟡 警告</button>
         <button class="log-filter-btn" data-filter="info">🔵 情報</button>
@@ -1695,6 +1771,104 @@
       <div class="modal-footer" style="gap:8px;">
         <button class="btn-secondary" id="log-clear" style="flex:1;">🗑 ログ消去</button>
         <button class="btn-primary" id="log-close2" style="flex:1;">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- jinjer 同期方法選択モーダル -->
+  <div class="modal-backdrop" id="jinjer-sync-modal">
+    <div class="modal-sheet" style="max-height:80vh;">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title">🏢 jinjer同期</div>
+        <button class="modal-close" id="jinjer-sync-close">✕</button>
+      </div>
+      <div style="padding:4px 16px 16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">
+          同期方法を選択してください。
+        </div>
+        <div class="jinjer-sync-opt" id="jinjer-sync-opt-file">
+          <div class="jinjer-sync-opt-icon">📂</div>
+          <div>
+            <div class="jinjer-sync-opt-title">ファイルからインポート</div>
+            <div class="jinjer-sync-opt-sub">sync_jinjer.py で生成したJSONを選択します</div>
+          </div>
+        </div>
+        <div class="jinjer-sync-opt" id="jinjer-sync-opt-auto">
+          <div class="jinjer-sync-opt-icon">🖥</div>
+          <div>
+            <div class="jinjer-sync-opt-title">Macから自動同期</div>
+            <div class="jinjer-sync-opt-sub">Tailscale経由でMacのデータサーバーに接続します</div>
+          </div>
+        </div>
+        <div id="jinjer-sync-status" style="font-size:12px;color:var(--text-muted);text-align:center;padding:8px 0;display:none;"></div>
+        <div id="jinjer-sync-cmd-box" style="display:none;margin-top:8px;">
+          <div style="font-size:11px;font-weight:800;color:var(--text-muted);margin-bottom:6px;">Macで以下を実行してサーバーを起動:</div>
+          <div style="background:#1a1a2e;color:#e0f2fe;border-radius:10px;padding:10px 12px;font-family:monospace;font-size:11px;line-height:1.6;word-break:break-all;" id="jinjer-sync-cmd-text"></div>
+          <button class="btn-secondary" id="jinjer-sync-cmd-copy" style="width:100%;margin-top:8px;font-size:11px;">📋 コマンドをコピー</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- パフォーマンスビューアーモーダル -->
+  <div class="modal-backdrop" id="perf-modal">
+    <div class="modal-sheet" style="max-height:88vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title">📊 システムパフォーマンス</div>
+        <button class="modal-close" id="perf-close">✕</button>
+      </div>
+      <div style="overflow-y:auto;flex:1;padding:4px 16px 16px;" id="perf-content">
+        <div style="text-align:center;color:var(--text-muted);font-size:13px;padding:24px 0;">計測中…</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="perf-refresh" style="flex:1;">🔄 再計測</button>
+        <button class="btn-primary" id="perf-close2" style="flex:1;">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 議事録・文字起こしモーダル -->
+  <div class="modal-backdrop" id="min-modal">
+    <div class="modal-sheet" style="max-height:92vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title">📝 議事録・文字起こし</div>
+        <button class="modal-close" id="min-close">✕</button>
+      </div>
+      <!-- タブ -->
+      <div style="display:flex;border-bottom:1px solid var(--border-soft);margin:0 -16px;padding:0 16px;flex-shrink:0;">
+        <button id="min-tab-rec"  style="flex:1;padding:8px 0;font-size:12px;font-weight:800;font-family:inherit;border:none;background:none;border-bottom:2.5px solid var(--accent-blue);color:var(--accent-blue);cursor:pointer;">🎙 録音</button>
+        <button id="min-tab-hist" style="flex:1;padding:8px 0;font-size:12px;font-weight:800;font-family:inherit;border:none;background:none;border-bottom:2.5px solid transparent;color:var(--text-muted);cursor:pointer;">📁 履歴</button>
+      </div>
+      <!-- 録音パネル -->
+      <div id="min-panel-rec" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;padding-top:10px;">
+        <input id="min-title" class="settings-input" type="text" placeholder="会議名（例: 週次MTG）" style="flex-shrink:0;margin-bottom:4px;">
+        <div class="min-controls">
+          <button class="min-rec-btn start" id="min-rec-btn">🔴 録音開始</button>
+          <span class="min-timer" id="min-timer">00:00</span>
+          <span class="min-status-badge" id="min-status" style="display:none;">🎙 認識中</span>
+        </div>
+        <div class="min-transcript" id="min-transcript">
+          <div id="min-transcript-body">
+            <div style="text-align:center;color:var(--text-muted);padding:28px 0;font-size:12px;line-height:1.8;">
+              🎙 録音開始でリアルタイム文字起こし<br>
+              <span style="font-size:11px;">対応: Chrome / Safari (iOS 14.5+)　日本語 精度高</span>
+            </div>
+          </div>
+        </div>
+        <div class="min-actions">
+          <button class="min-action-btn" id="min-copy">📋 コピー</button>
+          <button class="min-action-btn" id="min-md">📄 MD保存</button>
+          <button class="min-action-btn" id="min-obsidian">🔗 Obsidian</button>
+          <button class="min-action-btn" id="min-save-min">💾 保存</button>
+          <button class="min-action-btn" id="min-clear" style="color:#c62828;">🗑 クリア</button>
+        </div>
+      </div>
+      <!-- 履歴パネル -->
+      <div id="min-panel-hist" style="flex:1;display:none;flex-direction:column;min-height:0;overflow:hidden;padding-top:8px;">
+        <div id="min-hist-list" style="overflow-y:auto;flex:1;"></div>
       </div>
     </div>
   </div>
@@ -1757,24 +1931,47 @@
       } catch(_) {}
     }
     window.addEventListener('error', ev => {
-      console.error('[GLOBAL ERROR]', ev.message, ev.filename, ev.lineno);
       _logError('js_error', `${ev.message} @ ${ev.filename}:${ev.lineno}`);
+      _appLog('fatal', 'GLOBAL', `${ev.message} @ ${(ev.filename||'').split('/').pop()}:${ev.lineno}`);
     });
     window.addEventListener('unhandledrejection', ev => {
-      console.error('[UNHANDLED REJECTION]', ev.reason);
       _logError('unhandled_rejection', ev.reason);
+      _appLog('fatal', 'PROMISE', String(ev.reason).slice(0, 200));
       ev.preventDefault(); // iOS Safari の強制クラッシュを抑制
     });
 
     // ④ アプリログ（ring buffer — 最新80件、info/warn/errorを記録）
     const _LOG_KEY = '_kintai_log';
     const _LOG_MAX = 80;
+    const _LOG_ARCHIVE_PFX = '_kintai_daily_';
+    const _LOG_ARCHIVE_DAYS = 30;
+    function _pruneOldDailyLogs() {
+      try {
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - _LOG_ARCHIVE_DAYS);
+        const cutoffStr = cutoff.toISOString().slice(0, 10);
+        const toRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(_LOG_ARCHIVE_PFX) && k.slice(_LOG_ARCHIVE_PFX.length) < cutoffStr) toRemove.push(k);
+        }
+        toRemove.forEach(k => localStorage.removeItem(k));
+      } catch(_) {}
+    }
     function _appLog(level, source, msg) {
       try {
+        const entry = { ts: new Date().toISOString(), level, source, msg: String(msg).slice(0, 300) };
+        // メインリングバッファ（直近80件）
         const log = JSON.parse(localStorage.getItem(_LOG_KEY) || '[]');
-        log.unshift({ ts: new Date().toISOString(), level, source, msg: String(msg).slice(0, 300) });
+        log.unshift(entry);
         if (log.length > _LOG_MAX) log.length = _LOG_MAX;
         localStorage.setItem(_LOG_KEY, JSON.stringify(log));
+        // 日次アーカイブ（syslog形式、30日保持）
+        const dayKey = _LOG_ARCHIVE_PFX + entry.ts.slice(0, 10);
+        const dayLog = JSON.parse(localStorage.getItem(dayKey) || '[]');
+        dayLog.unshift(entry);
+        if (dayLog.length > 500) dayLog.length = 500;
+        localStorage.setItem(dayKey, JSON.stringify(dayLog));
+        if (Math.random() < 0.02) _pruneOldDailyLogs();
       } catch(_) {}
     }
     // console.warn / console.error をインターセプトして自動記録
@@ -1788,6 +1985,38 @@
       console.warn  = (...a) => { _ow(...a);  _appLog('warn',  _src(a), a.join(' ')); };
       console.error = (...a) => { _oe(...a);  _appLog('error', _src(a), a.join(' ')); };
     })();
+
+    // ログエントリの改善提案を返す
+    function _logSuggestion(source, msg, level) {
+      const s = (source || '').toLowerCase();
+      const m = (msg || '').toLowerCase();
+      if (level === 'fatal') {
+        if (m.includes('quota') || m.includes('storage'))
+          return 'ストレージが満杯です。設定 → 緊急復旧 → 不要データを削除してください。';
+        if (m.includes('syntaxerror') || m.includes('json'))
+          return 'データが破損しています。スナップショットから復元を試みてください。';
+        if (m.includes('referenceerror'))
+          return 'アプリの初期化エラーです。ページをリロードしてください。';
+        return 'クリティカルエラー。画面右上🚨から緊急復旧を試みてください。';
+      }
+      if (s === 'jinjer' || m.includes('jinjer'))
+        return 'jinjer同期に失敗しました。設定でjinjer認証情報を確認し再試行してください。';
+      if (s === 'weather' || m.includes('open-meteo') || m.includes('geocod'))
+        return '天気APIへの接続失敗。設定で都市を変更するかGPS権限を確認してください。';
+      if (s === 'idb' || m.includes('indexeddb') || m.includes('idbsave'))
+        return 'IndexedDBへのバックアップが失敗しました。ブラウザのストレージ権限を確認してください。';
+      if (s === 'serviceworker' || m.includes('serviceworker'))
+        return 'Service Workerの更新に失敗しました。緊急復旧→SWを強制更新を試みてください。';
+      if (s === 'tailscale' || m.includes('tailscale') || m.includes('timeout'))
+        return 'Tailscaleタイムアウト。VPNが接続中か、設定のMac IPアドレスを確認してください。';
+      if (m.includes('quota') || m.includes('storage'))
+        return 'ストレージ容量不足。古いスナップショットや不要なデータを削除してください。';
+      if (m.includes('network') || m.includes('fetch') || m.includes('failed to fetch'))
+        return 'ネットワーク接続を確認してください。オフラインの可能性があります。';
+      if (m.includes('parse') || m.includes('json'))
+        return 'JSONデータの解析に失敗しました。インポートファイルの形式を確認してください。';
+      return null;
+    }
 
     /* =====================================================
        HA: 自動スナップショット（3世代ローリング保存）
@@ -2592,129 +2821,136 @@
        JINJER 同期（マージインポート）
        ===================================================== */
     document.getElementById('btn-jinjer').addEventListener('click', () => {
+      // 選択モーダルを表示
+      document.getElementById('jinjer-sync-status').style.display = 'none';
+      document.getElementById('jinjer-sync-cmd-box').style.display = 'none';
+      document.getElementById('jinjer-sync-modal').classList.add('show');
+    });
+
+    document.getElementById('jinjer-sync-close').addEventListener('click', () =>
+      document.getElementById('jinjer-sync-modal').classList.remove('show'));
+
+    // ① ファイルインポート選択
+    document.getElementById('jinjer-sync-opt-file').addEventListener('click', () => {
+      document.getElementById('jinjer-sync-modal').classList.remove('show');
       document.getElementById('file-jinjer').click();
     });
+
+    // ② Tailscale経由の自動同期
+    document.getElementById('jinjer-sync-opt-auto').addEventListener('click', async () => {
+      const cfg = loadConfig();
+      const macIp = cfg.tsMac || '';
+      const statusEl = document.getElementById('jinjer-sync-status');
+      const cmdBox = document.getElementById('jinjer-sync-cmd-box');
+      if (!macIp) {
+        statusEl.style.display = '';
+        statusEl.textContent = '⚠️ 設定でTailscale MacBook IPを設定してください';
+        return;
+      }
+      statusEl.style.display = '';
+      statusEl.textContent = '📡 Macのサーバーに接続中…';
+      cmdBox.style.display = 'none';
+      const today = new Date();
+      const month = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+      const port = cfg.jinjerServerPort || '8899';
+      try {
+        const ctrl = new AbortController();
+        setTimeout(() => ctrl.abort(), 8000);
+        const res = await fetch(`http://${macIp}:${port}/api/jinjer?months=${month}`, { signal: ctrl.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const jinjer = await res.json();
+        document.getElementById('jinjer-sync-modal').classList.remove('show');
+        // JSONをファイル経由と同じパスで処理
+        _processJinjerData(jinjer);
+        _appLog('info', 'jinjer', `Tailscale自動同期: ${month}`);
+      } catch(e) {
+        statusEl.textContent = `❌ サーバーに接続できませんでした。Macで以下を実行してください:`;
+        // コマンド表示
+        const projDir = '~/root/attendance-pwa';
+        const cmd = `cd ${projDir} && python3 jinjer_server.py`;
+        document.getElementById('jinjer-sync-cmd-text').textContent = cmd;
+        cmdBox.style.display = '';
+        document.getElementById('jinjer-sync-cmd-copy').onclick = () => {
+          navigator.clipboard?.writeText(cmd).then(() => toast('📋 コマンドをコピーしました'));
+        };
+        _appLog('warn', 'jinjer', `Tailscale接続失敗: ${e.message}`);
+      }
+    });
+
+    // jinjerデータ処理（ファイル/Tailscale両方から使う共通処理）
+    async function _processJinjerData(jinjer) {
+      showProgress('🏢 jinjer同期');
+      try {
+        await tick();
+        updateProgress(15, '🔍 データを解析中...');
+        if (!jinjer || typeof jinjer.months !== 'object') throw new Error('months フィールドがありません');
+        const monthKeys = Object.keys(jinjer.months);
+        if (!monthKeys.length) throw new Error('対象データがありません');
+        console.log('[jinjer] 対象月:', monthKeys);
+        updateProgress(25, `📅 対象: ${monthKeys.join(', ')}`);
+
+        await tick();
+        updateProgress(35, '📖 既存データを読み込み中...');
+        let store;
+        try { store = loadStore(); } catch(e) { store = { months: {} }; }
+
+        const allDays = [];
+        for (const [mk, days] of Object.entries(jinjer.months)) {
+          if (!store.months[mk]) store.months[mk] = {};
+          for (const [dk, jd] of Object.entries(days)) allDays.push({ mk, dk, jd });
+        }
+        const total = allDays.length;
+        const CHUNK = 7;
+        let done = 0;
+        for (let i = 0; i < allDays.length; i += CHUNK) {
+          for (const { mk, dk, jd } of allDays.slice(i, i + CHUNK)) {
+            const ex = store.months[mk][dk] || {};
+            store.months[mk][dk] = { ...ex, status: jd.status || ex.status || '未', start: jd.start || ex.start || '', end: jd.end || ex.end || '', memo: ex.memo || '' };
+            done++;
+          }
+          updateProgress(35 + Math.round((done / total) * 45), `🔄 ${done} / ${total} 日を処理中...`);
+          await tick();
+        }
+
+        await tick();
+        updateProgress(85, '💾 localStorage に保存中...');
+        try {
+          localStorage.setItem(STORE_KEY, JSON.stringify(store));
+        } catch(e) {
+          throw new Error('ストレージへの保存に失敗しました。空き容量を確認してください。');
+        }
+        updateProgress(90, '💾 IndexedDB をバックアップ中...');
+        try { await idbSave(store); } catch(_) {}
+
+        await tick();
+        updateProgress(97, '🗓 カレンダーを更新中...');
+        try { loadMonth(currentYear, currentMonth); } catch(_) {}
+
+        updateProgress(100, `✅ ${done}日分の同期が完了しました！`);
+        _appLog('info', 'jinjer', `同期完了: ${done}日分`);
+        await new Promise(r => setTimeout(r, 900));
+        hideProgress();
+        toast(`✅ jinjer同期完了（${done}日分）`);
+      } catch(err) {
+        console.error('[jinjer]', err);
+        hideProgress();
+        toast(`❌ ${err.message || 'jinjer同期に失敗しました'}`);
+      }
+    }
 
     document.getElementById('file-jinjer').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) { e.target.value = ''; return; }
       e.target.value = '';
-
-      showProgress('🏢 jinjer同期');
-      updateProgress(5, '📂 ファイルを読み込み中...');
-      console.log('[jinjer] 開始:', file.name, file.size, 'bytes');
-
+      console.log('[jinjer] ファイル開始:', file.name, file.size, 'bytes');
       const reader = new FileReader();
-
       reader.onload = async ev => {
-        try {
-          // ① JSON解析（UI をブロックしないよう yield）
-          await tick();
-          updateProgress(15, '🔍 データを解析中...');
-          let jinjer;
-          try {
-            jinjer = JSON.parse(ev.target.result);
-          } catch(parseErr) {
-            throw new Error('JSONの解析に失敗しました: ' + parseErr.message);
-          }
-          if (!jinjer || typeof jinjer.months !== 'object') throw new Error('months フィールドがありません');
-
-          const monthKeys = Object.keys(jinjer.months);
-          if (!monthKeys.length) throw new Error('対象データがありません');
-          console.log('[jinjer] 対象月:', monthKeys);
-          updateProgress(25, `📅 対象: ${monthKeys.join(', ')}`);
-
-          // ② 既存ストアを読む
-          await tick();
-          updateProgress(35, '📖 既存データを読み込み中...');
-          let store;
-          try {
-            store = loadStore();
-          } catch(storeErr) {
-            console.warn('[jinjer] loadStore失敗、空ストアで続行:', storeErr);
-            store = { months: {} };
-          }
-
-          // ③ チャンク処理（7日ずつ、各チャンク間でUIに制御を返す）
-          const allDays = [];
-          for (const [mk, days] of Object.entries(jinjer.months)) {
-            if (!store.months[mk]) store.months[mk] = {};
-            for (const [dk, jd] of Object.entries(days)) {
-              allDays.push({ mk, dk, jd });
-            }
-          }
-          const total = allDays.length;
-          console.log(`[jinjer] 処理対象: ${total}日分`);
-
-          const CHUNK = 7;
-          let done = 0;
-          for (let i = 0; i < allDays.length; i += CHUNK) {
-            const chunk = allDays.slice(i, i + CHUNK);
-            for (const { mk, dk, jd } of chunk) {
-              const ex = store.months[mk][dk] || {};
-              store.months[mk][dk] = {
-                ...ex,                           // status・memo・updated_at 等を全て保持
-                start: jd.start || ex.start || '', // 出勤時間のみ上書き
-                end:   jd.end   || ex.end   || '', // 退勤時間のみ上書き
-                // status と memo は jinjer では上書きしない
-              };
-              done++;
-            }
-            const pct = 35 + Math.round((done / total) * 45); // 35→80%
-            updateProgress(pct, `🔄 ${done} / ${total} 日を処理中...`);
-            await tick(); // UIに制御を返す
-          }
-
-          // ④ localStorage に保存（IDB は非同期fire-and-forget）
-          await tick();
-          updateProgress(85, '💾 localStorage に保存中...');
-          try {
-            localStorage.setItem(STORE_KEY, JSON.stringify(store));
-            console.log('[jinjer] localStorage 保存完了');
-          } catch(lsErr) {
-            console.error('[jinjer] localStorage 保存失敗:', lsErr);
-            throw new Error('ストレージへの保存に失敗しました。空き容量を確認してください。');
-          }
-
-          // ⑤ IDB ミラー（失敗しても続行）
-          updateProgress(90, '💾 IndexedDB をバックアップ中...');
-          try {
-            await idbSave(store);
-            console.log('[jinjer] IDB 保存完了');
-          } catch(idbErr) {
-            console.warn('[jinjer] IDB 保存失敗（無視）:', idbErr);
-          }
-
-          // ⑥ カレンダー再描画
-          await tick();
-          updateProgress(97, '🗓 カレンダーを更新中...');
-          try {
-            loadMonth(currentYear, currentMonth);
-          } catch(renderErr) {
-            console.warn('[jinjer] カレンダー再描画失敗:', renderErr);
-          }
-
-          updateProgress(100, `✅ ${done}日分の同期が完了しました！`);
-          console.log(`[jinjer] 完了: ${done}日分`);
-          _appLog('info', 'jinjer', `同期完了: ${done}日分`);
-
-          await new Promise(r => setTimeout(r, 900));
-          hideProgress();
-          toast(`✅ jinjer同期完了（${done}日分）`);
-
-        } catch(err) {
-          console.error('[jinjer] 致命的エラー:', err);
-          hideProgress();
-          toast(`❌ ${err.message || 'jinjer同期に失敗しました'}`);
-        }
+        let jinjer;
+        try { jinjer = JSON.parse(ev.target.result); }
+        catch(e) { toast('❌ JSONの解析に失敗しました'); return; }
+        await _processJinjerData(jinjer);
       };
-
-      reader.onerror = () => {
-        console.error('[jinjer] FileReader エラー');
-        hideProgress();
-        toast('❌ ファイルの読み込みに失敗しました');
-      };
-
+      reader.onerror = () => toast('❌ ファイルの読み込みに失敗しました');
       reader.readAsText(file, 'utf-8');
     });
 
@@ -2738,6 +2974,9 @@
       document.getElementById('settings-ts-mac').value       = cfg.tsMac         || '100.65.221.66';
       document.getElementById('settings-ts-iphone').value    = cfg.tsIphone      || '100.93.30.114';
       document.getElementById('settings-ts-user').value      = cfg.tsUser        || '';
+      document.getElementById('settings-jinjer-company').value = cfg.jinjerCompany || '';
+      document.getElementById('settings-jinjer-email').value   = cfg.jinjerEmail   || '';
+      document.getElementById('settings-jinjer-pass').value    = cfg.jinjerPass    || '';
       updatePinUI();
       document.getElementById('settings-modal').classList.add('show');
     });
@@ -2758,9 +2997,12 @@
         styleGender: document.getElementById('settings-style-gender').value,
         styleType:   document.getElementById('settings-style-type').value,
         styleColor:  document.getElementById('settings-style-color').value,
-        tsMac:       document.getElementById('settings-ts-mac').value.trim(),
-        tsIphone:    document.getElementById('settings-ts-iphone').value.trim(),
-        tsUser:      document.getElementById('settings-ts-user').value.trim(),
+        tsMac:          document.getElementById('settings-ts-mac').value.trim(),
+        tsIphone:       document.getElementById('settings-ts-iphone').value.trim(),
+        tsUser:         document.getElementById('settings-ts-user').value.trim(),
+        jinjerCompany:  document.getElementById('settings-jinjer-company').value.trim(),
+        jinjerEmail:    document.getElementById('settings-jinjer-email').value.trim(),
+        jinjerPass:     document.getElementById('settings-jinjer-pass').value,
       };
       // 都市 or スタイルが変わったら天気キャッシュをクリアして再取得
       const prevCfg = loadConfig();
@@ -4047,87 +4289,87 @@
       // ─── 気温 × スタイル別トップス・ボトムス ───
       if (maxTemp >= 30) {
         if (style === 'business') {
-          items.push(_item('👔','半袖ポロシャツ','半袖ポロシャツ クールビズ',p));
-          items.push(_item('👖','夏用スラックス','夏 スラックス 涼しい ビジネス',p));
+          items.push(_item('👔','ユニクロ エアリズムポロシャツ','UNIQLO エアリズム ポロシャツ 吸汗速乾 クールビズ',p));
+          items.push(_item('👖','ユニクロ スマートアンクルパンツ','UNIQLO スマートアンクルパンツ 夏 軽量 ストレッチ',p));
         } else if (style === 'sports') {
-          items.push(_item('🏃','ドライTシャツ','ドライTシャツ 吸汗速乾 スポーツ',p));
-          items.push(_item('🩳','ショートパンツ','スポーツショーツ',p));
+          items.push(_item('🏃','ナイキ ドライフィットTシャツ','NIKE ドライフィット 半袖Tシャツ 吸汗速乾 UPF50',p));
+          items.push(_item('🩳','ナイキ フレックスランショーツ','NIKE フレックス ランニングショーツ 速乾 5インチ',p));
         } else if (style === 'street') {
-          items.push(_item('👕','グラフィックTシャツ','グラフィックTシャツ ストリート',p));
-          items.push(_item('🩳','バギーショーツ','バギーパンツ ショーツ ストリート',p));
+          items.push(_item('👕','チャンピオン オーバーサイズT','Champion リバースウィーブ Tシャツ オーバーサイズ ストリート',p));
+          items.push(_item('🩳','GU カーゴショーツ','GU カーゴショーツ バギー ストリート ハーフパンツ',p));
         } else if (style === 'outdoor') {
-          items.push(_item('🏕','速乾Tシャツ','速乾 Tシャツ アウトドア',p));
-          items.push(_item('🩳','トレッキングショーツ','トレッキング ショーツ',p));
+          items.push(_item('🏕','コロンビア サンシールドシャツ','Columbia サンシールド 長袖シャツ UPF50 速乾 アウトドア',p));
+          items.push(_item('🩳','モンベル トレッキングショーツ','mont-bell トレッキングショーツ 軽量 速乾',p));
         } else {
-          items.push(_item('👕','半袖Tシャツ','半袖Tシャツ カジュアル',p));
-          items.push(_item('🩳','ショートパンツ','ショートパンツ カジュアル',p));
+          items.push(_item('👕','ユニクロ ドライEX Tシャツ','UNIQLO ドライEX 半袖Tシャツ 吸汗速乾 UVカット',p));
+          items.push(_item('🩳','GU リラックスショーツ','GU リラックスフィット カジュアルショーツ 綿',p));
         }
         warn.push('🥵 熱中症注意！こまめな水分補給を');
       } else if (maxTemp >= 25) {
         if (style === 'business') {
-          items.push(_item('👔','半袖ビジネスシャツ','半袖シャツ ビジネス',p));
-          items.push(_item('👖','サマースラックス','スラックス 夏 ビジネス',p));
+          items.push(_item('👔','ORIHICA ノーアイロンシャツ','ORIHICA ノーアイロン 半袖シャツ ビジネス イージーケア',p));
+          items.push(_item('👖','ユニクロ スマートスラックス','UNIQLO スマートスラックス 夏 ウォッシャブル ストレッチ',p));
         } else if (style === 'sports') {
-          items.push(_item('🏃','半袖スポーツウェア','スポーツウェア 半袖',p));
-          items.push(_item('🩳','スポーツパンツ','スポーツパンツ 夏',p));
+          items.push(_item('🏃','アンダーアーマー コンプレッション','Under Armour コンプレッションシャツ 半袖 吸汗速乾',p));
+          items.push(_item('🩳','ナイキ スポーツパンツ','NIKE スポーツパンツ インナー付き 夏 ランニング',p));
         } else if (style === 'street') {
-          items.push(_item('👕','オーバーサイズTシャツ','オーバーサイズ Tシャツ ストリート',p));
-          items.push(_item('👖','バギーパンツ','バギーパンツ ストリート',p));
+          items.push(_item('👕','ナイキ ルーズフィットT','NIKE ルーズフィット Tシャツ ストリート ドロップショルダー',p));
+          items.push(_item('👖','GU ワイドバギーデニム','GU ワイドバギーデニム ストリート ゆったり',p));
         } else {
-          items.push(_item('👕','半袖Tシャツ','半袖Tシャツ カジュアル',p));
-          items.push(_item('👖','チノパンツ','チノパンツ 薄手',p));
+          items.push(_item('👕','ユニクロ コットンリラックスT','UNIQLO コットン 半袖Tシャツ リラックスフィット 無地',p));
+          items.push(_item('👖','ユニクロ スリムチノパンツ','UNIQLO スリムフィット チノパンツ 薄手 ストレッチ',p));
         }
       } else if (maxTemp >= 20) {
         if (style === 'business') {
-          items.push(_item('👔','長袖ビジネスシャツ','長袖シャツ ビジネス',p));
-          items.push(_item('🧥','テーラードジャケット','テーラードジャケット ビジネス',p));
-          items.push(_item('👖','スラックス','スラックス ビジネス',p));
+          items.push(_item('👔','ユニクロ エクストラファインコットンシャツ','UNIQLO エクストラファインコットン ボタンダウン 長袖',p));
+          items.push(_item('🧥','ユニクロ ストレッチジャケット','UNIQLO ストレッチ テーラードジャケット ビジネス セットアップ',p));
+          items.push(_item('👖','ユニクロ スリムスラックス','UNIQLO スリムフィット スラックス ストレッチ ビジネス',p));
         } else if (style === 'formal') {
-          items.push(_item('🎩','スーツジャケット','スーツ ジャケット フォーマル',p));
-          items.push(_item('👔','ドレスシャツ','ドレスシャツ フォーマル',p));
-          items.push(_item('👖','スラックス','スラックス フォーマル',p));
+          items.push(_item('🎩','青山 スリムスーツ','洋服の青山 スリムスーツ ジャケット フォーマル',p));
+          items.push(_item('👔','ユニクロ 形態安定シャツ','UNIQLO 形態安定 ドレスシャツ ホワイト フォーマル',p));
+          items.push(_item('👖','AOKIスラックス センタープレス','AOKI フォーマルスラックス スリム センタープレス',p));
         } else if (style === 'street') {
-          items.push(_item('👕','ロンT','ロングスリーブ Tシャツ ストリート',p));
-          items.push(_item('🧥','ライトスタジャン','スタジャン ライト ストリート',p));
-          items.push(_item('👖','デニムパンツ','デニムパンツ ストリート',p));
+          items.push(_item('👕','グラミチ ロゴロンT','Gramicci ロゴ 長袖Tシャツ ストリート オーバーサイズ',p));
+          items.push(_item('🧥','オープンカラーシャツ（ストリート）','オープンカラーシャツ 柄シャツ アロハ ストリート',p));
+          items.push(_item('👖','リーバイス 511 スリムデニム','Levis 511 スリムフィット ストレッチデニム テーパード',p));
         } else {
-          items.push(_item('👕','薄手長袖シャツ','薄手 長袖 シャツ カジュアル',p));
-          if (minTemp < 15) items.push(_item('🧥','カーディガン','カーディガン 薄手 羽織り',p));
-          items.push(_item('👖','デニムパンツ','デニムパンツ カジュアル',p));
+          items.push(_item('👕','ユニクロ プレミアムリネンシャツ','UNIQLO プレミアムリネン シャツ 長袖 薄手',p));
+          if (minTemp < 15) items.push(_item('🧥','ユニクロ コットンカーディガン','UNIQLO コットン カーディガン 薄手 羽織り',p));
+          items.push(_item('👖','ユニクロ テーパードデニム','UNIQLO テーパードフィット デニム ストレッチ',p));
         }
       } else if (maxTemp >= 15) {
         if (style === 'business') {
-          items.push(_item('🧥','ビジネスジャケット','ジャケット スーツ ビジネス',p));
-          items.push(_item('👔','ビジネスシャツ','ビジネスシャツ 長袖',p));
-          items.push(_item('👖','スラックス','スラックス ビジネス',p));
+          items.push(_item('🧥','ユニクロ ウールブレンドジャケット','UNIQLO ウール混 テーラードジャケット ビジネスカジュアル',p));
+          items.push(_item('👔','ユニクロ 形態安定ビジネスシャツ','UNIQLO 形態安定 ストレッチ ビジネスシャツ 長袖',p));
+          items.push(_item('👖','ユニクロ スリムスラックス（秋冬）','UNIQLO スラックス スリム ストレッチ 秋冬',p));
         } else if (style === 'outdoor') {
-          items.push(_item('🧥','フリース','フリースジャケット アウトドア',p));
-          items.push(_item('👖','トレッキングパンツ','トレッキングパンツ 秋',p));
+          items.push(_item('🧥','ノースフェイス フリースジャケット','The North Face フリースジャケット アウトドア 軽量 保温',p));
+          items.push(_item('👖','コロンビア トレッキングパンツ','Columbia トレッキングパンツ ストレッチ 撥水 秋',p));
         } else {
-          items.push(_item('🧥','ライトアウター','ライトジャケット アウター 秋',p));
-          items.push(_item('👔','長袖シャツ','長袖シャツ カジュアル',p));
-          items.push(_item('👖','デニムパンツ','デニムパンツ 秋',p));
+          items.push(_item('🧥','ユニクロ ライトウェイトブルゾン','UNIQLO ライトウェイト コンパクトジャケット 秋 軽量',p));
+          items.push(_item('👔','ユニクロ フランネルチェックシャツ','UNIQLO フランネル チェックシャツ 長袖 カジュアル',p));
+          items.push(_item('👖','リーバイス 512 テーパードデニム','Levis 512 スリムテーパード デニム ストレッチ',p));
         }
       } else if (maxTemp >= 10) {
         if (style === 'business') {
-          items.push(_item('🧥','コート','コート ビジネス 秋冬',p));
-          items.push(_item('👔','ニットセーター','ニットセーター ビジネスカジュアル',p));
+          items.push(_item('🧥','ユニクロ ウールコート','UNIQLO ウール混 ステンカラーコート ビジネス 秋冬',p));
+          items.push(_item('👔','ユニクロ Vネックニット','UNIQLO ウール混 Vネックニット セーター ビジネスカジュアル',p));
         } else if (style === 'outdoor') {
-          items.push(_item('🧥','マウンテンパーカー','マウンテンパーカー アウトドア',p));
-          items.push(_item('🧤','グローブ','アウトドア グローブ 手袋',p));
+          items.push(_item('🧥','ノースフェイス マウンテンジャケット','The North Face マウンテンジャケット 防水 防風 アウトドア',p));
+          items.push(_item('🧤','ブラックダイヤモンド グローブ','Black Diamond アウトドアグローブ 防寒 防風 保温',p));
         } else {
-          items.push(_item('🧥','ミドルジャケット','ジャケット アウター 秋冬',p));
-          items.push(_item('👕','パーカー','パーカー カジュアル 裏起毛',p));
+          items.push(_item('🧥','ユニクロ スウェットフルジップパーカ','UNIQLO スウェット フルジップパーカ 裏起毛 プルオーバー',p));
+          items.push(_item('👕','ユニクロ クルーネックセーター','UNIQLO ウール混 クルーネックセーター 薄手 秋冬',p));
         }
-        items.push(_item('👖','厚手パンツ','厚手パンツ 秋冬 暖かい',p));
+        items.push(_item('👖','ユニクロ 裏起毛ストレッチパンツ','UNIQLO 暖パン 裏起毛 ストレッチ スキニー 保温',p));
       } else if (maxTemp >= 5) {
-        items.push(_item('🧥','コート','コート 防寒 アウター 冬',p));
-        items.push(_item('🧣','マフラー','マフラー ウール 防寒',p));
-        items.push(_item('👖','ウールパンツ','ウールパンツ 防寒 冬',p));
+        items.push(_item('🧥','ユニクロ ウルトラライトダウンロングコート','UNIQLO ウルトラライトダウン ロングコート 防寒 軽量',p));
+        items.push(_item('🧣','GU リブニットマフラー','GU リブニット マフラー 防寒 ロング 冬',p));
+        items.push(_item('👖','ユニクロ 暖パン テーパード','UNIQLO 暖パン ウォームEX テーパード 防寒 冬',p));
       } else {
-        items.push(_item('🧥','ダウンコート','ダウンコート 防寒 極寒 ヘビーウェイト',p));
-        items.push(_item('🧣','マフラー＋手袋','マフラー 手袋 セット 防寒 極寒',p));
-        items.push(_item('👖','防寒パンツ','防寒パンツ 裏起毛 極寒 冬',p));
+        items.push(_item('🧥','ユニクロ ウルトラライトダウンパーカ','UNIQLO ウルトラライトダウン パーカ 極暖 防風 撥水',p));
+        items.push(_item('🧣','ユニクロ フリースマフラー＆手袋セット','UNIQLO フリース マフラー 手袋 セット 極暖 防寒',p));
+        items.push(_item('👖','ユニクロ 極暖ヒートテックパンツ','UNIQLO 極暖 ヒートテック テーパードパンツ 冬',p));
         warn.push('🥶 防寒対策を万全に！');
       }
 
@@ -4135,34 +4377,34 @@
       const hasShoe = items.some(it => ['👟','👞','🥾'].includes(it.emoji));
       if (!hasShoe) {
         if (style === 'business' || style === 'formal')
-          items.push(_item('👞','ビジネスシューズ','ビジネスシューズ 革靴',p));
+          items.push(_item('👞','スコッチグレイン プレーントゥ','スコッチグレイン ビジネスシューズ プレーントゥ 本革 国産',p));
         else if (style === 'sports')
-          items.push(_item('👟','スポーツシューズ','ランニングシューズ スポーツ',p));
+          items.push(_item('👟','ナイキ ペガサス ランシューズ','NIKE ペガサス ランニングシューズ クッション 軽量',p));
         else if (style === 'outdoor')
-          items.push(_item('🥾','トレッキングブーツ','トレッキングブーツ アウトドア',p));
+          items.push(_item('🥾','サロモン ハイキングブーツ','Salomon X-ULTRA ゴアテックス ハイキングブーツ 防水',p));
         else
-          items.push(_item('👟','スニーカー','スニーカー',p));
+          items.push(_item('👟','コンバース オールスター','Converse Chuck Taylor All Star ローカット キャンバス 定番',p));
       }
 
       // ─── 雨雪 ───
       if (isRain) {
-        items.push(_item('☂️','折りたたみ傘','折りたたみ傘 コンパクト',p));
-        items.push(_item('🥿','防水シューズ','防水シューズ レインシューズ',p));
+        items.push(_item('☂️','ユニクロ コンパクトアンブレラ','UNIQLO コンパクト 折りたたみ傘 軽量 晴雨兼用 自動開閉',p));
+        items.push(_item('🥿','アシックス ペダラ 防水シューズ','ASICS ペダラ 防水 ウォーキングシューズ 雨 快適',p));
       }
       if (isSnow) {
-        items.push(_item('🥾','防滑ブーツ','防滑ブーツ 雪道 防水',p));
+        items.push(_item('🥾','ソレル カリブー スノーブーツ','Sorel Caribou スノーブーツ 防水 防滑 雪道 冬',p));
         warn.push('⚠️ 路面凍結に注意');
       }
       if (isThund) warn.push('⛈ 雷雨の恐れ — 外出注意');
       // ─── 風・UV ───
       if (windspeed >= 30) {
-        items.push(_item('🧢','キャップ（紐付き）','キャップ 帽子 飛ばされない',p));
+        items.push(_item('🧢','ナイキ エアロビルキャップ','NIKE エアロビル キャップ 帽子 ストラップ 飛ばされない',p));
         warn.push('💨 強風注意（スカート注意）');
       } else if (windspeed >= 20) {
         warn.push('💨 風が強めです');
       }
       if (maxTemp >= 22 && !isRain)
-        items.push(_item('🧴','日焼け止め','日焼け止め SPF50 顔用',p));
+        items.push(_item('🧴','アネッサ パーフェクトUV','ANESSA パーフェクトUV スキンケアミルク SPF50+ PA++++',p));
 
       return { items, warn, style, maxT: maxTemp, minT: minTemp };
     }
@@ -4217,41 +4459,6 @@
       return { raw, locationName: coords.name };
     }
 
-    // SVGマネキン定数（一度のアロケートでパフォーマンス改善）
-    const _VP_SVG_BODY =
-      `<svg class="vp-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">` +
-        `<ellipse cx="50" cy="197" rx="22" ry="5" fill="rgba(0,0,0,0.07)"/>` +
-        `<ellipse cx="50" cy="13" rx="16" ry="11" fill="#5C3A1E"/>` +
-        `<ellipse cx="36" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
-        `<ellipse cx="64" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
-        `<ellipse cx="50" cy="24" rx="15" ry="16" fill="#F5CBA7"/>` +
-        `<ellipse cx="35.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
-        `<ellipse cx="64.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
-        `<ellipse cx="44" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
-        `<ellipse cx="56" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
-        `<ellipse cx="44.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
-        `<ellipse cx="56.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
-        `<path d="M41.5 16.5 Q44 15.5 46.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
-        `<path d="M53.5 16.5 Q56 15.5 58.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
-        `<path d="M48.5 24.5 Q50 27 51.5 24.5" stroke="#C6845A" stroke-width="1.1" fill="none" stroke-linecap="round"/>` +
-        `<path d="M45.5 29 Q50 32 54.5 29" stroke="#C6845A" stroke-width="1.4" fill="none" stroke-linecap="round"/>` +
-        `<ellipse cx="42" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
-        `<ellipse cx="58" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
-        `<rect x="43" y="37" width="14" height="13" rx="3" fill="#F5CBA7"/>` +
-        `<path d="M14 53 Q12 51 50 49 Q88 51 86 53 L82 110 Q80 120 50 121 Q20 120 18 110 Z" fill="#E8B88A"/>` +
-        `<path d="M50 49 L50 121 Q60 121 68 118 L78 110 L80 53 Q65 51 50 49 Z" fill="rgba(0,0,0,0.05)"/>` +
-        `<path d="M16 55 C 8 61 3 86 4 110 C 4.5 117 9.5 120 15 119 C 19 118 21 111 22 105 C 24 86 22 63 22 55 Z" fill="#F5CBA7"/>` +
-        `<path d="M84 55 C 92 61 97 86 96 110 C 95.5 117 90.5 120 85 119 C 81 118 79 111 78 105 C 76 86 78 63 78 55 Z" fill="#F5CBA7"/>` +
-        `<ellipse cx="9.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
-        `<ellipse cx="90.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
-        `<path d="M18 110 Q15 120 22 126 Q36 132 50 132 Q64 132 78 126 Q85 120 82 110 Q66 121 50 121 Q34 121 18 110 Z" fill="#D9A070"/>` +
-        `<path d="M22 126 C 20 140 20 164 22 188 C 23 194 29 196 35 195 C 40 194 42 187 42 181 L 42 126 Z" fill="#F5CBA7"/>` +
-        `<path d="M78 126 C 80 140 80 164 78 188 C 77 194 71 196 65 195 C 60 194 58 187 58 181 L 58 126 Z" fill="#F5CBA7"/>` +
-        `<ellipse cx="32" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
-        `<ellipse cx="68" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
-        `<path d="M19 188 Q15 193 16 197 Q23 201 33 199 Q39 197 39 191 L 35 187 Z" fill="#C8916E"/>` +
-        `<path d="M81 188 Q85 193 84 197 Q77 201 67 199 Q61 197 61 191 L 65 187 Z" fill="#C8916E"/>` +
-      `</svg>`;
 
     // コーデキャッシュ（同条件の再レンダリング防止）
     let _outfitBoardCache = { key: null, html: null };
@@ -4265,7 +4472,7 @@
       pastel: { top:'#f8bbd0', btm:'#b3e5fc', out:'#c8e6c9', sho:'#ffccbc', sca:'#e1bee7', acc:'#f0f4c3' },
     };
 
-    // 着衣SVGマネキンを生成（服の色をSVGレイヤーで描画）
+    // 着衣SVGマネキンを生成（グラデーション立体感 + アニメ調リアルデザイン）
     function _buildMannequinSVG(items, colorKey) {
       const p = _CLOTH_PAL[colorKey] || _CLOTH_PAL.basic;
       const has = emoji => items.some(it => emoji.includes(it.emoji));
@@ -4277,74 +4484,152 @@
       const hasShoe  = has(['👟','👞','🥾','🥿']);
       const hasAcc   = has(['🧤']);
       const sleeveC  = hasOuter ? p.out : (hasTop ? p.top : null);
+      const u = Math.random().toString(36).slice(2,7); // unique IDs per render
 
-      return `<svg class="vp-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">` +
-        // ── 素体（肌） ──
-        `<ellipse cx="50" cy="197" rx="22" ry="5" fill="rgba(0,0,0,0.07)"/>` +
-        `<ellipse cx="50" cy="13" rx="16" ry="11" fill="#5C3A1E"/>` +
-        `<ellipse cx="36" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
-        `<ellipse cx="64" cy="17" rx="5" ry="9" fill="#5C3A1E"/>` +
-        `<ellipse cx="50" cy="24" rx="15" ry="16" fill="#F5CBA7"/>` +
-        `<ellipse cx="35.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
-        `<ellipse cx="64.5" cy="24" rx="3.2" ry="5" fill="#EDBA93"/>` +
-        `<ellipse cx="44" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
-        `<ellipse cx="56" cy="20" rx="2.2" ry="2.8" fill="#2C1A0E"/>` +
-        `<ellipse cx="44.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
-        `<ellipse cx="56.9" cy="19.1" rx="0.9" ry="0.9" fill="white"/>` +
-        `<path d="M41.5 16.5 Q44 15.5 46.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
-        `<path d="M53.5 16.5 Q56 15.5 58.5 16.5" stroke="#3A2810" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
-        `<path d="M48.5 24.5 Q50 27 51.5 24.5" stroke="#C6845A" stroke-width="1.1" fill="none" stroke-linecap="round"/>` +
-        `<path d="M45.5 29 Q50 32 54.5 29" stroke="#C6845A" stroke-width="1.4" fill="none" stroke-linecap="round"/>` +
-        `<ellipse cx="42" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
-        `<ellipse cx="58" cy="27" rx="4" ry="2.5" fill="#F4A4A4" opacity="0.35"/>` +
-        `<rect x="43" y="37" width="14" height="13" rx="3" fill="#F5CBA7"/>` +
-        // 素体（腕・胴・腰・脚）
-        `<path d="M16 55 C 8 61 3 86 4 110 C 4.5 117 9.5 120 15 119 C 19 118 21 111 22 105 C 24 86 22 63 22 55 Z" fill="#F5CBA7"/>` +
-        `<path d="M84 55 C 92 61 97 86 96 110 C 95.5 117 90.5 120 85 119 C 81 118 79 111 78 105 C 76 86 78 63 78 55 Z" fill="#F5CBA7"/>` +
-        `<ellipse cx="9.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
-        `<ellipse cx="90.5" cy="122" rx="6" ry="8" fill="#F5CBA7"/>` +
-        `<path d="M14 53 Q12 51 50 49 Q88 51 86 53 L82 110 Q80 120 50 121 Q20 120 18 110 Z" fill="#E8B88A"/>` +
-        `<path d="M50 49 L50 121 Q60 121 68 118 L78 110 L80 53 Q65 51 50 49 Z" fill="rgba(0,0,0,0.05)"/>` +
-        `<path d="M18 110 Q15 120 22 126 Q36 132 50 132 Q64 132 78 126 Q85 120 82 110 Q66 121 50 121 Q34 121 18 110 Z" fill="#D9A070"/>` +
-        `<path d="M22 126 C 20 140 20 164 22 188 C 23 194 29 196 35 195 C 40 194 42 187 42 181 L 42 126 Z" fill="#F5CBA7"/>` +
-        `<path d="M78 126 C 80 140 80 164 78 188 C 77 194 71 196 65 195 C 60 194 58 187 58 181 L 58 126 Z" fill="#F5CBA7"/>` +
-        `<ellipse cx="32" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
-        `<ellipse cx="68" cy="158" rx="7" ry="5" fill="rgba(0,0,0,0.04)"/>` +
-        `<path d="M19 188 Q15 193 16 197 Q23 201 33 199 Q39 197 39 191 L 35 187 Z" fill="#C8916E"/>` +
-        `<path d="M81 188 Q85 193 84 197 Q77 201 67 199 Q61 197 61 191 L 65 187 Z" fill="#C8916E"/>` +
-        // ── 着衣レイヤー（肌の上に描画） ──
-        // パンツ・ボトムス
-        (hasBot ? `<path d="M24 118 Q20 124 26 128 Q40 134 50 134 Q60 134 74 128 Q80 124 76 118 Q64 122 50 122 Q36 122 24 118 Z" fill="${p.btm}"/>` +
-          `<path d="M26 128 L40 128 L40 188 L33 190 Q26 191 23 187 L22 188 Z" fill="${p.btm}"/>` +
-          `<path d="M74 128 L60 128 L60 188 L67 190 Q74 191 77 187 L78 188 Z" fill="${p.btm}"/>` +
-          `<line x1="50" y1="128" x2="50" y2="190" stroke="rgba(0,0,0,0.1)" stroke-width="0.8"/>` : '') +
-        // 袖（スリーブ）
-        (sleeveC ? `<path d="M20 55 C 12 62 7 85 8 108 C 8.5 114 12 117 16 116 C 20 115 22 108 22 102 L22 55 Z" fill="${sleeveC}"/>` +
-          `<path d="M80 55 C 88 62 93 85 92 108 C 91.5 114 88 117 84 116 C 80 115 78 108 78 102 L78 55 Z" fill="${sleeveC}"/>` : '') +
-        // シャツ・トップス（胴体）
-        (hasTop ? `<path d="M22 53 Q22 52 50 50 Q78 52 78 53 L76 116 Q74 122 50 122 Q26 122 24 116 Z" fill="${p.top}"/>` : '') +
-        // ジャケット・アウター（シャツの上に）
-        (hasOuter ? `<path d="M14 53 Q12 51 50 49 Q88 51 86 53 L82 112 Q80 120 50 121 Q20 120 18 112 Z" fill="${p.out}"/>` +
-          `<path d="M48 49 L46 121 Q44 121 44 120 L46 49 Z" fill="rgba(0,0,0,0.07)"/>` +
-          `<path d="M52 49 L54 121 Q56 121 56 120 L54 49 Z" fill="rgba(0,0,0,0.07)"/>` +
-          `<path d="M49 49 L51 49 L51 121 L49 121 Z" fill="rgba(255,255,255,0.18)"/>` : '') +
-        // マフラー・スカーフ
-        (hasScarf ? `<rect x="38" y="42" width="24" height="8" rx="4" fill="${p.sca}"/>` +
-          `<path d="M44 50 L44 63 Q44 66 46 66 L48 66 Q50 66 50 63 L50 50 Z" fill="${p.sca}"/>` +
-          `<rect x="38" y="42" width="24" height="3" rx="2" fill="rgba(255,255,255,0.25)"/>` : '') +
-        // 帽子
-        (hasHat ? `<ellipse cx="50" cy="8" rx="21" ry="5.5" fill="${p.out}"/>` +
-          `<rect x="36" y="1" width="28" height="8" rx="4" fill="${p.out}"/>` +
-          `<rect x="36" y="1" width="28" height="3" rx="2" fill="rgba(255,255,255,0.2)"/>` : '') +
-        // グローブ・手袋
-        (hasAcc ? `<ellipse cx="9" cy="120" rx="7" ry="9" fill="${p.acc}"/>` +
-          `<ellipse cx="91" cy="120" rx="7" ry="9" fill="${p.acc}"/>` : '') +
-        // シューズ
-        (hasShoe ? `<path d="M18 188 Q13 193 14 198 Q22 202 34 200 Q40 197 40 192 L35 188 Z" fill="${p.sho}"/>` +
-          `<path d="M82 188 Q87 193 86 198 Q78 202 66 200 Q60 197 60 192 L65 188 Z" fill="${p.sho}"/>` +
-          `<path d="M18 188 Q13 193 14 196 Q22 198 34 197 L40 192 Z" fill="rgba(255,255,255,0.15)"/>` +
-          `<path d="M82 188 Q87 193 86 196 Q78 198 66 197 L60 192 Z" fill="rgba(255,255,255,0.15)"/>` : '') +
-      `</svg>`;
+      return `<svg class="vp-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <radialGradient id="fg${u}" cx="42%" cy="35%" r="58%"><stop offset="0%" stop-color="#FFE5C8"/><stop offset="100%" stop-color="#E8A870"/></radialGradient>
+  <radialGradient id="hg${u}" cx="38%" cy="28%" r="62%"><stop offset="0%" stop-color="#7B5635"/><stop offset="100%" stop-color="#2C1A0E"/></radialGradient>
+  <radialGradient id="bg${u}" cx="50%" cy="10%" r="75%"><stop offset="0%" stop-color="#F8D0A8"/><stop offset="100%" stop-color="#E09870"/></radialGradient>
+  <radialGradient id="lg${u}" cx="50%" cy="10%" r="80%"><stop offset="0%" stop-color="#F5C898"/><stop offset="100%" stop-color="#DC9468"/></radialGradient>
+</defs>
+<!-- Ground shadow -->
+<ellipse cx="50" cy="198" rx="21" ry="4" fill="rgba(0,0,0,0.12)"/>
+<!-- Hair back volume -->
+<ellipse cx="50" cy="14" rx="18" ry="14" fill="url(#hg${u})"/>
+<path d="M33 14 Q29 6 35 1 Q42 -3 50 -1 Q58 -3 65 1 Q71 6 67 14" fill="#2C1A0E"/>
+<!-- Side hair framing face -->
+<path d="M33 12 Q28 20 29 30 Q30 34 33 37 Q34 31 34 22 Q33 16 35 12 Z" fill="#3A2010"/>
+<path d="M67 12 Q72 20 71 30 Q70 34 67 37 Q66 31 66 22 Q67 16 65 12 Z" fill="#3A2010"/>
+<!-- Hair sheen highlight -->
+<path d="M40 3 Q50 0 60 3" stroke="rgba(255,255,255,0.22)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+<!-- Neck -->
+<path d="M44 37 Q50 35 56 37 L57 47 Q50 49 43 47 Z" fill="#F0B888"/>
+<path d="M44 37 Q50 35 56 37 L56 41 Q50 40 44 41 Z" fill="rgba(0,0,0,0.07)"/>
+<!-- FACE -->
+<ellipse cx="50" cy="22" rx="16" ry="18" fill="url(#fg${u})"/>
+<!-- Face highlight cheek zone -->
+<ellipse cx="43" cy="15" rx="6" ry="4.5" fill="rgba(255,255,255,0.16)"/>
+<!-- Ears -->
+<ellipse cx="34.5" cy="23" rx="3.8" ry="5.5" fill="#F0B888"/>
+<ellipse cx="34.5" cy="23" rx="2.2" ry="3.4" fill="#E09068"/>
+<ellipse cx="65.5" cy="23" rx="3.8" ry="5.5" fill="#F0B888"/>
+<ellipse cx="65.5" cy="23" rx="2.2" ry="3.4" fill="#E09068"/>
+<!-- Eyebrows -->
+<path d="M38.5 14.8 Q42.5 13 46.5 14.8" stroke="#3A2010" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M53.5 14.8 Q57.5 13 61.5 14.8" stroke="#3A2010" stroke-width="2" fill="none" stroke-linecap="round"/>
+<!-- Left eye: white + iris + pupil + highlight -->
+<ellipse cx="43" cy="21.5" rx="5.2" ry="5.8" fill="white"/>
+<ellipse cx="43" cy="22.5" rx="4" ry="4.5" fill="#5A3EAD"/>
+<ellipse cx="43" cy="23" rx="2.4" ry="3" fill="#2A1880"/>
+<ellipse cx="43" cy="23.5" rx="1.4" ry="1.8" fill="#0D0820"/>
+<ellipse cx="41.2" cy="20.8" rx="1.4" ry="1.4" fill="white"/>
+<ellipse cx="45.2" cy="24.2" rx="0.7" ry="0.7" fill="rgba(255,255,255,0.65)"/>
+<!-- Left upper eyelid line + lash -->
+<path d="M37.8 17.5 Q43 15.2 48.2 17.5" stroke="#2C1A0E" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+<path d="M38.5 25.5 Q43 28 47.5 25.5" stroke="rgba(44,26,14,0.3)" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+<!-- Right eye: white + iris + pupil + highlight -->
+<ellipse cx="57" cy="21.5" rx="5.2" ry="5.8" fill="white"/>
+<ellipse cx="57" cy="22.5" rx="4" ry="4.5" fill="#5A3EAD"/>
+<ellipse cx="57" cy="23" rx="2.4" ry="3" fill="#2A1880"/>
+<ellipse cx="57" cy="23.5" rx="1.4" ry="1.8" fill="#0D0820"/>
+<ellipse cx="55.2" cy="20.8" rx="1.4" ry="1.4" fill="white"/>
+<ellipse cx="59.2" cy="24.2" rx="0.7" ry="0.7" fill="rgba(255,255,255,0.65)"/>
+<!-- Right upper eyelid line + lash -->
+<path d="M51.8 17.5 Q57 15.2 62.2 17.5" stroke="#2C1A0E" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+<path d="M52.5 25.5 Q57 28 61.5 25.5" stroke="rgba(44,26,14,0.3)" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+<!-- Nose (subtle shadow + tip) -->
+<path d="M47.5 29.5 Q50 31.5 52.5 29.5" stroke="#C08060" stroke-width="1" fill="none" stroke-linecap="round"/>
+<ellipse cx="50" cy="32" rx="3.2" ry="2" fill="rgba(200,130,90,0.22)"/>
+<!-- Mouth -->
+<path d="M46 35.5 Q50 39 54 35.5" stroke="#C0705A" stroke-width="1.9" fill="none" stroke-linecap="round"/>
+<path d="M47 35 Q48.5 33 50 33.5 Q51.5 33 53 35" stroke="#D08070" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+<!-- Blush -->
+<ellipse cx="36.5" cy="29" rx="5.8" ry="3.4" fill="#FF9999" opacity="0.3"/>
+<ellipse cx="63.5" cy="29" rx="5.8" ry="3.4" fill="#FF9999" opacity="0.3"/>
+<!-- BODY SKIN BASE -->
+<!-- Left arm -->
+<path d="M20 50 C 11 57 4 86 5 111 C 5.5 118 10.5 121 16 120 C 20 119 22 112 23 106 C 25 88 23 64 23 50 Z" fill="#F0B888"/>
+<path d="M20 50 C 13 57 7 86 8 110 L16 120 C 10.5 121 5.5 118 5 111 C 4 86 11 57 20 50 Z" fill="rgba(0,0,0,0.06)"/>
+<!-- Right arm -->
+<path d="M80 50 C 89 57 96 86 95 111 C 94.5 118 89.5 121 84 120 C 80 119 78 112 77 106 C 75 88 77 64 77 50 Z" fill="#F0B888"/>
+<path d="M80 50 C 87 57 93 86 92 110 L84 120 C 89.5 121 94.5 118 95 111 C 96 86 89 57 80 50 Z" fill="rgba(0,0,0,0.06)"/>
+<!-- Hands -->
+<ellipse cx="10" cy="122" rx="7" ry="9" fill="#F0B888"/>
+<ellipse cx="90" cy="122" rx="7" ry="9" fill="#F0B888"/>
+<path d="M5 119.5 Q10 117 15 119.5" stroke="rgba(0,0,0,0.1)" stroke-width="0.9" fill="none"/>
+<path d="M5 123.5 Q10 121 15 123.5" stroke="rgba(0,0,0,0.07)" stroke-width="0.8" fill="none"/>
+<path d="M85 119.5 Q90 117 95 119.5" stroke="rgba(0,0,0,0.1)" stroke-width="0.9" fill="none"/>
+<path d="M85 123.5 Q90 121 95 123.5" stroke="rgba(0,0,0,0.07)" stroke-width="0.8" fill="none"/>
+<!-- Torso -->
+<path d="M22 49 Q20 47 50 45 Q80 47 78 49 L76 122 Q74 132 50 133 Q26 132 24 122 Z" fill="url(#bg${u})"/>
+<path d="M50 45 L50 133 Q62 133 70 128 L76 122 L78 49 Q64 47 50 45 Z" fill="rgba(0,0,0,0.045)"/>
+<!-- Shoulder line definition -->
+<path d="M22 49 Q28 52 23 55" stroke="rgba(0,0,0,0.07)" stroke-width="1" fill="none"/>
+<path d="M78 49 Q72 52 77 55" stroke="rgba(0,0,0,0.07)" stroke-width="1" fill="none"/>
+<!-- Hip transition -->
+<path d="M24 122 Q22 130 28 135 Q40 141 50 141 Q60 141 72 135 Q78 130 76 122 Q62 132 50 133 Q38 132 24 122 Z" fill="#E09068"/>
+<path d="M28 135 Q38 142 50 141 Q62 142 72 135 Q66 139 50 140 Q34 139 28 135 Z" fill="rgba(0,0,0,0.07)"/>
+<!-- Legs -->
+<path d="M28 135 C 26 150 26 174 28 192 C 29 198 35 200 39 199 C 43 198 45 191 45 185 L45 135 Z" fill="url(#lg${u})"/>
+<path d="M72 135 C 74 150 74 174 72 192 C 71 198 65 200 61 199 C 57 198 55 191 55 185 L55 135 Z" fill="url(#lg${u})"/>
+<!-- Knee definition -->
+<ellipse cx="37" cy="163" rx="8.5" ry="5.5" fill="rgba(0,0,0,0.055)"/>
+<ellipse cx="63" cy="163" rx="8.5" ry="5.5" fill="rgba(0,0,0,0.055)"/>
+<!-- Leg outer shading -->
+<path d="M28 135 L31 135 L32 192 L28 191 Z" fill="rgba(0,0,0,0.06)"/>
+<path d="M72 135 L69 135 L68 192 L72 191 Z" fill="rgba(0,0,0,0.06)"/>
+<!-- Bare feet/ankles -->
+<path d="M24 192 Q19 197 20 201 Q29 205 40 201 Q46 198 46 193 L38 191 Z" fill="#C8916E"/>
+<path d="M76 192 Q81 197 80 201 Q71 205 60 201 Q54 198 54 193 L62 191 Z" fill="#C8916E"/>
+<!-- CLOTHING LAYERS -->
+${hasBot ? `<path d="M28 130 Q24 139 29 143 Q41 150 50 150 Q59 150 71 143 Q76 139 72 130 Q60 141 50 133 Q40 141 28 130 Z" fill="${p.btm}"/>
+<path d="M29 143 L41 143 L41 193 L33 195 Q26 196 23 192 Z" fill="${p.btm}"/>
+<path d="M71 143 L59 143 L59 193 L67 195 Q74 196 77 192 Z" fill="${p.btm}"/>
+<line x1="50" y1="143" x2="50" y2="193" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+<path d="M29 143 L33 143 L33 193 L29 192 Z" fill="rgba(0,0,0,0.08)"/>
+<path d="M71 143 L67 143 L67 193 L71 192 Z" fill="rgba(0,0,0,0.08)"/>
+<path d="M39 145 L41 143 L41 189 L39 191 Z" fill="rgba(255,255,255,0.13)"/>
+<path d="M61 145 L59 143 L59 189 L61 191 Z" fill="rgba(255,255,255,0.13)"/>` : ''}
+${sleeveC ? `<path d="M20 52 C 11 59 5 87 6 111 C 6.5 117 10 120 16 119 C 20 118 22 111 23 105 L23 52 Z" fill="${sleeveC}"/>
+<path d="M80 52 C 89 59 95 87 94 111 C 93.5 117 90 120 84 119 C 80 118 78 111 77 105 L77 52 Z" fill="${sleeveC}"/>
+<path d="M20 52 C 13 58 7 86 8 110 L16 119 C 10 120 6.5 117 6 111 C 5 87 11 59 20 52 Z" fill="rgba(0,0,0,0.09)"/>
+<path d="M80 52 C 87 58 93 86 92 110 L84 119 C 90 120 93.5 117 94 111 C 95 87 89 59 80 52 Z" fill="rgba(0,0,0,0.09)"/>
+<path d="M21 53 C 15 60 10 88 11 110 C 12 110 13 109 14 107 C 13 88 18 61 22 54 Z" fill="rgba(255,255,255,0.13)"/>` : ''}
+${hasTop ? `<path d="M23 51 Q22 50 50 47 Q78 50 77 51 L76 126 Q74 134 50 135 Q26 134 24 126 Z" fill="${p.top}"/>
+<path d="M50 47 L50 135 Q62 135 70 130 L76 126 L77 51 Q64 50 50 47 Z" fill="rgba(0,0,0,0.065)"/>
+<path d="M30 53 Q28 53 28 55 L28 126 Q28 130 30 131 Q27 130 26 126 L26 55 Z" fill="rgba(255,255,255,0.13)"/>
+<path d="M44 47 Q50 44 56 47 L54 52 Q50 50 46 52 Z" fill="rgba(0,0,0,0.09)"/>
+<path d="M46 52 Q50 56 54 52" stroke="rgba(0,0,0,0.22)" stroke-width="0.9" fill="none"/>` : ''}
+${hasOuter ? `<path d="M16 49 Q14 47 50 44 Q86 47 84 49 L81 116 Q79 126 50 127 Q21 126 19 116 Z" fill="${p.out}"/>
+<path d="M50 44 L50 127 Q62 127 70 122 L81 116 L84 49 Q67 47 50 44 Z" fill="rgba(0,0,0,0.08)"/>
+<path d="M48 44 L44 55 Q46 55 50 59 Q54 55 56 55 L52 44 Z" fill="rgba(0,0,0,0.12)"/>
+<path d="M22 50 Q20 50 20 52 L20 116 Q20 122 22 124 Q19.5 122 19 116 L19 52 Z" fill="rgba(255,255,255,0.13)"/>
+<line x1="50" y1="59" x2="50" y2="127" stroke="rgba(0,0,0,0.1)" stroke-width="0.9"/>
+<circle cx="50" cy="76" r="1.6" fill="rgba(0,0,0,0.22)"/>
+<circle cx="50" cy="93" r="1.6" fill="rgba(0,0,0,0.22)"/>
+<circle cx="50" cy="110" r="1.6" fill="rgba(0,0,0,0.22)"/>` : ''}
+${hasScarf ? `<path d="M36 41 Q50 37 64 41 Q65 47 64 49 Q50 45 36 49 Q35 47 36 41 Z" fill="${p.sca}"/>
+<path d="M44 49 L44 65 Q44 68 47 68 L49 68 Q50 68 50 65 L50 49 Z" fill="${p.sca}"/>
+<path d="M36 43 Q50 39 64 43" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" fill="none"/>
+<path d="M36 47 Q50 43 64 47" stroke="rgba(0,0,0,0.1)" stroke-width="0.9" fill="none"/>` : ''}
+${hasHat ? `<ellipse cx="50" cy="7" rx="23" ry="6.5" fill="${p.out}"/>
+<path d="M34 7 Q37 -3 50 -5 Q63 -3 66 7 Z" fill="${p.out}"/>
+<path d="M34 7 Q37 -3 50 -5 Q56 -3 58 4 Q52 5.5 50 5.5 Q42 5.5 40 7 Z" fill="rgba(0,0,0,0.13)"/>
+<path d="M36 6 Q50 2 64 6" stroke="rgba(255,255,255,0.32)" stroke-width="1.6" fill="none"/>` : ''}
+${hasAcc ? `<ellipse cx="9.5" cy="122" rx="7.8" ry="9.5" fill="${p.acc}"/>
+<ellipse cx="90.5" cy="122" rx="7.8" ry="9.5" fill="${p.acc}"/>
+<path d="M4 119 Q9.5 116 15 119" stroke="rgba(255,255,255,0.32)" stroke-width="0.9" fill="none"/>
+<path d="M85.5 119 Q91 116 96 119" stroke="rgba(255,255,255,0.32)" stroke-width="0.9" fill="none"/>
+<path d="M4.5 123.5 Q9.5 120.5 14.5 123.5" stroke="rgba(255,255,255,0.2)" stroke-width="0.8" fill="none"/>
+<path d="M86 123.5 Q91 120.5 96 123.5" stroke="rgba(255,255,255,0.2)" stroke-width="0.8" fill="none"/>` : ''}
+${hasShoe ? `<path d="M23 192 Q17 198 18 202 Q27 206 40 202 Q46 199 46 194 L38 191 Z" fill="${p.sho}"/>
+<path d="M77 192 Q83 198 82 202 Q73 206 60 202 Q54 199 54 194 L62 191 Z" fill="${p.sho}"/>
+<path d="M23 192 Q17 198 18 200 Q27 202 40 199 L46 194 Q40 197 27 196 Q19 195 23 192 Z" fill="rgba(255,255,255,0.18)"/>
+<path d="M77 192 Q83 198 82 200 Q73 202 60 199 L54 194 Q60 197 73 196 Q81 195 77 192 Z" fill="rgba(255,255,255,0.18)"/>
+<path d="M18 201 Q27 205 40 201" stroke="rgba(0,0,0,0.16)" stroke-width="0.9" fill="none"/>
+<path d="M82 201 Q73 205 60 201" stroke="rgba(0,0,0,0.16)" stroke-width="0.9" fill="none"/>` : ''}
+</svg>`;
     }
 
     // コーデアイテムの理由テキスト
@@ -4658,31 +4943,61 @@
     function openLogModal(filterLevel) {
       const fl = filterLevel || 'all';
       document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === fl));
+      _populateLogDateSel();
       _renderLogList(fl);
       document.getElementById('log-modal').classList.add('show');
     }
+    function _populateLogDateSel() {
+      const sel = document.getElementById('log-date-sel');
+      if (!sel) return;
+      const days = [{ value: '', label: '今日（直近80件）' }];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(_LOG_ARCHIVE_PFX)) {
+          const d = k.slice(_LOG_ARCHIVE_PFX.length);
+          let cnt = 0;
+          try { cnt = JSON.parse(localStorage.getItem(k) || '[]').length; } catch(_) {}
+          days.push({ value: k, label: `${d}（${cnt}件）` });
+        }
+      }
+      days.sort((a, b) => b.value.localeCompare(a.value));
+      sel.innerHTML = days.map(d => `<option value="${_esc(d.value)}">${_esc(d.label)}</option>`).join('');
+    }
 
-    function _renderLogList(filter) {
+    function _renderLogList(filter, dateKey) {
       const listEl = document.getElementById('log-list');
       if (!listEl) return;
       let appLogs = [], errLogs = [];
-      try { appLogs = JSON.parse(localStorage.getItem(_LOG_KEY) || '[]'); } catch(_) {}
-      try {
-        errLogs = JSON.parse(localStorage.getItem(_ERR_KEY) || '[]').map(e => ({
-          ts: e.ts, level: 'error', source: e.type || 'global', msg: e.detail
-        }));
-      } catch(_) {}
-      const all      = [...appLogs, ...errLogs].sort((a, b) => b.ts.localeCompare(a.ts));
+      if (dateKey) {
+        // 日次アーカイブを表示
+        try { appLogs = JSON.parse(localStorage.getItem(dateKey) || '[]'); } catch(_) {}
+      } else {
+        // 今日: リングバッファ + グローバルエラー
+        try { appLogs = JSON.parse(localStorage.getItem(_LOG_KEY) || '[]'); } catch(_) {}
+        try {
+          errLogs = JSON.parse(localStorage.getItem(_ERR_KEY) || '[]').map(e => ({
+            ts: e.ts, level: 'error', source: e.type || 'global', msg: e.detail
+          }));
+        } catch(_) {}
+      }
+      const all = [...appLogs, ...errLogs].sort((a, b) => b.ts.localeCompare(a.ts));
       const filtered = filter === 'all' ? all : all.filter(e => e.level === filter);
       if (filtered.length === 0) {
         listEl.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:13px;">📋 ログなし</div>';
         return;
       }
+      const _LEVEL_MAP = {
+        fatal: ['log-badge-fatal', '💀 致命'],
+        error: ['log-badge-error', '🔴 エラー'],
+        warn:  ['log-badge-warn',  '🟡 警告'],
+        info:  ['log-badge-info',  '🔵 情報'],
+      };
       listEl.innerHTML = filtered.map(e => {
         const d  = new Date(e.ts);
         const ts = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-        const bc = e.level === 'error' ? 'log-badge-error' : e.level === 'warn' ? 'log-badge-warn' : 'log-badge-info';
-        const bl = e.level === 'error' ? 'エラー' : e.level === 'warn' ? '警告' : '情報';
+        const [bc, bl] = _LEVEL_MAP[e.level] || ['log-badge-info', '情報'];
+        const suggestion = (e.level === 'fatal' || e.level === 'error' || e.level === 'warn')
+          ? _logSuggestion(e.source, e.msg, e.level) : null;
         return `<div class="log-entry">` +
           `<div class="log-row1">` +
             `<span class="log-ts">${ts}</span>` +
@@ -4690,6 +5005,7 @@
             `<span class="log-src">[${_esc(e.source || 'app')}]</span>` +
           `</div>` +
           `<div class="log-msg">${_esc(e.msg || '')}</div>` +
+          (suggestion ? `<div class="log-suggest">${_esc(suggestion)}</div>` : '') +
         `</div>`;
       }).join('');
     }
@@ -4699,21 +5015,189 @@
     document.getElementById('log-close2').addEventListener('click', () =>
       document.getElementById('log-modal').classList.remove('show'));
     document.getElementById('log-clear').addEventListener('click', () => {
-      if (!confirm('ログをすべて消去しますか？')) return;
-      try { localStorage.removeItem(_LOG_KEY); localStorage.removeItem(_ERR_KEY); } catch(_) {}
-      _renderLogList('all');
+      const dk = document.getElementById('log-date-sel')?.value || '';
+      if (dk) {
+        // アーカイブ日のみ消去
+        if (!confirm(`${dk.slice(_LOG_ARCHIVE_PFX.length)} のログを消去しますか？`)) return;
+        try { localStorage.removeItem(dk); } catch(_) {}
+        _populateLogDateSel();
+        document.getElementById('log-date-sel').value = '';
+        _renderLogList('all');
+      } else {
+        if (!confirm('今日のログをすべて消去しますか？')) return;
+        try { localStorage.removeItem(_LOG_KEY); localStorage.removeItem(_ERR_KEY); } catch(_) {}
+        _renderLogList('all');
+      }
       document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
     });
     document.querySelectorAll('.log-filter-btn').forEach(btn =>
       btn.addEventListener('click', () => {
         document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        _renderLogList(btn.dataset.filter);
+        const dk = document.getElementById('log-date-sel')?.value || '';
+        _renderLogList(btn.dataset.filter, dk);
       })
     );
+    document.getElementById('log-date-sel').addEventListener('change', e => {
+      const fl = document.querySelector('.log-filter-btn.active')?.dataset.filter || 'all';
+      _renderLogList(fl, e.target.value || '');
+    });
     document.getElementById('health-log-btn').addEventListener('click', () => openLogModal('all'));
     document.getElementById('health-err-item').addEventListener('click', () => openLogModal('error'));
     document.getElementById('health-idb-item').addEventListener('click', () => openLogModal('all'));
+    document.getElementById('health-perf-btn').addEventListener('click', () => openPerfModal());
+
+    /* =====================================================
+       PERFORMANCE VIEWER (powertop風)
+       ===================================================== */
+    let _perfFpsLoop = null, _perfFps = 0;
+
+    function _startFpsMeter() {
+      let last = performance.now(), frames = 0;
+      _perfFps = 0;
+      function loop(ts) {
+        frames++;
+        if (ts - last >= 1000) {
+          _perfFps = frames;
+          frames = 0;
+          last = ts;
+        }
+        _perfFpsLoop = requestAnimationFrame(loop);
+      }
+      _perfFpsLoop = requestAnimationFrame(loop);
+    }
+    function _stopFpsMeter() {
+      if (_perfFpsLoop) { cancelAnimationFrame(_perfFpsLoop); _perfFpsLoop = null; }
+    }
+
+    function _dotClass(pct) {
+      return pct >= 80 ? 'perf-dot-crit' : pct >= 50 ? 'perf-dot-warn' : 'perf-dot-ok';
+    }
+    function _barClass(pct) {
+      return pct >= 80 ? 'perf-bar-crit' : pct >= 50 ? 'perf-bar-warn' : 'perf-bar-ok';
+    }
+    function _colorVal(pct, val) {
+      const c = pct >= 80 ? '#b71c1c' : pct >= 50 ? '#e65100' : '#2e7d32';
+      return `<span style="color:${c}">${val}</span>`;
+    }
+
+    async function _buildPerfReport() {
+      // LocalStorage usage
+      let lsUsed = 0;
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          lsUsed += (localStorage.getItem(k) || '').length + k.length;
+        }
+      } catch(_) {}
+      const lsKB = (lsUsed / 1024).toFixed(1);
+      const lsMax = 5120; // ~5MB typical limit
+      const lsPct = Math.min(100, Math.round(lsUsed / 1024 / lsMax * 100));
+
+      // Memory
+      const mem = (performance.memory) ? {
+        used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
+        total: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024),
+        pct: Math.round(performance.memory.usedJSHeapSize / performance.memory.jsHeapSizeLimit * 100)
+      } : null;
+
+      // Error counts
+      let errCount = 0, fatalCount = 0, warnCount = 0;
+      try {
+        const logs = JSON.parse(localStorage.getItem(_LOG_KEY) || '[]');
+        errCount  = logs.filter(l => l.level === 'error').length;
+        fatalCount= logs.filter(l => l.level === 'fatal').length;
+        warnCount = logs.filter(l => l.level === 'warn').length;
+      } catch(_) {}
+      const errLegacy = JSON.parse(localStorage.getItem(_ERR_KEY) || '[]').length;
+      const totalErr = errCount + fatalCount + errLegacy;
+      const errPct = Math.min(100, totalErr * 5);
+
+      // Network
+      const online = navigator.onLine;
+      let navTime = null;
+      try {
+        const nav = performance.getEntriesByType('navigation')[0];
+        if (nav) navTime = Math.round(nav.loadEventEnd - nav.startTime);
+      } catch(_) {}
+
+      // SW cache
+      let swCaches = 0;
+      try {
+        const keys = await caches.keys();
+        swCaches = keys.length;
+      } catch(_) {}
+
+      // FPS
+      const fps = _perfFps;
+      const fpsPct = fps < 20 ? 90 : fps < 40 ? 50 : 10; // inverted: low fps = high pct = bad
+
+      const row = (dot, label, val) =>
+        `<div class="perf-metric"><div class="perf-dot ${dot}"></div><div class="perf-label">${label}</div><div class="perf-val">${val}</div></div>`;
+      const bar = (pct) =>
+        `<div class="perf-bar-wrap"><div class="perf-bar ${_barClass(pct)}" style="width:${pct}%"></div></div>`;
+
+      return `
+<div class="perf-section">
+  <div class="perf-section-title">💾 ストレージ</div>
+  ${row(_dotClass(lsPct), 'LocalStorage', _colorVal(lsPct, `${lsKB} KB / ${lsMax} KB`))}
+  ${bar(lsPct)}
+  ${row('perf-dot-ok', 'SW キャッシュ', `${swCaches} 件`)}
+</div>
+<div class="perf-section">
+  <div class="perf-section-title">🧠 メモリ</div>
+  ${mem
+    ? row(_dotClass(mem.pct), 'JS ヒープ', _colorVal(mem.pct, `${mem.used} / ${mem.total} MB`)) + bar(mem.pct)
+    : row('perf-dot-ok', 'JS ヒープ', '<span style="color:var(--text-muted)">計測不可 (Safari)</span>')}
+</div>
+<div class="perf-section">
+  <div class="perf-section-title">🌐 ネットワーク</div>
+  ${row(online ? 'perf-dot-ok' : 'perf-dot-crit', 'オンライン状態', online ? '✅ オンライン' : '❌ オフライン')}
+  ${navTime !== null ? row('perf-dot-ok', 'ページロード時間', `${navTime} ms`) : ''}
+</div>
+<div class="perf-section">
+  <div class="perf-section-title">⚠️ エラー（セッション累計）</div>
+  ${row(_dotClass(Math.min(100,fatalCount*20)), '致命的エラー', _colorVal(Math.min(100,fatalCount*20), `${fatalCount} 件`))}
+  ${row(_dotClass(Math.min(100,errPct)), 'エラー合計', _colorVal(Math.min(100,errPct), `${totalErr} 件`))}
+  ${row(_dotClass(Math.min(100,warnCount*3)), '警告', _colorVal(Math.min(100,warnCount*3), `${warnCount} 件`))}
+</div>
+<div class="perf-section">
+  <div class="perf-section-title">🖥 レンダリング</div>
+  <div class="perf-fps-display">
+    <div class="perf-fps-num" style="color:${fps >= 50 ? '#2e7d32' : fps >= 30 ? '#e65100' : fps > 0 ? '#b71c1c' : 'var(--text-muted)'}">${fps > 0 ? fps : '--'}</div>
+    <div class="perf-fps-label">FPS (画面描画レート)</div>
+  </div>
+  ${bar(fpsPct)}
+  ${row(_dotClass(fpsPct), 'フレームレート評価', fps >= 50 ? '✅ 良好' : fps >= 30 ? '⚠️ やや低下' : fps > 0 ? '🔴 低下中' : '-- 計測中')}
+</div>`;
+    }
+
+    async function openPerfModal() {
+      document.getElementById('perf-modal').classList.add('show');
+      document.getElementById('perf-content').innerHTML =
+        '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:24px 0;">計測中…</div>';
+      _startFpsMeter();
+      // Give FPS meter 1 second to stabilize
+      await new Promise(r => setTimeout(r, 1200));
+      document.getElementById('perf-content').innerHTML = await _buildPerfReport();
+    }
+
+    document.getElementById('perf-close').addEventListener('click', () => {
+      document.getElementById('perf-modal').classList.remove('show');
+      _stopFpsMeter();
+    });
+    document.getElementById('perf-close2').addEventListener('click', () => {
+      document.getElementById('perf-modal').classList.remove('show');
+      _stopFpsMeter();
+    });
+    document.getElementById('perf-refresh').addEventListener('click', async () => {
+      document.getElementById('perf-content').innerHTML =
+        '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:24px 0;">再計測中…</div>';
+      _stopFpsMeter();
+      _startFpsMeter();
+      await new Promise(r => setTimeout(r, 1200));
+      document.getElementById('perf-content').innerHTML = await _buildPerfReport();
+    });
 
     /* =====================================================
        TAILSCALE VPN / SSH
@@ -4774,6 +5258,228 @@
         }
       };
     }
+
+    /* =====================================================
+       議事録・文字起こし (Web Speech API)
+       ===================================================== */
+    const _MIN_LS_KEY = '_kintai_minutes_hist';
+    let _minActive = false, _minRec = null, _minTimer = null, _minElapsed = 0;
+    let _minBlocks = [];      // { ts, text }[]
+    let _minLastFinalTime = 0;
+    const _MIN_PAUSE_MS = 2800; // この間隔以上空いたら新ブロック
+
+    function _minFmtTime(sec) {
+      return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+    }
+    function _minWallTs() {
+      const d = new Date();
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+    }
+    function _minRenderTranscript(interimText) {
+      const body = document.getElementById('min-transcript-body');
+      if (!body) return;
+      if (!_minBlocks.length && !interimText) {
+        body.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:28px 0;font-size:12px;line-height:1.8;">🎙 録音開始でリアルタイム文字起こし<br><span style="font-size:11px;">Chrome / Safari (iOS 14.5+)　日本語</span></div>';
+        return;
+      }
+      let html = _minBlocks.map((b, i) =>
+        `<div class="min-block">` +
+          `<div class="min-speaker">発言 ${i+1} · ${b.ts}</div>` +
+          `<div class="min-text">${_esc(b.text)}</div>` +
+        `</div>`
+      ).join('');
+      if (interimText) {
+        html += `<div class="min-block" style="opacity:.6;border-color:#bdbdbd;">` +
+          `<div class="min-speaker">認識中...</div>` +
+          `<div class="min-text interim">${_esc(interimText)}</div>` +
+        `</div>`;
+      }
+      body.innerHTML = html;
+      const t = document.getElementById('min-transcript');
+      if (t) t.scrollTop = t.scrollHeight;
+    }
+
+    function _minSetupSR() {
+      if (!_minActive) return;
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) return;
+      _minRec = new SR();
+      _minRec.lang = 'ja-JP';
+      _minRec.continuous = false;
+      _minRec.interimResults = true;
+      _minRec.maxAlternatives = 1;
+
+      _minRec.onresult = ev => {
+        const now = Date.now();
+        let interim = '', final = '';
+        for (const r of ev.results) {
+          if (r.isFinal) final += r[0].transcript;
+          else interim += r[0].transcript;
+        }
+        if (final) {
+          const isNew = (now - _minLastFinalTime) > _MIN_PAUSE_MS || !_minBlocks.length;
+          if (isNew) {
+            _minBlocks.push({ ts: _minWallTs(), text: final });
+          } else {
+            _minBlocks[_minBlocks.length - 1].text += '　' + final;
+          }
+          _minLastFinalTime = now;
+          _minRenderTranscript('');
+        } else {
+          _minRenderTranscript(interim);
+        }
+      };
+      _minRec.onerror = ev => {
+        if (ev.error === 'no-speech' || ev.error === 'aborted') return;
+        const st = document.getElementById('min-status');
+        if (st) st.textContent = `⚠️ ${ev.error}`;
+        _appLog('warn', 'minutes', `SR error: ${ev.error}`);
+      };
+      _minRec.onend = () => { if (_minActive) setTimeout(_minSetupSR, 80); };
+      try { _minRec.start(); } catch(_) { setTimeout(_minSetupSR, 500); }
+    }
+
+    function _minStart() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) { toast('❌ このブラウザは音声認識に非対応です（Chrome/Safariを使用）'); return; }
+      _minActive = true; _minElapsed = 0;
+      _minTimer = setInterval(() => {
+        _minElapsed++;
+        const el = document.getElementById('min-timer');
+        if (el) el.textContent = _minFmtTime(_minElapsed);
+      }, 1000);
+      const btn = document.getElementById('min-rec-btn');
+      btn.textContent = '⏹ 停止';
+      btn.classList.replace('start', 'stop');
+      document.getElementById('min-status').style.display = '';
+      _minSetupSR();
+      _appLog('info', 'minutes', '録音開始');
+    }
+
+    function _minStop() {
+      _minActive = false;
+      if (_minRec) { try { _minRec.stop(); } catch(_) {} _minRec = null; }
+      if (_minTimer) { clearInterval(_minTimer); _minTimer = null; }
+      const btn = document.getElementById('min-rec-btn');
+      btn.textContent = '🔴 録音開始';
+      btn.classList.replace('stop', 'start');
+      document.getElementById('min-status').style.display = 'none';
+      _minRenderTranscript('');
+      _appLog('info', 'minutes', `録音停止: ${_minFmtTime(_minElapsed)}, ${_minBlocks.length}ブロック`);
+    }
+
+    function _minBuildText() {
+      const title = document.getElementById('min-title')?.value.trim() || '議事録';
+      const d = new Date();
+      const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const md = `# ${title}\n日時: ${dStr}  \n録音時間: ${_minFmtTime(_minElapsed)}\n\n` +
+        _minBlocks.map((b, i) => `## 発言 ${i+1} (${b.ts})\n${b.text}`).join('\n\n');
+      return { title, dStr, md };
+    }
+
+    function _minSaveHistory() {
+      try {
+        const { title, dStr, md } = _minBuildText();
+        const hist = JSON.parse(localStorage.getItem(_MIN_LS_KEY) || '[]');
+        hist.unshift({ id: Date.now(), title, date: dStr, blocks: _minBlocks.length, md });
+        if (hist.length > 50) hist.length = 50;
+        localStorage.setItem(_MIN_LS_KEY, JSON.stringify(hist));
+        toast('💾 議事録を保存しました');
+        _appLog('info', 'minutes', `保存: ${title}`);
+      } catch(e) { toast('❌ 保存失敗: ' + e.message); }
+    }
+
+    function _minRenderHistory() {
+      const el = document.getElementById('min-hist-list');
+      if (!el) return;
+      let hist = [];
+      try { hist = JSON.parse(localStorage.getItem(_MIN_LS_KEY) || '[]'); } catch(_) {}
+      if (!hist.length) {
+        el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px 0;font-size:12px;">保存された議事録はありません</div>';
+        return;
+      }
+      el.innerHTML = hist.map(h =>
+        `<div class="min-hist-item" data-id="${h.id}">` +
+          `<div class="min-hist-title">${_esc(h.title)}</div>` +
+          `<div class="min-hist-meta">${h.date} · ${h.blocks}ブロック</div>` +
+        `</div>`
+      ).join('');
+      el.querySelectorAll('.min-hist-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const id = Number(item.dataset.id);
+          const rec = hist.find(h => h.id === id);
+          if (!rec) return;
+          navigator.clipboard?.writeText(rec.md).then(() => toast('📋 Markdownをコピーしました'));
+        });
+      });
+    }
+
+    // Tab toggle
+    function _minSwitchTab(tab) {
+      const isRec = tab === 'rec';
+      document.getElementById('min-panel-rec').style.display  = isRec ? 'flex' : 'none';
+      document.getElementById('min-panel-hist').style.display = isRec ? 'none' : 'flex';
+      document.getElementById('min-tab-rec').style.borderBottomColor  = isRec ? 'var(--accent-blue)' : 'transparent';
+      document.getElementById('min-tab-rec').style.color  = isRec ? 'var(--accent-blue)' : 'var(--text-muted)';
+      document.getElementById('min-tab-hist').style.borderBottomColor = isRec ? 'transparent' : 'var(--accent-blue)';
+      document.getElementById('min-tab-hist').style.color = isRec ? 'var(--text-muted)' : 'var(--accent-blue)';
+      if (!isRec) _minRenderHistory();
+    }
+
+    function openMinModal() {
+      _minRenderTranscript('');
+      document.getElementById('min-modal').classList.add('show');
+    }
+
+    document.getElementById('btn-minutes').addEventListener('click', openMinModal);
+    document.getElementById('min-close').addEventListener('click', () => {
+      if (_minActive) _minStop();
+      document.getElementById('min-modal').classList.remove('show');
+    });
+    document.getElementById('min-tab-rec').addEventListener('click',  () => _minSwitchTab('rec'));
+    document.getElementById('min-tab-hist').addEventListener('click', () => _minSwitchTab('hist'));
+    document.getElementById('min-rec-btn').addEventListener('click', () => {
+      _minActive ? _minStop() : _minStart();
+    });
+    document.getElementById('min-copy').addEventListener('click', () => {
+      if (!_minBlocks.length) { toast('⚠️ 文字起こし内容がありません'); return; }
+      const { md } = _minBuildText();
+      navigator.clipboard?.writeText(md).then(() => toast('📋 テキストをコピーしました'))
+        .catch(() => toast('❌ クリップボードへのアクセスが拒否されました'));
+    });
+    document.getElementById('min-md').addEventListener('click', () => {
+      if (!_minBlocks.length) { toast('⚠️ 内容がありません'); return; }
+      const { md, title, dStr } = _minBuildText();
+      const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${dStr}_${title}.md`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    document.getElementById('min-obsidian').addEventListener('click', () => {
+      if (!_minBlocks.length) { toast('⚠️ 内容がありません'); return; }
+      const cfg = loadConfig();
+      const vault = cfg.vault || '';
+      if (!vault) { toast('⚠️ 設定でObsidian Vault名を設定してください'); return; }
+      const { md, title, dStr } = _minBuildText();
+      const sub = cfg.subdir ? cfg.subdir + '/' : '';
+      const file = encodeURIComponent(`${sub}${dStr}_${title}`);
+      const content = encodeURIComponent(md);
+      location.href = `obsidian://new?vault=${encodeURIComponent(vault)}&file=${file}&content=${content}`;
+    });
+    document.getElementById('min-save-min').addEventListener('click', () => {
+      if (!_minBlocks.length) { toast('⚠️ 内容がありません'); return; }
+      _minSaveHistory();
+    });
+    document.getElementById('min-clear').addEventListener('click', () => {
+      if (!confirm('文字起こし内容をクリアしますか？')) return;
+      if (_minActive) _minStop();
+      _minBlocks = []; _minElapsed = 0;
+      document.getElementById('min-timer').textContent = '00:00';
+      document.getElementById('min-title').value = '';
+      _minRenderTranscript('');
+    });
 
     /* =====================================================
        SERVICE WORKER
