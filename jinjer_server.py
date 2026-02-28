@@ -33,6 +33,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime as _dt
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, parse_qs
 from pathlib import Path
 
@@ -163,9 +164,12 @@ def _save_to_icloud(target_months: list, pwa_data: dict):
         print(f'⚠️  iCloud Driveへの保存失敗: {e}')
 
 
-class ReuseHTTPServer(HTTPServer):
-    """SO_REUSEADDR を有効にして TIME_WAIT 状態のソケットでも即起動できる HTTPServer"""
+class ReuseHTTPServer(ThreadingMixIn, HTTPServer):
+    """マルチスレッド + SO_REUSEADDR HTTPServer
+    ThreadingMixIn: 各リクエストを別スレッドで処理 → jinjer同期中もヘルスチェックが応答できる
+    """
     allow_reuse_address = True
+    daemon_threads = True  # サーバー停止時にデーモンスレッドを強制終了
 
 
 class JinjerHandler(BaseHTTPRequestHandler):
