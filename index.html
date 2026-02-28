@@ -2848,6 +2848,95 @@
     </div>
   </div>
 
+  <!-- パフォーマンスエンジニアリングタブ -->
+  <div id="page-perf" class="tab-page">
+
+    <!-- スコアカード -->
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <div class="card-title" style="margin-bottom:0;">⚡ パフォーマンススコア</div>
+        <button id="perf-measure-btn" class="btn-primary" style="font-size:12px;padding:5px 14px;">📊 計測する</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div id="perf-score-ring" style="position:relative;width:80px;height:80px;flex-shrink:0;">
+          <canvas id="perf-score-canvas" width="80" height="80"></canvas>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <span id="perf-score-num" style="font-size:22px;font-weight:800;color:#a3e635;">--</span>
+            <span style="font-size:9px;color:var(--text-muted);">/100</span>
+          </div>
+        </div>
+        <div style="flex:1;">
+          <div id="perf-score-label" style="font-size:15px;font-weight:700;">「計測する」を押してください</div>
+          <div id="perf-score-delta" style="font-size:12px;color:var(--text-muted);margin-top:3px;"></div>
+          <div id="perf-score-time"  style="font-size:10px;color:var(--text-muted);margin-top:2px;"></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding:8px 10px;background:rgba(163,230,53,0.05);border-radius:8px;border-left:3px solid #a3e635;">
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.7;">
+          <strong style="color:var(--text-primary);">💡 パフォーマンススコアとは？</strong><br>
+          ページロード速度・メモリ使用量・UI描画fps・データ層の応答性を総合した <strong>0〜100点</strong> の指標です。<br>
+          🏆 90〜100点 = 優秀　✅ 70〜89点 = 良好　⚠️ 50〜69点 = 要改善　🔴 50点未満 = 問題あり
+        </div>
+      </div>
+    </div>
+
+    <!-- システム性能指標 -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">🖥 システム性能指標</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:rgba(96,165,250,0.06);border-radius:6px;">
+        📐 <strong>計測方法:</strong> ブラウザ標準の Web Performance API (Navigation Timing・memory・RAF) から取得。
+        各指標の横バーが目標値に対する達成率を示します。計測するたびに履歴に追記されます。
+      </div>
+      <div id="perf-metrics-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+    </div>
+
+    <!-- AI速度ベンチマーク -->
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+        <div class="card-title" style="margin-bottom:0;">🤖 AI速度ベンチマーク</div>
+        <button id="perf-ai-bench-btn" class="btn-secondary" style="font-size:12px;padding:4px 12px;">▶ 実行</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:rgba(251,191,36,0.06);border-radius:6px;">
+        📐 <strong>計測方法:</strong> 設定済み各AIモデルに最小プロンプトを送信し、<em>応答時間(ms)</em>・<em>スループット(文字/秒)</em>を計測します。<br>
+        ⚠️ <strong>API料金が発生します</strong>（1回あたり数円以下）。AIタブでAPIキーを設定後に使用してください。
+      </div>
+      <div id="perf-ai-bench-result" style="font-size:12px;"></div>
+    </div>
+
+    <!-- 改善提案 -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">💡 改善提案 — 何をどう改善すべきか</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;padding:6px 10px;background:rgba(96,165,250,0.06);border-radius:6px;">
+        📐 現在のシステム状態を自動分析した改善提案です。各提案に <strong>予想改善効果</strong> と <strong>具体的な実施方法</strong> を記載しています。
+        「計測する」を押すと最新状態で更新されます。
+      </div>
+      <div id="perf-suggestions"><div style="color:var(--text-muted);font-size:12px;text-align:center;padding:12px;">計測後に表示されます</div></div>
+    </div>
+
+    <!-- 改善履歴 -->
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin-bottom:0;">📈 計測履歴 — 改善の可視化</div>
+        <button id="perf-history-clear" style="background:none;border:1px solid var(--border-soft);border-radius:6px;font-size:11px;padding:3px 8px;color:var(--text-muted);cursor:pointer;">🗑</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+        計測するたびに記録されます（最大30件）。スコアの変化・ΔをみてPDCAを回してください。
+      </div>
+      <div id="perf-history-list"></div>
+    </div>
+
+    <!-- パフォーマンスエンジニア学習ロードマップ -->
+    <div class="card">
+      <div class="card-title">🎓 パフォーマンスエンジニア 学習ロードマップ</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:rgba(163,230,53,0.05);border-radius:6px;">
+        AIが普及する時代に不可欠な「AI高速化」を含むパフォーマンスエンジニアリングのキャリアパスです。
+        各フェーズに <strong>習得スキル</strong> と <strong>推奨ツール</strong> を記載しています。
+      </div>
+      <div id="perf-learning-map"></div>
+    </div>
+
+  </div>
+
   <!-- ログタブ -->
   <div id="page-logs" class="tab-page">
     <div class="card" style="margin-bottom:10px;">
@@ -2865,9 +2954,9 @@
       </div>
       <!-- ログソース切り替え -->
       <div style="display:flex;gap:6px;margin-bottom:10px;">
-        <button class="logs-src-btn active" data-src="server"   style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:var(--bg-card-solid);">🖥 サーバー</button>
+        <button class="logs-src-btn" data-src="server"   style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:none;">🖥 サーバー</button>
         <button class="logs-src-btn" data-src="watchdog" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:none;">👁 Watchdog</button>
-        <button class="logs-src-btn" data-src="app"      style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:none;">📱 アプリ</button>
+        <button class="logs-src-btn active" data-src="app" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:var(--bg-card-solid);">📱 アプリ</button>
       </div>
       <div id="logs-count" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;"></div>
       <div id="logs-content" style="font-family:'SF Mono','Fira Code',monospace;font-size:11px;max-height:60vh;overflow-y:auto;border-radius:8px;background:#0d1117;padding:10px;"></div>
@@ -5796,6 +5885,20 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v27', date: '2026-03-01',
+          title: '⚡ パフォーマンスエンジニアリングタブ + ログ/仕様タブ改善',
+          items: [
+            { tag: 'feat', text: '⚡ パフォーマンスタブ新設: Web Performance APIによるシステム性能スコア計測(0〜100点)' },
+            { tag: 'feat', text: 'AI速度ベンチマーク: Claude/GPT-4o/Gemini の応答時間・スループット(文字/秒)をモデル横断比較' },
+            { tag: 'feat', text: '改善提案エンジン: 計測結果を自動分析し、具体的な期待効果付き改善案を表示' },
+            { tag: 'feat', text: '計測履歴トラッキング: スコア変化(Δ)で改善効果を可視化(最大30件保存)' },
+            { tag: 'feat', text: 'パフォーマンスエンジニア 学習ロードマップ: Phase 1〜6のキャリアパス + 推奨ツール' },
+            { tag: 'fix',  text: 'ログタブ: アプリログ(localStorage)をデフォルト表示に変更 — サーバー不要で常時閲覧可能' },
+            { tag: 'fix',  text: '仕様タブ: ファイル閲覧を多段取得に変更 — ①オリジン直取得 ②サーバーAPI ③キャッシュの順で試行' },
+            { tag: 'feat', text: '仕様タブ: ファイル取得成功時にlocalStorageキャッシュ保存 — 次回からオフラインで閲覧可能' },
+          ],
+        },
+        {
           version: 'v26', date: '2026-02-28',
           title: 'バグ修正: TASKS_KEY TDZ / ALL_TABS参照エラー + タブ追加・削除 + ログタブ',
           items: [
@@ -5988,7 +6091,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v26';
+        const swVer = 'kintai-v27';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -6377,26 +6480,87 @@
         } catch(_) { /* サーバー未接続でも既知リストは表示済みなのでOK */ }
       }
 
+      // ファイルキャッシュ（サーバー接続時に取得したコンテンツをローカルに保存）
+      const _FILE_CACHE_KEY = '_kintai_file_cache_v1';
+      // オリジンから直接取得できる PWA ファイル（サーバー不要）
+      const _ORIGIN_FILES = new Set(['index.html','sw.js','manifest.json','recover.html']);
+
+      function _loadFileCache() {
+        try { return JSON.parse(localStorage.getItem(_FILE_CACHE_KEY) || '{}'); } catch(_) { return {}; }
+      }
+      function _saveFileCache(cache) {
+        try { localStorage.setItem(_FILE_CACHE_KEY, JSON.stringify(cache)); } catch(_) {}
+      }
+      function _cacheFile(path, content, size) {
+        const cache = _loadFileCache();
+        cache[path] = { content: content.slice(0, 200 * 1024), size, cachedAt: new Date().toISOString() };
+        _saveFileCache(cache);
+      }
+
       async function showSpecFile(path) {
         const pre    = document.getElementById('spec-file-content');
         const status = document.getElementById('spec-file-status');
         if (!pre) return;
         pre.textContent = '読み込み中…';
         if (status) { status.style.display = ''; status.textContent = `📂 ${path}`; }
+
+        const filename = path.split('/').pop();
+
+        // ── 戦略1: PWAファイルはオリジンから直取得（サーバー不要） ──────────────
+        if (_ORIGIN_FILES.has(filename)) {
+          try {
+            const r = await fetch(`${location.origin}/${filename}`, { signal: AbortSignal.timeout(8000) });
+            if (r.ok) {
+              const text = await r.text();
+              pre.textContent = text.length > 200000 ? text.slice(0, 200000) + '\n\n… (先頭200KB のみ表示)' : text;
+              if (status) status.textContent = `📂 ${path}  |  ${(text.length/1024).toFixed(1)}KB  ✅ オリジンから直接取得`;
+              _cacheFile(path, text, text.length);
+              return;
+            }
+          } catch(_) { /* fallthrough */ }
+        }
+
+        // ── 戦略2: サーバーAPI経由で取得し、キャッシュにも保存 ─────────────────
         try {
           const r = await fetch(`${_getApi()}/api/files/read?path=${encodeURIComponent(path)}`,
-            { signal: AbortSignal.timeout(15000) });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const d = await r.json();
-          if (d.error) {
-            pre.textContent = `⚠️ ${d.error}`;
-          } else {
-            pre.textContent = d.content + (d.truncated ? '\n\n… (先頭200KB のみ表示)' : '');
-            if (status) status.textContent = `📂 ${path}  |  ${(d.size/1024).toFixed(1)}KB${d.truncated ? '  ⚠️ 省略あり' : ''}`;
+            { signal: AbortSignal.timeout(10000) });
+          if (r.ok) {
+            const d = await r.json();
+            if (!d.error) {
+              pre.textContent = d.content + (d.truncated ? '\n\n… (先頭200KB のみ表示)' : '');
+              if (status) status.textContent = `📂 ${path}  |  ${(d.size/1024).toFixed(1)}KB  ☁️ サーバーから取得`;
+              _cacheFile(path, d.content, d.size);
+              return;
+            }
           }
-        } catch(e) {
-          pre.textContent = `❌ サーバー未接続のため内容を取得できません\n(${e.message})\n\nサーバーが起動している場合は 🔄 を押してください。`;
+        } catch(_) { /* fallthrough */ }
+
+        // ── 戦略3: ローカルキャッシュから表示（オフライン対応） ──────────────────
+        const cache = _loadFileCache();
+        if (cache[path]) {
+          const c = cache[path];
+          const age = Math.round((Date.now() - new Date(c.cachedAt)) / 1000 / 60);
+          pre.textContent = c.content + (c.content.length >= 200*1024 ? '\n\n… (先頭200KB のみ表示)' : '');
+          if (status) status.textContent = `📂 ${path}  |  📦 キャッシュ (${age}分前取得) — サーバー未接続`;
+          return;
         }
+
+        // ── 取得失敗 ────────────────────────────────────────────────────────────
+        pre.textContent = [
+          `📂 ${path}`,
+          '',
+          '⚠️  このファイルを表示するには以下のいずれかが必要です:',
+          '',
+          '  1. ローカルサーバーを起動する (jinjer_server.py)',
+          '     → launchctl start com.kintai.server',
+          '',
+          '  2. 一度サーバー接続時に「🔄」を押してキャッシュを作成する',
+          '     → 次回からオフラインでも閲覧可能になります',
+          '',
+          '  ※ sw.js / manifest.json / index.html は',
+          '    サーバー不要でいつでも閲覧できます',
+        ].join('\n');
+        if (status) status.textContent = `📂 ${path}  ⚠️ 取得不可 (キャッシュなし)`;
       }
 
       window._initSpecTab = function() {
@@ -6411,6 +6575,436 @@
       document.getElementById('spec-file-select')?.addEventListener('change', e => {
         if (e.target.value) showSpecFile(e.target.value);
       });
+    })();
+
+    /* =====================================================
+       PERFORMANCE ENGINEERING TAB
+       ===================================================== */
+    (function _initPerfModule() {
+      const _PERF_HISTORY_KEY = '_kintai_perf_history_v1';
+
+      /* ─── 計測 ─────────────────────────────────────────── */
+      function _measureFPS() {
+        return new Promise(resolve => {
+          let count = 0;
+          const start = performance.now();
+          function frame() {
+            count++;
+            if (performance.now() - start < 600) requestAnimationFrame(frame);
+            else resolve(Math.round(count / 0.6));
+          }
+          requestAnimationFrame(frame);
+        });
+      }
+
+      async function _measureAll() {
+        const result = { ts: new Date().toISOString(), metrics: {} };
+        const nav = performance.getEntriesByType('navigation')[0];
+        if (nav) {
+          result.metrics.pageLoad  = Math.round(nav.loadEventEnd   - nav.startTime);
+          result.metrics.ttfb      = Math.round(nav.responseStart  - nav.requestStart);
+          result.metrics.domReady  = Math.round(nav.domContentLoadedEventEnd - nav.startTime);
+        }
+        const mem = performance.memory;
+        if (mem) {
+          result.metrics.heapUsedMB  = Math.round(mem.usedJSHeapSize  / 1048576 * 10) / 10;
+          result.metrics.heapTotalMB = Math.round(mem.totalJSHeapSize / 1048576 * 10) / 10;
+        }
+        let lsBytes = 0;
+        for (const k of Object.keys(localStorage)) lsBytes += (localStorage.getItem(k) || '').length;
+        result.metrics.lsKB     = Math.round(lsBytes / 1024);
+        result.metrics.swActive = !!(navigator.serviceWorker?.controller);
+        result.metrics.online   = navigator.onLine;
+        result.metrics.fps      = await _measureFPS();
+        const idbStart = performance.now();
+        try { await (typeof idbLoad === 'function' ? idbLoad() : Promise.resolve()); } catch(_) {}
+        result.metrics.idbMs = Math.round(performance.now() - idbStart);
+        result.score = _calcScore(result.metrics);
+        return result;
+      }
+
+      /* ─── スコア計算 ──────────────────────────────────── */
+      function _calcScore(m) {
+        const clamp = v => Math.max(0, Math.min(100, v));
+        const scores = [];
+        if (m.pageLoad   != null) scores.push(clamp(100 - (m.pageLoad  - 500)  / 45));
+        if (m.ttfb       != null) scores.push(clamp(100 - (m.ttfb     - 20)   / 5));
+        if (m.heapUsedMB != null) scores.push(clamp(100 - (m.heapUsedMB - 20) / 1.5));
+        if (m.fps        != null) scores.push(clamp(m.fps / 60 * 100));
+        if (m.lsKB       != null) scores.push(clamp(100 - (m.lsKB - 50) / 4));
+        if (m.idbMs      != null) scores.push(clamp(100 - m.idbMs));
+        return scores.length ? Math.round(scores.reduce((a,b)=>a+b,0) / scores.length) : 0;
+      }
+
+      function _scoreInfo(s) {
+        if (s >= 90) return { label: '🏆 優秀',   color: '#a3e635' };
+        if (s >= 70) return { label: '✅ 良好',   color: '#4ade80' };
+        if (s >= 50) return { label: '⚠️ 要改善', color: '#ffa726' };
+        return           { label: '🔴 問題あり', color: '#ef5350' };
+      }
+
+      /* ─── スコアリング描画 ─────────────────────────────── */
+      function _renderScore(score, prevScore) {
+        const canvas = document.getElementById('perf-score-canvas');
+        const numEl  = document.getElementById('perf-score-num');
+        const lblEl  = document.getElementById('perf-score-label');
+        const deltaEl = document.getElementById('perf-score-delta');
+        const timeEl  = document.getElementById('perf-score-time');
+        if (!canvas) return;
+        const { label, color } = _scoreInfo(score);
+        // Canvas ring
+        const ctx = canvas.getContext('2d');
+        const cx = 40, cy = 40, r = 34;
+        ctx.clearRect(0,0,80,80);
+        ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI);
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 7; ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2 + 2*Math.PI*(score/100));
+        ctx.strokeStyle = color; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.stroke();
+        // テキスト
+        numEl.textContent = score; numEl.style.color = color;
+        lblEl.textContent = label; lblEl.style.color = color;
+        if (prevScore != null) {
+          const d = score - prevScore;
+          deltaEl.textContent = d >= 0 ? `▲ +${d}pt (前回比)` : `▼ ${d}pt (前回比)`;
+          deltaEl.style.color = d >= 0 ? '#4ade80' : '#ef5350';
+        }
+        timeEl.textContent = `最終計測: ${new Date().toLocaleString('ja-JP')}`;
+      }
+
+      /* ─── 指標グリッド ────────────────────────────────── */
+      const _METRIC_DEFS = [
+        { key: 'pageLoad',   icon: '📦', label: 'ページロード',  unit: 'ms',  good: 1000, bad: 5000,
+          desc: 'ページが完全に読み込まれるまでの時間。<strong>2秒以内</strong>が目標。SWキャッシュを有効にすると劇的に改善します。' },
+        { key: 'ttfb',       icon: '⚡', label: 'TTFB',          unit: 'ms',  good: 100,  bad: 500,
+          desc: 'Time To First Byte: サーバーが最初の1バイトを返すまでの時間。<strong>100ms以内</strong>が優秀。ネットワーク遅延の指標。' },
+        { key: 'domReady',   icon: '🌐', label: 'DOM Ready',     unit: 'ms',  good: 1500, bad: 4000,
+          desc: 'DOMContentLoaded イベントまでの時間。HTMLの解析完了タイミング。JSの実行ブロッキングに敏感。' },
+        { key: 'heapUsedMB', icon: '🧠', label: 'JSヒープ使用量', unit: 'MB', good: 30,   bad: 150,
+          desc: 'JavaScript エンジンが使用中のメモリ量。増えるとGCが頻発しUIがカクつく。<strong>50MB以内</strong>推奨。' },
+        { key: 'fps',        icon: '🎞', label: 'フレームレート', unit: 'fps', good: 58,   bad: 20, higherBetter: true,
+          desc: '1秒間に描画されるフレーム数。<strong>60fps</strong>が理想。低いとスクロールやアニメーションがガクガクする。' },
+        { key: 'lsKB',       icon: '💾', label: 'LS使用量',      unit: 'KB',  good: 100,  bad: 500,
+          desc: 'localStorage の使用量。上限5MB。<strong>200KB以内</strong>推奨。大きいと同期読み書きがUIをブロックする。' },
+        { key: 'idbMs',      icon: '🗄', label: 'IDB応答時間',   unit: 'ms',  good: 20,   bad: 200,
+          desc: 'IndexedDB の読み取り応答時間。<strong>50ms以内</strong>が快適。遅い場合はトランザクション設計を見直す。' },
+      ];
+
+      function _renderMetrics(m) {
+        const grid = document.getElementById('perf-metrics-grid');
+        if (!grid) return;
+        const clamp = v => Math.max(0,Math.min(100,v));
+        grid.innerHTML = _METRIC_DEFS.map(def => {
+          const val = m[def.key];
+          if (val == null) return '';
+          const pct = def.higherBetter
+            ? clamp((val - def.bad) / (def.good - def.bad) * 100)
+            : clamp((def.bad - val) / (def.bad - def.good) * 100);
+          const color = pct >= 70 ? '#4ade80' : pct >= 40 ? '#ffa726' : '#ef5350';
+          const status = pct >= 70 ? '✅' : pct >= 40 ? '⚠️' : '🔴';
+          return `<div style="background:var(--bg-card-solid,#1e293b);border-radius:10px;padding:10px;border:1px solid var(--border-soft);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:10px;color:var(--text-muted);">${def.icon} ${def.label}</span>
+              <span style="font-size:11px;">${status}</span>
+            </div>
+            <div style="font-size:20px;font-weight:800;color:${color};">${val.toLocaleString()}<span style="font-size:11px;font-weight:400;color:var(--text-muted);"> ${def.unit}</span></div>
+            <div style="height:4px;background:#0d1117;border-radius:2px;margin-top:6px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;transition:width 0.6s;"></div>
+            </div>
+            <div style="font-size:9px;color:var(--text-muted);margin-top:5px;line-height:1.5;">${def.desc}</div>
+          </div>`;
+        }).join('') + `
+          <div style="background:var(--bg-card-solid,#1e293b);border-radius:10px;padding:10px;border:1px solid var(--border-soft);">
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">🔄 Service Worker</div>
+            <div style="font-size:18px;font-weight:800;color:${m.swActive?'#4ade80':'#ef5350'};">${m.swActive?'✅ 有効':'❌ 無効'}</div>
+            <div style="font-size:9px;color:var(--text-muted);margin-top:6px;line-height:1.5;">SWが有効だとキャッシュ経由で応答。2回目以降のページロードが<strong>最大70%高速化</strong>される。</div>
+          </div>
+          <div style="background:var(--bg-card-solid,#1e293b);border-radius:10px;padding:10px;border:1px solid var(--border-soft);">
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">🌐 ネットワーク</div>
+            <div style="font-size:18px;font-weight:800;color:${m.online?'#4ade80':'#ffa726'};">${m.online?'✅ オンライン':'⚠️ オフライン'}</div>
+            <div style="font-size:9px;color:var(--text-muted);margin-top:6px;line-height:1.5;">オフライン時はSWキャッシュから応答。API系機能はローカルサーバーが必要。</div>
+          </div>`;
+      }
+
+      /* ─── 改善提案 ───────────────────────────────────── */
+      function _renderSuggestions(m) {
+        const el = document.getElementById('perf-suggestions');
+        if (!el) return;
+        const tips = [];
+
+        if (!m.swActive) tips.push({ sev:'error', icon:'🔄',
+          title: 'Service Worker が無効 — オフラインキャッシュが機能していません',
+          detail: 'SWが動作していないためページ毎回フルロードが発生しています。http://localhost:8899/ または GitHub Pages URL からアクセスしてください。',
+          effect: 'SW有効化で2回目以降のロード最大70%高速化' });
+
+        if (m.pageLoad > 2000) tips.push({ sev:'warn', icon:'📦',
+          title: `ページロード ${m.pageLoad}ms — 目標2秒以内`,
+          detail: 'index.html が大規模のため初回パース・実行時間が長くなっています。タブごとに遅延ロードを実装（コードスプリッティング）することで改善できます。',
+          effect: '遅延ロード実装で初回ロード最大30〜40%短縮' });
+
+        if (m.heapUsedMB > 80) tips.push({ sev:'warn', icon:'🧠',
+          title: `JSヒープ ${m.heapUsedMB}MB — メモリ最適化推奨`,
+          detail: 'イベントリスナー未解除・大きな配列の参照保持・クロージャリークが考えられます。Chrome DevTools の Memory タブでHeap Snapshotを比較し、特定してください。',
+          effect: 'リーク解消でGC停止削減・FPS向上・電池消費改善' });
+
+        if (m.lsKB > 200) tips.push({ sev:'warn', icon:'💾',
+          title: `localStorage ${m.lsKB}KB — IndexedDBへの移行を検討`,
+          detail: `localStorage の同期APIはUIスレッドをブロックします。スナップショット・ログなど大きなデータをIndexedDBに移行すると推定${Math.round(m.lsKB*0.3)}KB削減できます。`,
+          effect: `推定${Math.round(m.lsKB*0.3)}KB削減・LS書き込み最大20%高速化` });
+
+        if (m.fps < 50) tips.push({ sev:'warn', icon:'🎞',
+          title: `フレームレート ${m.fps}fps — UI描画の最適化が必要`,
+          detail: '過多なDOM再描画・重いCSS(filter/blur)・長いJS処理がメインスレッドを占有しています。Chrome DevTools Performance タブでLong Taskを特定してください。',
+          effect: 'レンダリング最適化でUX体感速度が大幅改善' });
+
+        if (m.idbMs > 100) tips.push({ sev:'info', icon:'🗄',
+          title: `IDB応答 ${m.idbMs}ms — 並列化で短縮可能`,
+          detail: '複数のIDB操作を直列ではなく Promise.all で並列実行することで応答時間を短縮できます。また、頻繁にアクセスするデータはメモリキャッシュ（変数）に持つことも有効です。',
+          effect: `並列化実装で最大${Math.round(m.idbMs*0.4)}ms短縮` });
+
+        if (m.ttfb > 200) tips.push({ sev:'info', icon:'⚡',
+          title: `TTFB ${m.ttfb}ms — サーバー応答時間を短縮できます`,
+          detail: 'TTFBが大きい場合、ローカルサーバー(jinjer_server.py)の処理が重い可能性があります。ログ取得・API処理のキャッシュを強化してください。',
+          effect: 'APIキャッシュ強化でAPIレスポンス最大50%短縮' });
+
+        if (tips.length === 0) tips.push({ sev:'ok', icon:'🏆',
+          title: '現在の問題は検出されませんでした',
+          detail: 'システムは良好な状態です。定期的に計測することで性能劣化を早期発見できます。次のステップとしてAIベンチマークを実行して各モデルの速度を比較してみてください。',
+          effect: '' });
+
+        const colors = { error:'#ef5350', warn:'#ffa726', info:'#60a5fa', ok:'#4ade80' };
+        el.innerHTML = tips.map(t => `
+          <div style="border-left:3px solid ${colors[t.sev]};padding:8px 12px;margin-bottom:8px;background:rgba(255,255,255,0.02);border-radius:0 8px 8px 0;">
+            <div style="font-weight:600;margin-bottom:4px;font-size:13px;">${t.icon} ${t.title}</div>
+            <div style="color:var(--text-muted);line-height:1.7;font-size:11px;">${t.detail}</div>
+            ${t.effect ? `<div style="color:${colors[t.sev]};font-size:11px;margin-top:5px;font-weight:700;">📊 期待効果: ${t.effect}</div>` : ''}
+          </div>`).join('');
+      }
+
+      /* ─── 計測履歴 ───────────────────────────────────── */
+      function _saveHistory(result) {
+        let h = [];
+        try { h = JSON.parse(localStorage.getItem(_PERF_HISTORY_KEY) || '[]'); } catch(_) {}
+        h.unshift(result);
+        if (h.length > 30) h = h.slice(0, 30);
+        localStorage.setItem(_PERF_HISTORY_KEY, JSON.stringify(h));
+        return h;
+      }
+
+      function _renderHistory(history) {
+        const el = document.getElementById('perf-history-list');
+        if (!el) return;
+        if (!history.length) {
+          el.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:14px;font-size:12px;">「計測する」ボタンを押すと履歴が記録されます</div>';
+          return;
+        }
+        el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+          <thead><tr style="color:var(--text-muted);border-bottom:1px solid var(--border-soft);">
+            <th style="text-align:left;padding:4px;">日時</th>
+            <th style="text-align:center;padding:4px;">スコア</th>
+            <th style="text-align:center;padding:4px;">変化</th>
+            <th style="text-align:right;padding:4px;">ロード</th>
+            <th style="text-align:right;padding:4px;">ヒープ</th>
+            <th style="text-align:right;padding:4px;">FPS</th>
+          </tr></thead>
+          <tbody>${history.map((h,i) => {
+            const prev = history[i+1];
+            const diff = prev != null ? h.score - prev.score : null;
+            const diffStr = diff == null ? '<span style="color:var(--text-muted)">初回</span>'
+              : diff > 0  ? `<span style="color:#4ade80">▲+${diff}</span>`
+              : diff < 0  ? `<span style="color:#ef5350">▼${diff}</span>`
+              : `<span style="color:var(--text-muted)">±0</span>`;
+            const { color } = _scoreInfo(h.score);
+            const dt = new Date(h.ts).toLocaleString('ja-JP',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+            return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+              <td style="padding:4px;color:var(--text-muted);">${dt}</td>
+              <td style="text-align:center;font-weight:800;color:${color};">${h.score}</td>
+              <td style="text-align:center;">${diffStr}</td>
+              <td style="text-align:right;color:var(--text-muted);">${h.metrics?.pageLoad??'--'}ms</td>
+              <td style="text-align:right;color:var(--text-muted);">${h.metrics?.heapUsedMB??'--'}MB</td>
+              <td style="text-align:right;color:var(--text-muted);">${h.metrics?.fps??'--'}</td>
+            </tr>`;
+          }).join('')}</tbody></table>`;
+      }
+
+      /* ─── AI ベンチマーク ────────────────────────────── */
+      async function _runAiBench() {
+        const el = document.getElementById('perf-ai-bench-result');
+        if (!el) return;
+        el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">APIキーを確認中...</div>';
+        let sens = null;
+        try { sens = await loadSensitiveData(); } catch(_) {}
+        const models = [
+          { name:'Claude (Haiku)',  key: sens?.aiKeyClaude,  fn: _bClaude },
+          { name:'GPT-4o mini',    key: sens?.aiKeyOpenAI,  fn: _bOpenAI },
+          { name:'Gemini Flash',   key: sens?.aiKeyGemini,  fn: _bGemini },
+        ].filter(m => m.key);
+        if (!models.length) {
+          el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">⚠️ AIタブでAPIキーを設定してから実行してください。設定済みのモデルのみ計測されます。</div>';
+          return;
+        }
+        const PROMPT = 'ベンチマーク: 「パフォーマンス」を英語で一言だけ答えてください。';
+        el.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:8px;">⏱ 計測中 (${models.length}モデル)... ${PROMPT}</div>`;
+        const results = [];
+        for (const m of models) {
+          const t0 = performance.now();
+          try {
+            const { text } = await m.fn(m.key, PROMPT);
+            const ms = Math.round(performance.now() - t0);
+            results.push({ name:m.name, ms, chars:text.length, cps:Math.round(text.length/ms*1000), ok:true, text });
+          } catch(e) {
+            results.push({ name:m.name, ms:Math.round(performance.now()-t0), ok:false, err:e.message });
+          }
+        }
+        const best = results.filter(r=>r.ok).sort((a,b)=>a.ms-b.ms)[0];
+        el.innerHTML = `
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+            プロンプト: <em>「${PROMPT}」</em><br>
+            ${best ? `🏆 最速: <strong style="color:#a3e635">${best.name}</strong> — ${best.ms}ms` : ''}
+          </div>
+          <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:320px;">
+            <thead><tr style="color:var(--text-muted);border-bottom:1px solid var(--border-soft);">
+              <th style="text-align:left;padding:5px;">モデル</th>
+              <th style="text-align:right;padding:5px;">応答時間</th>
+              <th style="text-align:right;padding:5px;">文字/秒</th>
+              <th style="text-align:right;padding:5px;">文字数</th>
+              <th style="text-align:left;padding:5px;">応答内容</th>
+            </tr></thead>
+            <tbody>${results.map(r => {
+              const isBest = best && r.name===best.name;
+              const c = isBest?'#a3e635':'var(--text-primary)';
+              return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);${isBest?'background:rgba(163,230,53,0.05);':''}">
+                <td style="padding:5px;font-weight:${isBest?'700':'400'};color:${c};">${isBest?'🏆 ':''}${r.name}</td>
+                <td style="text-align:right;padding:5px;font-family:monospace;">${r.ok?r.ms+'ms':'ERR'}</td>
+                <td style="text-align:right;padding:5px;font-family:monospace;">${r.ok?r.cps+'字/秒':'--'}</td>
+                <td style="text-align:right;padding:5px;color:var(--text-muted);">${r.ok?r.chars+'字':'--'}</td>
+                <td style="padding:5px;color:var(--text-muted);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.ok?(r.text||''):(r.err||'')}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table></div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:8px;line-height:1.6;">
+            ※ 応答時間 = ブラウザ〜APIサーバー往復時間（ネットワーク遅延込み）。文字/秒 = 応答文字数÷応答時間×1000。<br>
+            ※ AIエージェント設計では「最速モデルをルーティング」することでシステム全体のスループットを最大化できます。
+          </div>`;
+      }
+
+      async function _bClaude(key, p) {
+        const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+          headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-allow-browser':'true'},
+          body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:30,messages:[{role:'user',content:p}]}),
+          signal:AbortSignal.timeout(30000)});
+        const d = await r.json(); return {text:d.content?.[0]?.text||''};
+      }
+      async function _bOpenAI(key, p) {
+        const r = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
+          headers:{'Authorization':`Bearer ${key}`,'Content-Type':'application/json'},
+          body:JSON.stringify({model:'gpt-4o-mini',max_tokens:30,messages:[{role:'user',content:p}]}),
+          signal:AbortSignal.timeout(30000)});
+        const d = await r.json(); return {text:d.choices?.[0]?.message?.content||''};
+      }
+      async function _bGemini(key, p) {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({contents:[{parts:[{text:p}]}],generationConfig:{maxOutputTokens:30}}),
+          signal:AbortSignal.timeout(30000)});
+        const d = await r.json(); return {text:d.candidates?.[0]?.content?.parts?.[0]?.text||''};
+      }
+
+      /* ─── 学習ロードマップ ───────────────────────────── */
+      function _renderLearningMap() {
+        const el = document.getElementById('perf-learning-map');
+        if (!el) return;
+        const items = [
+          { phase:'Phase 1', icon:'📐', label:'Web Vitals 習得',
+            desc:'LCP・FID・CLS・TTFBをGoogleの標準指標として理解し、自分で計測できるようにする。銀行系システムのSLA設計にも直結する基礎スキル。',
+            tools:'Lighthouse, Chrome DevTools, PageSpeed Insights', color:'#4ade80' },
+          { phase:'Phase 2', icon:'🔍', label:'プロファイリング技術',
+            desc:'CPU・メモリ・ネットワーク・レンダリングのボトルネックを特定できるようになる。Long Taskの検出・Heap Snapshotの読み方を習得。',
+            tools:'Chrome DevTools Performance/Memory タブ, React Profiler', color:'#a3e635' },
+          { phase:'Phase 3', icon:'⚡', label:'AI推論高速化 (重要)',
+            desc:'モデル量子化・バッチ処理・KVキャッシュ・ストリーミング応答を使いAI APIのコストと遅延を最小化する。複数モデルの並列実行とルーティング設計。',
+            tools:'Anthropic/OpenAI API, vLLM, ONNX Runtime, TensorRT', color:'#fbbf24' },
+          { phase:'Phase 4', icon:'🏗', label:'フロントエンド最適化設計',
+            desc:'コードスプリッティング・遅延ロード・Service Worker・CDNエッジキャッシュを組み合わせたパフォーマンスアーキテクチャを設計できる。',
+            tools:'Webpack/Vite, Workbox, Cloudflare Workers', color:'#fb923c' },
+          { phase:'Phase 5', icon:'🏦', label:'金融系パフォーマンス要件',
+            desc:'リスク計算エンジンの応答時間SLA・大量バッチ処理の並列化・リアルタイム監視ダッシュボード設計。現業の銀行システム知識が武器になる。',
+            tools:'JMeter, Gatling, Prometheus, Grafana', color:'#f87171' },
+          { phase:'Phase 6', icon:'🤖', label:'AIエージェント × パフォーマンス',
+            desc:'複数AIエージェントの並列実行・推論パイプラインの設計・コスト対効果の最適化・人間の介入を最小化する自律システムの性能チューニング。これが次世代の差別化スキル。',
+            tools:'Claude API, LangGraph, CrewAI, Temporal, Ray', color:'#e879f9' },
+        ];
+        el.innerHTML = items.map(item => `
+          <div style="display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;">
+            <div style="width:36px;height:36px;border-radius:50%;background:${item.color};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${item.icon}</div>
+            <div style="flex:1;border-left:2px solid var(--border-soft);padding-left:12px;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                <span style="font-size:9px;background:${item.color};color:#000;padding:1px 7px;border-radius:10px;font-weight:700;">${item.phase}</span>
+                <span style="font-size:13px;font-weight:700;">${item.label}</span>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);line-height:1.6;margin-bottom:3px;">${item.desc}</div>
+              <div style="font-size:10px;color:#60a5fa;">🔧 推奨ツール: ${item.tools}</div>
+            </div>
+          </div>`).join('');
+      }
+
+      /* ─── タブ初期化 ──────────────────────────────────── */
+      window._initPerfTab = async function() {
+        // 学習マップは常に表示
+        _renderLearningMap();
+
+        // 既存履歴を表示
+        let history = [];
+        try { history = JSON.parse(localStorage.getItem(_PERF_HISTORY_KEY) || '[]'); } catch(_) {}
+        _renderHistory(history);
+        if (history[0]) {
+          _renderScore(history[0].score, history[1]?.score);
+          _renderMetrics(history[0].metrics);
+          _renderSuggestions(history[0].metrics);
+        }
+
+        // 計測ボタン（2重バインド防止）
+        const btn = document.getElementById('perf-measure-btn');
+        if (btn && !btn._perfBound) {
+          btn._perfBound = true;
+          btn.addEventListener('click', async () => {
+            btn.disabled = true; btn.textContent = '計測中...';
+            try {
+              const result = await _measureAll();
+              const hist   = _saveHistory(result);
+              _renderScore(result.score, hist[1]?.score);
+              _renderMetrics(result.metrics);
+              _renderSuggestions(result.metrics);
+              _renderHistory(hist);
+              toast(`⚡ 計測完了: ${result.score}点`);
+            } finally {
+              btn.disabled = false; btn.textContent = '📊 計測する';
+            }
+          });
+        }
+
+        // AI ベンチマークボタン
+        const aiBtn = document.getElementById('perf-ai-bench-btn');
+        if (aiBtn && !aiBtn._perfBound) {
+          aiBtn._perfBound = true;
+          aiBtn.addEventListener('click', async () => {
+            aiBtn.disabled = true; aiBtn.textContent = '計測中...';
+            await _runAiBench();
+            aiBtn.disabled = false; aiBtn.textContent = '▶ 実行';
+          });
+        }
+
+        // 履歴クリア
+        const clrBtn = document.getElementById('perf-history-clear');
+        if (clrBtn && !clrBtn._perfBound) {
+          clrBtn._perfBound = true;
+          clrBtn.addEventListener('click', () => {
+            if (!confirm('計測履歴をすべて削除しますか？')) return;
+            localStorage.removeItem(_PERF_HISTORY_KEY);
+            _renderHistory([]);
+            toast('🗑 計測履歴を削除しました');
+          });
+        }
+      };
     })();
 
     /* =====================================================
@@ -6436,7 +7030,7 @@
         { re: /disk.*full|No space left/i,          fix: '▶ ディスクがいっぱいです。不要なファイルを削除してください (df -h で確認)' },
       ];
 
-      let _logsCurrentSrc   = 'server';
+      let _logsCurrentSrc   = 'app';   // アプリログはサーバー不要で常時表示
       let _logsCurrentLevel = 'all';
       let _rawLines         = [];
 
@@ -9961,6 +10555,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         { id: 'db',        icon: '🗄', label: 'DB管理',  defaultVisible: true  },
         { id: 'spec',      icon: '📁', label: '仕様',    defaultVisible: false },
         { id: 'logs',      icon: '📋', label: 'ログ',    defaultVisible: false },
+        { id: 'perf',      icon: '⚡', label: 'パフォーマンス', defaultVisible: false },
       ];
 
       // ── カスタムタブ CRUD ──────────────────────────────────────────────────
@@ -10042,6 +10637,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         if (tabName === 'db')       { if (window._initDbTab) window._initDbTab(); }
         if (tabName === 'spec')     { if (window._initSpecTab) window._initSpecTab(); }
         if (tabName === 'logs')     { if (window._initLogsTab) window._initLogsTab(); }
+        if (tabName === 'perf')     { if (window._initPerfTab) window._initPerfTab(); }
       }
       window._switchTab = switchTab;
 
