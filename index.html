@@ -710,7 +710,16 @@
       transition: max-height 0.32s cubic-bezier(0.4,0,0.2,1), opacity 0.2s;
       pointer-events: none;
     }
-    .fab-group.open .fab-group-menu { max-height: 280px; opacity: 1; pointer-events: auto; }
+    .fab-group.open .fab-group-menu { max-height: 380px; opacity: 1; pointer-events: auto; }
+    .fab-custom {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--bg-card-solid, #fff); border: 1.5px solid var(--border-soft, #ddd);
+      font-size: 20px; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit; flex-shrink: 0;
+    }
+    .fab-custom:active { transform: scale(0.93); }
     /* AI ページを active 時に flex レイアウトにする */
     #page-ai.active { display: flex !important; }
 
@@ -1962,6 +1971,9 @@
 
   <!-- ===== TAB: ハブ / クイックランチャー ===== -->
   <div id="page-hub" class="tab-page">
+    <div style="text-align:right;margin-bottom:4px;">
+      <button id="hub-sort-btn" class="btn-secondary" style="font-size:12px;padding:4px 10px;">🔀 カード並び替え</button>
+    </div>
 
     <!-- 天気予報カード -->
     <div class="card weather-card-wrap" id="weather-card-wrap">
@@ -1986,7 +1998,7 @@
       <button class="weather-refresh-btn" id="weather-refresh-btn">🔄 更新</button>
     </div>
 
-    <div class="card">
+    <div class="card" id="hub-launcher-card">
       <div class="card-title">🚀 クイックランチャー</div>
       <!-- jinjer 打刻ボタン（大） -->
       <a href="https://kintai.jinjer.biz/staffs/top" target="_blank" rel="noopener" class="jinjer-card" id="jinjer-link">
@@ -2098,6 +2110,20 @@
       <div class="card-title">🚀 システム改善ロードマップ</div>
       <div id="improvement-list" style="font-size:12px;line-height:2;"></div>
     </div>
+
+    <!-- 株価画像分析カード -->
+    <div class="card" id="stock-analysis-card">
+      <div class="card-title">📈 株価画像分析 (AI)</div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">HEIC / JPG / PNG のチャート画像を選択して Claude AI にテクニカル分析させます</p>
+      <input type="file" id="stock-img-input" accept="image/*,.heic" multiple style="display:none;">
+      <button class="btn-secondary" style="width:100%;margin-bottom:8px;"
+        onclick="document.getElementById('stock-img-input').click()">
+        📂 株価画像を選択（HEIC/JPG/PNG）
+      </button>
+      <div id="stock-analysis-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;min-height:0;"></div>
+      <button id="stock-analyze-btn" class="btn-primary" style="width:100%;display:none;">🤖 AI分析を実行</button>
+      <div id="stock-analysis-result" style="margin-top:10px;font-size:13px;line-height:1.8;white-space:pre-wrap;"></div>
+    </div>
   </div>
 
   <!-- ===== TAB: 資格・学習進捗 ===== -->
@@ -2133,6 +2159,14 @@
     <div class="report-server-banner" id="report-server-banner" style="display:none;">
       ⚠️ <strong>ローカルサーバー未接続</strong>
       <span id="report-srv-reconnecting" style="margin-left:8px;font-size:12px;opacity:0.85;">🔄 自動再接続中…</span>
+      <div style="margin-top:8px;">
+        <input type="file" id="report-local-file" accept=".xlsx,.xls" style="display:none;">
+        <button class="btn-secondary" style="font-size:12px;padding:4px 12px;"
+          onclick="document.getElementById('report-local-file').click()">
+          📂 Excelを直接開く
+        </button>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">（Work_ReportフォルダからXLSXを選択）</span>
+      </div>
     </div>
 
     <!-- 月選択ナビ -->
@@ -3011,6 +3045,12 @@
           ☰ をドラッグして並び替え。右のトグルで表示/非表示。カスタムタブは 🗑 で削除。
         </p>
         <div id="tab-mgr-list"></div>
+        <!-- FABショートカット設定 -->
+        <div id="fab-mgr-section" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-soft);">
+          <p style="font-size:12px;font-weight:700;margin-bottom:4px;">⚡ FABショートカット（最大3つ）</p>
+          <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">右下＋ボタンに追加するタブを選択できます</p>
+          <div id="fab-mgr-list"></div>
+        </div>
       </div>
       <!-- タブ追加フォーム -->
       <div id="tab-add-form" style="display:none;padding:10px 14px;border-top:1px solid var(--border-soft);">
@@ -3035,6 +3075,24 @@
       <div style="padding:0 14px 14px;display:flex;gap:8px;">
         <button id="tab-add-btn" class="btn-secondary" style="flex:1;margin-top:10px;font-size:13px;">＋ タブを追加</button>
         <button id="tab-mgr-save" class="btn-primary" style="flex:2;margin-top:10px;">✓ 保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ハブカード並び替えモーダル -->
+  <div class="modal-backdrop" id="hub-sort-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title">🔀 ハブカード並び替え</div>
+        <button class="modal-close" id="hub-sort-close">✕</button>
+      </div>
+      <div style="padding:0 14px;overflow-y:auto;max-height:52vh;">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">☰ をドラッグして並び替えてください</p>
+        <div id="hub-sort-list"></div>
+      </div>
+      <div style="padding:0 14px 14px;">
+        <button id="hub-sort-save" class="btn-primary" style="width:100%;margin-top:10px;">✓ 保存</button>
       </div>
     </div>
   </div>
@@ -5966,6 +6024,17 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v30', date: '2026-03-01',
+          title: '🛠 ログモーダル修正 + FABカスタム + ハブ並び替え + 報告書オフライン + 株価分析',
+          items: [
+            { tag: 'fix',  text: 'ログモーダルバグ修正: _LOG_ARCHIVE_PFX 未定義 ReferenceError によりモーダルが開かなかった問題を解消。_populateLogDateSel / _renderLogList を IDB 対応 async 関数に全面書き換え' },
+            { tag: 'feat', text: 'FABカスタマイズ: タブ管理（⚙管理）から右下＋ボタンに最大3つのタブをショートカットとして追加可能に。設定は _kintai_fab_config_v1 に保存' },
+            { tag: 'feat', text: 'ハブカード並び替え: 🔀ボタンからDnDモーダルで天気/ランチャー/DB等のカード順を自由に変更可能に。_kintai_hub_card_order_v1 に保存' },
+            { tag: 'feat', text: '報告書オフライン対応: サーバー未接続時に「Excelを直接開く」ボタンでローカルXLSXを SheetJS でブラウザ内パースして閲覧可能に（サーバー不要）' },
+            { tag: 'feat', text: '株価画像分析: ハブタブに「📈 株価画像分析」カード追加。HEIC/JPG/PNG を複数選択して Claude Vision API でテクニカル分析・売買シグナルを日本語で表示' },
+          ],
+        },
+        {
           version: 'v29', date: '2026-03-01',
           title: '📋 SysLog HA 対応 + ログタブ全面刷新 + 改善提案修正',
           items: [
@@ -6199,7 +6268,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v29';
+        const swVer = 'kintai-v30';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -7893,6 +7962,239 @@
     })();
 
     /* =====================================================
+       HUB CARD SORT
+       ===================================================== */
+    (function initHubCardSort() {
+      const HUB_CARD_ORDER_KEY = '_kintai_hub_card_order_v1';
+      const HUB_CARD_DEFS = [
+        { id: 'weather-card-wrap',  label: '🌤 天気予報' },
+        { id: 'hub-launcher-card',  label: '🚀 クイックランチャー' },
+        { id: 'sysinfo-card',       label: '📁 システム情報' },
+        { id: 'db-status-card',     label: '🗄 データストア状態' },
+        { id: 'ts-card-wrap',       label: '🔒 Tailscale VPN' },
+        { id: 'iphone-guide-card',  label: '📱 iPhone接続ガイド' },
+        { id: 'improvement-card',   label: '🚀 システム改善ロードマップ' },
+        { id: 'stock-analysis-card',label: '📈 株価画像分析' },
+      ];
+
+      function loadHubOrder() {
+        try { return JSON.parse(localStorage.getItem(HUB_CARD_ORDER_KEY) || 'null'); } catch(_) { return null; }
+      }
+      function saveHubOrder(order) { localStorage.setItem(HUB_CARD_ORDER_KEY, JSON.stringify(order)); }
+
+      function applyHubCardOrder() {
+        const hub = document.getElementById('page-hub');
+        if (!hub) return;
+        hub.style.display = 'flex';
+        hub.style.flexDirection = 'column';
+        const order = loadHubOrder() || HUB_CARD_DEFS.map(d => d.id);
+        order.forEach((id, i) => {
+          const el = document.getElementById(id);
+          if (el) el.style.order = i;
+        });
+        // 定義にないカードは末尾
+        HUB_CARD_DEFS.forEach((d, i) => {
+          if (!order.includes(d.id)) {
+            const el = document.getElementById(d.id);
+            if (el) el.style.order = order.length + i;
+          }
+        });
+      }
+      applyHubCardOrder();
+
+      // 並び替えモーダル
+      const modal = document.getElementById('hub-sort-modal');
+      const listEl = document.getElementById('hub-sort-list');
+      let _sortOrder = [];
+      let _dragSrcIdx = null;
+
+      function renderHubSortList() {
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        _sortOrder.forEach((id, idx) => {
+          const def = HUB_CARD_DEFS.find(d => d.id === id);
+          if (!def) return;
+          const row = document.createElement('div');
+          row.className = 'tab-mgr-item';
+          row.dataset.idx = idx;
+          row.setAttribute('draggable', 'true');
+          row.innerHTML = `<span class="tab-mgr-handle" title="ドラッグで並び替え">☰</span><span class="tab-mgr-label">${def.label}</span>`;
+          listEl.appendChild(row);
+        });
+        listEl.querySelectorAll('.tab-mgr-item').forEach(row => {
+          row.addEventListener('dragstart', e => {
+            _dragSrcIdx = parseInt(row.dataset.idx);
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          row.addEventListener('dragend', () => {
+            listEl.querySelectorAll('.tab-mgr-item').forEach(r => r.classList.remove('dragging','drag-over'));
+          });
+          row.addEventListener('dragover', e => {
+            e.preventDefault();
+            const over = parseInt(row.dataset.idx);
+            if (over !== _dragSrcIdx) {
+              listEl.querySelectorAll('.tab-mgr-item').forEach(r => r.classList.remove('drag-over'));
+              row.classList.add('drag-over');
+            }
+          });
+          row.addEventListener('drop', e => {
+            e.preventDefault();
+            const dest = parseInt(row.dataset.idx);
+            if (_dragSrcIdx !== null && _dragSrcIdx !== dest) {
+              const moved = _sortOrder.splice(_dragSrcIdx, 1)[0];
+              _sortOrder.splice(dest, 0, moved);
+              renderHubSortList();
+            }
+          });
+        });
+        // タッチ対応（tab-mgrと同パターン）
+        let _touchSrc = null, _touchClone = null, _touchStartY = 0;
+        listEl.querySelectorAll('.tab-mgr-handle').forEach(handle => {
+          handle.addEventListener('touchstart', e => {
+            const row = handle.closest('.tab-mgr-item');
+            _touchSrc = parseInt(row.dataset.idx);
+            _touchStartY = e.touches[0].clientY;
+            row.classList.add('dragging');
+            _touchClone = row.cloneNode(true);
+            _touchClone.style.cssText = `position:fixed;left:14px;right:14px;z-index:9999;opacity:0.85;pointer-events:none;background:var(--bg-card-solid);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,0.2);padding:0 10px;`;
+            _touchClone.style.top = row.getBoundingClientRect().top + 'px';
+            document.body.appendChild(_touchClone);
+            e.preventDefault();
+          }, { passive: false });
+          handle.addEventListener('touchmove', e => {
+            if (!_touchClone) return;
+            const dy = e.touches[0].clientY - _touchStartY;
+            const srcRow = listEl.children[_touchSrc];
+            _touchClone.style.top = (srcRow?.getBoundingClientRect().top + dy) + 'px';
+            const touchY = e.touches[0].clientY;
+            listEl.querySelectorAll('.tab-mgr-item').forEach(r => r.classList.remove('drag-over'));
+            let hovered = null;
+            listEl.querySelectorAll('.tab-mgr-item').forEach(r => {
+              const rect = r.getBoundingClientRect();
+              if (touchY >= rect.top && touchY <= rect.bottom) hovered = r;
+            });
+            if (hovered) hovered.classList.add('drag-over');
+            e.preventDefault();
+          }, { passive: false });
+          handle.addEventListener('touchend', () => {
+            if (_touchClone) { _touchClone.remove(); _touchClone = null; }
+            const destRow = listEl.querySelector('.tab-mgr-item.drag-over');
+            const dest = destRow ? parseInt(destRow.dataset.idx) : null;
+            listEl.querySelectorAll('.tab-mgr-item').forEach(r => r.classList.remove('dragging','drag-over'));
+            if (_touchSrc !== null && dest !== null && _touchSrc !== dest) {
+              const moved = _sortOrder.splice(_touchSrc, 1)[0];
+              _sortOrder.splice(dest, 0, moved);
+              renderHubSortList();
+            }
+            _touchSrc = null;
+          });
+        });
+      }
+
+      document.getElementById('hub-sort-btn')?.addEventListener('click', () => {
+        const saved = loadHubOrder() || HUB_CARD_DEFS.map(d => d.id);
+        // 存在するカードのみ
+        _sortOrder = saved.filter(id => HUB_CARD_DEFS.some(d => d.id === id));
+        HUB_CARD_DEFS.forEach(d => { if (!_sortOrder.includes(d.id)) _sortOrder.push(d.id); });
+        renderHubSortList();
+        modal?.classList.add('show');
+      });
+      document.getElementById('hub-sort-close')?.addEventListener('click', () => modal?.classList.remove('show'));
+      modal?.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+      document.getElementById('hub-sort-save')?.addEventListener('click', () => {
+        saveHubOrder(_sortOrder);
+        applyHubCardOrder();
+        modal?.classList.remove('show');
+        toast('✓ カード順を保存しました');
+      });
+    })();
+
+    /* =====================================================
+       STOCK IMAGE ANALYSIS
+       ===================================================== */
+    (function initStockAnalysis() {
+      const input   = document.getElementById('stock-img-input');
+      const preview = document.getElementById('stock-analysis-preview');
+      const btn     = document.getElementById('stock-analyze-btn');
+      const result  = document.getElementById('stock-analysis-result');
+      if (!input || !btn || !result) return;
+
+      let _stockImages = []; // { name, base64, mime }
+
+      input.addEventListener('change', async e => {
+        _stockImages = [];
+        preview.innerHTML = '';
+        for (const file of (e.target.files || [])) {
+          const b64 = await new Promise(res => {
+            const r = new FileReader();
+            r.onload = ev => res(ev.target.result.split(',')[1]);
+            r.readAsDataURL(file);
+          });
+          const mime = file.type || 'image/jpeg';
+          _stockImages.push({ name: file.name, base64: b64, mime });
+          const img = document.createElement('img');
+          img.src = `data:${mime};base64,${b64}`;
+          img.style.cssText = 'width:80px;height:60px;object-fit:cover;border-radius:8px;border:1px solid var(--border-soft);';
+          img.title = file.name;
+          preview.appendChild(img);
+        }
+        btn.style.display = _stockImages.length ? 'block' : 'none';
+        result.textContent = '';
+        e.target.value = ''; // 再選択できるようにリセット
+      });
+
+      btn.addEventListener('click', async () => {
+        if (_stockImages.length === 0) { toast('⚠️ 画像を選択してください'); return; }
+        const sens = await loadSensitiveData().catch(() => null);
+        const apiKey = sens?.aiKeyClaude;
+        if (!apiKey) { toast('⚠️ AI タブで Claude APIキーを設定してください'); return; }
+
+        btn.disabled = true;
+        result.textContent = '分析中...';
+        try {
+          const content = [
+            {
+              type: 'text',
+              text: '以下の株価チャート画像を分析してください。\n' +
+                'テクニカル分析（移動平均・RSI・MACD・出来高等）、現在のトレンド方向（上昇・下降・横ばい）、' +
+                'サポートライン・レジスタンスライン、総合的な売買シグナル（買い・売り・中立）を日本語で解説してください。\n' +
+                '複数枚ある場合は各チャートを個別に分析し、最後に総評をまとめてください。'
+            },
+            ..._stockImages.map(img => ({
+              type: 'image',
+              source: { type: 'base64', media_type: img.mime, data: img.base64 }
+            }))
+          ];
+          const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-allow-browser': 'true',
+              'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-6',
+              max_tokens: 2000,
+              messages: [{ role: 'user', content }]
+            })
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err?.error?.message || `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          result.textContent = data.content?.[0]?.text || '（応答なし）';
+        } catch(e) {
+          result.textContent = `分析失敗: ${e.message}`;
+          _appLog('error', 'stock-analysis', e.message);
+        }
+        btn.disabled = false;
+      });
+    })();
+
+    /* =====================================================
        LAUNCHER / QUICK LINKS
        ===================================================== */
     const LAUNCHER_KEY = 'kintai_launcher_v1';
@@ -8270,6 +8572,27 @@
         await generateNextMonthReport(_reportMonth);
       });
 
+      // Excelを直接開く（サーバー不要 — SheetJS でクライアント側パース）
+      document.getElementById('report-local-file')?.addEventListener('change', async e => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          await loadXlsxLib();
+          const ab = await file.arrayBuffer();
+          const wb = XLSX.read(ab, { type: 'array', cellDates: true });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          _reportData = _parseXlsxSheet(ws, file.name);
+          renderReportStatusCard(_reportData);
+          renderReportMeta(_reportData.meta);
+          renderReportSummary(_reportData.days);
+          renderReportTable(_reportData.days);
+          toast('📊 Excel を読み込みました');
+        } catch(err) {
+          toast(`⚠️ Excel読み込み失敗: ${err.message}`);
+        }
+        e.target.value = ''; // 再選択できるようにリセット
+      });
+
       await checkReportServer();
       const banner = document.getElementById('report-server-banner');
       if (banner) banner.style.display = _reportServerOk ? 'none' : 'block';
@@ -8279,6 +8602,46 @@
       } else {
         renderReportMonthNav();
       }
+    }
+
+    function _parseXlsxSheet(ws, filename) {
+      const g = (c) => ws[c]?.v ?? '';
+      // メタ情報（Excel構造: META_START=(4,10)=K5, META_END=(5,10)=K6 → 取引先等は K/L 列）
+      const meta = {
+        client:  String(g('K5') || g('K6') || ''),
+        project: String(g('B4') || g('B5') || ''),
+        dept:    String(g('L5') || ''),
+        tech:    String(g('L4') || ''),
+      };
+      const days = [];
+      // 行12以降: A=日付, C=開始, D=終了, E=休憩, F=合計, G=作業内容, L=備考
+      for (let r = 12; r <= 43; r++) {
+        const dateVal = ws[`A${r}`]?.v;
+        if (!dateVal) continue;
+        let dateStr;
+        if (dateVal instanceof Date) {
+          dateStr = dateVal.toISOString().slice(0, 10);
+        } else if (typeof dateVal === 'number') {
+          // Excel シリアル日付
+          const d = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
+          dateStr = d.toISOString().slice(0, 10);
+        } else {
+          dateStr = String(dateVal).slice(0, 10);
+        }
+        const start   = String(g(`C${r}`) || '');
+        const end     = String(g(`D${r}`) || '');
+        if (!start && !end) continue; // 空行スキップ
+        days.push({
+          date:    dateStr,
+          start,
+          end,
+          break:   String(g(`E${r}`) || ''),
+          total:   String(g(`F${r}`) || ''),
+          content: String(g(`G${r}`) || ''),
+          note:    String(g(`L${r}`) || ''),
+        });
+      }
+      return { status: 'draft', filename, meta, days };
     }
 
     async function loadReportList() {
@@ -9567,34 +9930,30 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
     function openLogModal(filterLevel) {
       const fl = filterLevel || 'all';
       document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === fl));
-      _populateLogDateSel();
-      _renderLogList(fl);
-      document.getElementById('log-modal').classList.add('show');
+      document.getElementById('log-modal').classList.add('show'); // 先にモーダルを開く
+      _populateLogDateSel().then(() => _renderLogList(fl));       // IDB から非同期で populate
     }
-    function _populateLogDateSel() {
+    async function _populateLogDateSel() {
       const sel = document.getElementById('log-date-sel');
       if (!sel) return;
-      const days = [{ value: '', label: '今日（直近80件）' }];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith(_LOG_ARCHIVE_PFX)) {
-          const d = k.slice(_LOG_ARCHIVE_PFX.length);
-          let cnt = 0;
-          try { cnt = JSON.parse(localStorage.getItem(k) || '[]').length; } catch(_) {}
-          days.push({ value: k, label: `${d}（${cnt}件）` });
-        }
+      const dates = await idbListLogDates(); // IDB から日付一覧（降順）
+      const days = [{ value: '', label: '今日（直近200件）' }];
+      for (const d of dates) {
+        const rec = await idbLoadLogsDaily(d);
+        const cnt = rec?.entries?.length || 0;
+        days.push({ value: d, label: `${d}（${cnt}件）` });
       }
-      days.sort((a, b) => b.value.localeCompare(a.value));
       sel.innerHTML = days.map(d => `<option value="${_esc(d.value)}">${_esc(d.label)}</option>`).join('');
     }
 
-    function _renderLogList(filter, dateKey) {
+    async function _renderLogList(filter, dateKey) {
       const listEl = document.getElementById('log-list');
       if (!listEl) return;
       let appLogs = [], errLogs = [];
       if (dateKey) {
-        // 日次アーカイブを表示
-        try { appLogs = JSON.parse(localStorage.getItem(dateKey) || '[]'); } catch(_) {}
+        // IDB 日次アーカイブを表示（dateKey = 'YYYY-MM-DD'）
+        const rec = await idbLoadLogsDaily(dateKey);
+        appLogs = rec?.entries || [];
       } else {
         // 今日: リングバッファ + グローバルエラー
         try { appLogs = JSON.parse(localStorage.getItem(_LOG_KEY) || '[]'); } catch(_) {}
@@ -9638,19 +9997,22 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       document.getElementById('log-modal').classList.remove('show'));
     document.getElementById('log-close2').addEventListener('click', () =>
       document.getElementById('log-modal').classList.remove('show'));
-    document.getElementById('log-clear').addEventListener('click', () => {
+    document.getElementById('log-clear').addEventListener('click', async () => {
       const dk = document.getElementById('log-date-sel')?.value || '';
       if (dk) {
-        // アーカイブ日のみ消去
-        if (!confirm(`${dk.slice(_LOG_ARCHIVE_PFX.length)} のログを消去しますか？`)) return;
-        try { localStorage.removeItem(dk); } catch(_) {}
-        _populateLogDateSel();
+        // IDB 日次アーカイブ（dateKey = 'YYYY-MM-DD'）を消去
+        if (!confirm(`${dk} のログを消去しますか？`)) return;
+        try {
+          const db = await _openIDB();
+          if (db) db.transaction('logs_archive', 'readwrite').objectStore('logs_archive').delete(dk);
+        } catch(_) {}
+        await _populateLogDateSel();
         document.getElementById('log-date-sel').value = '';
-        _renderLogList('all');
+        await _renderLogList('all');
       } else {
         if (!confirm('今日のログをすべて消去しますか？')) return;
         try { localStorage.removeItem(_LOG_KEY); localStorage.removeItem(_ERR_KEY); } catch(_) {}
-        _renderLogList('all');
+        await _renderLogList('all');
       }
       document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
     });
@@ -9659,12 +10021,12 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const dk = document.getElementById('log-date-sel')?.value || '';
-        _renderLogList(btn.dataset.filter, dk);
+        _renderLogList(btn.dataset.filter, dk); // async 呼び出し（戻り値は無視）
       })
     );
     document.getElementById('log-date-sel').addEventListener('change', e => {
       const fl = document.querySelector('.log-filter-btn.active')?.dataset.filter || 'all';
-      _renderLogList(fl, e.target.value || '');
+      _renderLogList(fl, e.target.value || ''); // value は 'YYYY-MM-DD' or ''
     });
     document.getElementById('health-log-btn').addEventListener('click', () => openLogModal('all'));
     document.getElementById('health-err-item').addEventListener('click', () => openLogModal('error'));
@@ -11175,9 +11537,58 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         });
       }
 
+      // ─── FABショートカット ────────────────────────────────────────────
+      const FAB_CONFIG_KEY = '_kintai_fab_config_v1';
+      function loadFabConfig() {
+        try { return JSON.parse(localStorage.getItem(FAB_CONFIG_KEY) || '[]'); } catch(_) { return []; }
+      }
+      function saveFabConfig(ids) { localStorage.setItem(FAB_CONFIG_KEY, JSON.stringify(ids)); }
+
+      function renderFabMgrList() {
+        const el = document.getElementById('fab-mgr-list');
+        if (!el) return;
+        const saved = loadFabConfig();
+        const tabs = _getAllTabs().filter(t => t.id !== 'calendar');
+        el.innerHTML = tabs.map(t => `
+          <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;">
+            <input type="checkbox" class="fab-mgr-check" value="${t.id}"
+              ${saved.includes(t.id) ? 'checked' : ''}>
+            <span>${t.icon} ${t.label}</span>
+          </label>`).join('');
+        function updateDisabled() {
+          const checked = [...el.querySelectorAll('.fab-mgr-check:checked')];
+          el.querySelectorAll('.fab-mgr-check:not(:checked)').forEach(c => {
+            c.disabled = checked.length >= 3;
+          });
+        }
+        el.querySelectorAll('.fab-mgr-check').forEach(cb => cb.addEventListener('change', updateDisabled));
+        updateDisabled();
+      }
+
+      function renderFabItems() {
+        const menu = document.getElementById('fab-group-menu');
+        if (!menu) return;
+        menu.querySelectorAll('.fab-custom').forEach(el => el.remove());
+        loadFabConfig().forEach(tabId => {
+          const info = _getAllTabs().find(t => t.id === tabId);
+          if (!info) return;
+          const btn = document.createElement('button');
+          btn.className = 'fab-custom';
+          btn.title = info.label;
+          btn.textContent = info.icon;
+          btn.addEventListener('click', () => {
+            document.getElementById('fab-group')?.classList.remove('open');
+            window._switchTab(tabId);
+          });
+          menu.insertBefore(btn, menu.firstChild);
+        });
+      }
+      renderFabItems(); // 起動時に適用
+
       function openTabMgr() {
         _editConfig = getEffectiveConfig().map(c => ({ ...c }));
         renderMgrList();
+        renderFabMgrList(); // FABセクション更新
         modal.classList.add('show');
       }
 
@@ -11186,6 +11597,10 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       document.getElementById('tab-mgr-save')?.addEventListener('click', () => {
         saveTabConfig(_editConfig);
         renderTabBar();
+        // FAB設定を保存
+        const fabIds = [...document.querySelectorAll('.fab-mgr-check:checked')].map(c => c.value);
+        saveFabConfig(fabIds);
+        renderFabItems();
         modal.classList.remove('show');
         toast('✓ タブ設定を保存しました');
       });
