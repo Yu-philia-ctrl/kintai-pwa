@@ -2675,6 +2675,10 @@
         <button class="emergency-btn emergency-btn-safe" id="em-sw-reload">🔄 Service Worker を強制更新</button>
         <button class="emergency-btn emergency-btn-warn" id="em-cache-clear">🗂 キャッシュ・SWをクリア（データ保持）</button>
         <button class="emergency-btn emergency-btn-warn" id="em-snap-restore">📦 自動スナップショットから復元</button>
+        <button class="emergency-btn emergency-btn-safe" id="em-bridge-restore">☁️ サーバーブリッジから復元（別端末/別URL移行）</button>
+
+        <!-- iOS のみ: Safari ウェブサイトデータへのショートカット -->
+        <button class="emergency-btn emergency-btn-safe" id="em-safari-settings" style="display:none;">📱 Safari ウェブサイトデータを開く</button>
 
         <div class="emergency-section-title">完全リセット</div>
         <button class="emergency-btn emergency-btn-danger" id="em-full-reset">🗑 全データ消去してリセット</button>
@@ -3245,6 +3249,8 @@
 
     // サーバー死活状態 (null=未確認, true=生存, false=停止)
     let _srvAlive = null;
+    // heartbeat が解決した実際のサーバーベース URL（全タブ共有）
+    window._srvBase = 'http://localhost:8899';
 
     async function runHealthCheck() {
       // localStorage サイズ推定
@@ -5078,15 +5084,36 @@
     })();
 
     /* =====================================================
-       サーバーハートビート（30 秒ごとに死活確認 + 自動復旧）
+       サーバーハートビート — 適応型インターバル (接続中30s / 未接続10s)
+       _resolveServerUrl() でlocalhost→外部HTTPS→TailscaleIPを順番に試し
+       成功した URL を window._srvBase にキャッシュして全タブで共有する。
        ===================================================== */
     (function initServerHeartbeat() {
+      let _cachedBase  = null; // 最後に成功したサーバーベース URL
+      let _lastResolve = 0;    // 解決成功タイムスタンプ (ms)
+      const CACHE_TTL  = 5 * 60 * 1000; // 5 分間キャッシュ有効
+
+      // キャッシュ付き URL 解決: 5分以内に成功していれば直接 ping、
+      // 失敗 or 期限切れなら _resolveServerUrl() で全候補を再試行する。
       async function _pingSrv() {
-        try {
-          const r = await fetch('http://localhost:8899/api/health',
-            { signal: AbortSignal.timeout(3000) });
-          return r.ok;
-        } catch { return false; }
+        const now = Date.now();
+        if (_cachedBase && (now - _lastResolve) < CACHE_TTL) {
+          try {
+            const r = await fetch(`${_cachedBase}/api/health`,
+              { signal: AbortSignal.timeout(3000) });
+            if (r.ok) return true;
+          } catch(_) {}
+          // キャッシュ URL が応答しなかった → 再解決へ
+        }
+        const base = await _resolveServerUrl(8899);
+        if (base) {
+          _cachedBase = base;
+          _lastResolve = now;
+          window._srvBase = base; // 全タブが参照するグローバルを更新
+          return true;
+        }
+        _cachedBase = null;
+        return false;
       }
 
       function _updateSrvDot(alive) {
@@ -5123,26 +5150,26 @@
             try { _loadJobsData(); } catch(e) {}
           }
         }
+
+        // 適応型インターバル: 未接続時は 10s で素早く再検出、接続中は 30s で節電
+        setTimeout(_tick, alive ? 30000 : 10000);
       }
 
-      // 初回チェック: 起動 5 秒後（サーバーの起動完了を待つ）
-      setTimeout(() => {
-        _tick();
-        setInterval(_tick, 30000);  // 以降 30 秒ごと
-      }, 5000);
+      // ページロード直後に即座に解決を試みる（5s待ちをなくす）
+      _tick();
     })();
 
     /* =====================================================
        ファイルブラウザ（システム情報カード → ファイル参照）
        ===================================================== */
     (function initFileBrowser() {
-      const API = 'http://localhost:8899';
+      const _getApi = () => window._srvBase || 'http://localhost:8899';
       let _files = null;
 
       // ── ファイル一覧取得 ──────────────────────────────────────
       async function _fetchFiles() {
         try {
-          const r = await fetch(`${API}/api/files`, { signal: AbortSignal.timeout(5000) });
+          const r = await fetch(`${_getApi()}/api/files`, { signal: AbortSignal.timeout(5000) });
           if (!r.ok) throw new Error('HTTP ' + r.status);
           const d = await r.json();
           return d.files.filter(f => !f.is_dir);
@@ -5191,7 +5218,7 @@
         pre.textContent = '読み込み中…';
         if (meta) meta.textContent = '';
         try {
-          const r = await fetch(`${API}/api/files/read?path=${encodeURIComponent(path)}`,
+          const r = await fetch(`${_getApi()}/api/files/read?path=${encodeURIComponent(path)}`,
             { signal: AbortSignal.timeout(10000) });
           const d = await r.json();
           if (d.error) {
@@ -5255,7 +5282,7 @@
           const el = document.getElementById('sysinfo-summary');
           if (!el) return;
           try {
-            const r = await fetch(`${API}/api/structure`, { signal: AbortSignal.timeout(3000) });
+            const r = await fetch(`${_getApi()}/api/structure`, { signal: AbortSignal.timeout(3000) });
             if (r.ok) {
               const txt = await r.text();
               const m   = txt.match(/最終更新: (.+)/);
@@ -5573,10 +5600,24 @@
           config: cfg,
           idb_snapshot: { kintai: idbD, tasks: idbT, config: idbC },
         };
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const json = JSON.stringify(payload, null, 2);
+        const fileName = `kintai-full-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        const blob = new Blob([json], { type: 'application/json' });
+        // iOS では Web Share API (Files) を使ってシェアシート経由で保存
+        if (navigator.canShare) {
+          try {
+            const file = new File([blob], fileName, { type: 'application/json' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: 'kintai バックアップ' });
+              toast('💾 シェアシートからバックアップを保存してください');
+              return;
+            }
+          } catch(e) { /* キャンセル or 非対応 → fallback */ }
+        }
+        // Mac / Android fallback: <a> ダウンロード
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `kintai-full-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = fileName;
         a.click();
         toast('💾 全データのエクスポートが完了しました');
       });
@@ -5687,7 +5728,7 @@
         if (!logEl) return;
         logEl.textContent = '読み込み中...';
         try {
-          const r = await fetch(`http://localhost:8899/api/system/logs?type=${type}&lines=150`, { signal: AbortSignal.timeout(5000) });
+          const r = await fetch(`${window._srvBase || 'http://localhost:8899'}/api/system/logs?type=${type}&lines=150`, { signal: AbortSignal.timeout(5000) });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const d = await r.json();
           logEl.textContent = (d.lines || []).join('\n') || '(ログなし)';
@@ -5904,6 +5945,72 @@
           setTimeout(() => location.replace(location.pathname), 1200);
         } catch(e) { toast('リセット失敗: ' + e.message); }
       });
+
+      // サーバーブリッジから復元（別端末 / 別URL から引き継ぎ）
+      document.getElementById('em-bridge-restore')?.addEventListener('click', async () => {
+        const btn = document.getElementById('em-bridge-restore');
+        btn.textContent = '⏳ 復元中...';
+        btn.disabled = true;
+        let restoredAny = false;
+        try {
+          const serverKintai = await _restoreFromServer('kintai');
+          if (serverKintai && Object.keys(serverKintai.months || {}).length > 0) {
+            const clean = { months: serverKintai.months };
+            localStorage.setItem(STORE_KEY, JSON.stringify(clean));
+            await idbSave(clean);
+            restoredAny = true;
+          }
+          const serverTasks = await _restoreFromServer('tasks');
+          const tasks = serverTasks?.tasks;
+          if (Array.isArray(tasks) && tasks.length > 0) {
+            localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+            await idbSaveTasksUnified(tasks);
+            restoredAny = true;
+          }
+          if (restoredAny) {
+            toast('✅ サーバーブリッジから復元しました — 再読込します');
+            closeEmergencyModal();
+            setTimeout(() => location.reload(), 1200);
+          } else {
+            toast('⚠ サーバーにデータがありません。先に元のURLでページを開いてください');
+          }
+        } catch(e) {
+          toast('❌ 復元失敗: ' + e.message);
+        } finally {
+          btn.textContent = '☁️ サーバーブリッジから復元（別端末/別URL移行）';
+          btn.disabled = false;
+        }
+      });
+
+      // iOS Safari ウェブサイトデータへのショートカット（iOS のみ表示）
+      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        const safariBtn = document.getElementById('em-safari-settings');
+        if (safariBtn) safariBtn.style.display = '';
+
+        safariBtn?.addEventListener('click', () => {
+          // App-Prefs: ディープリンクで設定 → Safari → ウェブサイトデータを試行
+          const a = document.createElement('a');
+          a.href = 'App-Prefs:root=SAFARI&path=WEBSITE_DATA';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          // 2秒後に開かなかった場合は手動ガイドを表示
+          setTimeout(() => {
+            const guide = [
+              '設定アプリが開かない場合:',
+              '',
+              '1. ホーム画面 →「設定」アプリを開く',
+              '2. 下にスクロールして「Safari」をタップ',
+              '3.「詳細」をタップ',
+              '4.「Webサイトデータ」をタップ',
+              '',
+              '⚠ データを削除する前にバックアップを取ってください。',
+              '   ハブタブ →「JSON書き出し」でバックアップできます。',
+            ].join('\n');
+            alert(guide);
+          }, 2000);
+        });
+      }
 
       // 緊急FABは他のモーダルが開いているとき隠す（邪魔にならないよう）
       const hideObs = new MutationObserver(() => {
@@ -6444,7 +6551,7 @@
     /* =====================================================
        REPORT TAB — 業務報告書管理
        ===================================================== */
-    const REPORT_SERVER = 'http://localhost:8899';
+    const _getRS = () => window._srvBase || 'http://localhost:8899';
     let _reportList       = [];   // ファイル一覧キャッシュ
     let _reportData       = null; // 現在表示中の月データ
     let _reportMonth      = null; // 'YYYY-MM'
@@ -6453,7 +6560,7 @@
 
     async function checkReportServer() {
       try {
-        const r = await fetch(`${REPORT_SERVER}/api/reports`, { signal: AbortSignal.timeout(2000) });
+        const r = await fetch(`${_getRS()}/api/reports`, { signal: AbortSignal.timeout(2000) });
         _reportServerOk = r.ok;
       } catch {
         _reportServerOk = false;
@@ -6504,7 +6611,7 @@
 
     async function loadReportList() {
       try {
-        const r = await fetch(`${REPORT_SERVER}/api/reports`);
+        const r = await fetch(`${_getRS()}/api/reports`);
         _reportList = await r.json();
       } catch {
         _reportList = [];
@@ -6577,7 +6684,7 @@
       tableArea.innerHTML = '<div class="report-loading">読み込み中...</div>';
 
       try {
-        const r = await fetch(`${REPORT_SERVER}/api/reports/read?year=${year}&month=${mon}`);
+        const r = await fetch(`${_getRS()}/api/reports/read?year=${year}&month=${mon}`);
         if (!r.ok) throw new Error(await r.text());
         _reportData = await r.json();
         renderReportStatusCard(_reportData);
@@ -6699,7 +6806,7 @@
         return;
       }
       try {
-        const r = await fetch(`${REPORT_SERVER}/api/reports/sync`, {
+        const r = await fetch(`${_getRS()}/api/reports/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ year, month: mon, kintai_data: kdata }),
@@ -6720,7 +6827,7 @@
       if (!_reportServerOk) { toast('⚠️ サーバー未起動'); return; }
       const [year, mon] = label.split('-');
       try {
-        const r = await fetch(`${REPORT_SERVER}/api/reports/generate`, {
+        const r = await fetch(`${_getRS()}/api/reports/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ year, month: mon }),
@@ -6746,7 +6853,7 @@
         return;
       }
       try {
-        const r = await fetch(`${REPORT_SERVER}/api/structure`);
+        const r = await fetch(`${_getRS()}/api/structure`);
         if (!r.ok) { el.innerHTML = ''; return; }
         const text = await r.text();
         const match = text.match(/## launchd 自動化ジョブ状態\n([\s\S]*?)\n\n/);
@@ -6816,7 +6923,7 @@
       });
 
       try {
-        const res = await fetch(`http://localhost:8899/api/jobs?${params}`,
+        const res = await fetch(`${window._srvBase || 'http://localhost:8899'}/api/jobs?${params}`,
           { signal: AbortSignal.timeout(20000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         _jobsData = await res.json();
@@ -8685,7 +8792,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
        AI CHAT  — Claude / ChatGPT / Gemini + System Tools
        ===================================================== */
     (function initAiChat() {
-      const SRV = 'http://localhost:8899';
+      const _getSrv = () => window._srvBase || 'http://localhost:8899';
       const MAX_HIST = 60;
 
       // --- ツール定義 (共通スキーマ) ---
@@ -8743,27 +8850,27 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         try {
           switch (name) {
             case 'get_system_status': {
-              const r = await fetch(`${SRV}/api/health`).then(r => r.json());
+              const r = await fetch(`${_getSrv()}/api/health`).then(r => r.json());
               return JSON.stringify(r, null, 2);
             }
             case 'list_files': {
-              const r = await fetch(`${SRV}/api/files`).then(r => r.json());
+              const r = await fetch(`${_getSrv()}/api/files`).then(r => r.json());
               return JSON.stringify(r.files?.map(f => ({ path: f.path, is_dir: f.is_dir, size: f.size, modified: f.modified })), null, 2);
             }
             case 'read_file': {
-              const r = await fetch(`${SRV}/api/files/read?path=${encodeURIComponent(args.path || '')}`).then(r => r.json());
+              const r = await fetch(`${_getSrv()}/api/files/read?path=${encodeURIComponent(args.path || '')}`).then(r => r.json());
               if (r.error) return `エラー: ${r.error}`;
               return r.truncated ? r.content + '\n\n[200KB を超えたため切り詰めました]' : r.content;
             }
             case 'get_logs': {
               const type  = args.type  || 'server';
               const lines = args.lines || 80;
-              const r = await fetch(`${SRV}/api/system/logs?type=${type}&lines=${lines}`).then(r => r.json());
+              const r = await fetch(`${_getSrv()}/api/system/logs?type=${type}&lines=${lines}`).then(r => r.json());
               if (r.error) return `エラー: ${r.error}`;
               return r.lines.join('\n');
             }
             case 'restart_server': {
-              const r = await fetch(`${SRV}/api/system/restart`, { method: 'POST' }).then(r => r.json());
+              const r = await fetch(`${_getSrv()}/api/system/restart`, { method: 'POST' }).then(r => r.json());
               return JSON.stringify(r);
             }
             case 'get_kintai_config': {
@@ -8773,7 +8880,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
               return JSON.stringify(safe, null, 2);
             }
             case 'get_structure': {
-              return await fetch(`${SRV}/api/structure`).then(r => r.text());
+              return await fetch(`${_getSrv()}/api/structure`).then(r => r.text());
             }
             default:
               return `不明なツール: ${name}`;
@@ -9113,12 +9220,10 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       const banner = document.getElementById('https-banner');
       if (!banner) return;
 
-      // Safari ではこの fetch 自体がブロックされて catch に落ちる → バナー表示
-      fetch('http://localhost:8899/api/health', { signal: AbortSignal.timeout(1500) })
-        .then(r => { if (!r.ok) throw new Error(); })
-        .catch(() => {
-          banner.style.display = 'block';
-        });
+      // localhost だけでなく外部HTTPS URLも試してサーバーが見つからない場合のみ表示
+      _resolveServerUrl(8899).then(base => {
+        if (!base) banner.style.display = 'block';
+      });
 
       document.getElementById('https-banner-close')?.addEventListener('click', () => {
         banner.style.display = 'none';
