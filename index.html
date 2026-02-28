@@ -2952,27 +2952,42 @@
 
   <!-- ログタブ -->
   <div id="page-logs" class="tab-page">
+    <!-- 統計サマリーカード -->
     <div class="card" style="margin-bottom:10px;">
+      <div class="card-title" style="margin-bottom:8px;">📊 ログ統計（直近7日）</div>
+      <div id="logs-stats-bar" style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;"></div>
+      <canvas id="logs-mini-chart" height="36" style="width:100%;border-radius:6px;"></canvas>
+    </div>
+    <!-- メインログカード -->
+    <div class="card">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <div class="card-title" style="margin-bottom:0;flex:1;">📋 システムログ</div>
-        <button id="logs-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄 更新</button>
+        <div class="card-title" style="margin-bottom:0;flex:1;">📋 SysLog ビュー</div>
+        <button id="logs-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄</button>
+        <button id="logs-export-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">📥 エクスポート</button>
       </div>
-      <!-- フィルター -->
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="logs-filter-bar">
-        <button class="logs-lvl-btn active" data-level="all"   style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:var(--accent);color:#fff;">ALL</button>
-        <button class="logs-lvl-btn" data-level="fatal" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #c62828;color:#c62828;background:none;">FATAL</button>
-        <button class="logs-lvl-btn" data-level="error" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e53935;color:#e53935;background:none;">ERROR</button>
-        <button class="logs-lvl-btn" data-level="warn"  style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e65100;color:#e65100;background:none;">WARN</button>
-        <button class="logs-lvl-btn" data-level="info"  style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);color:var(--text-muted);background:none;">INFO</button>
+      <!-- ソース + 日付ナビ -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center;">
+        <button class="logs-src-btn active" data-src="app"      style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:var(--bg-card-solid);font-weight:700;">📱 アプリ</button>
+        <button class="logs-src-btn"        data-src="server"   style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:none;">🖥 サーバー</button>
+        <button class="logs-src-btn"        data-src="watchdog" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:none;">👁 Watchdog</button>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:4px;">
+          <button id="logs-date-prev" class="btn-secondary" style="font-size:11px;padding:2px 8px;">◀</button>
+          <input id="logs-date-input" type="date" style="font-size:11px;padding:2px 6px;border:1px solid var(--border-soft);border-radius:6px;background:var(--bg-card);color:var(--text-primary);">
+          <button id="logs-date-next" class="btn-secondary" style="font-size:11px;padding:2px 8px;">▶</button>
+        </span>
       </div>
-      <!-- ログソース切り替え -->
-      <div style="display:flex;gap:6px;margin-bottom:10px;">
-        <button class="logs-src-btn" data-src="server"   style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:none;">🖥 サーバー</button>
-        <button class="logs-src-btn" data-src="watchdog" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:none;">👁 Watchdog</button>
-        <button class="logs-src-btn active" data-src="app" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:var(--bg-card-solid);">📱 アプリ</button>
+      <!-- レベルフィルター -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+        <button class="logs-lvl-btn active" data-level="all"   style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:var(--accent);color:#000;">ALL</button>
+        <button class="logs-lvl-btn" data-level="fatal" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #c62828;color:#c62828;background:none;">💀 FATAL</button>
+        <button class="logs-lvl-btn" data-level="error" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e53935;color:#e53935;background:none;">🔴 ERROR</button>
+        <button class="logs-lvl-btn" data-level="warn"  style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e65100;color:#e65100;background:none;">🟡 WARN</button>
+        <button class="logs-lvl-btn" data-level="info"  style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);color:var(--text-muted);background:none;">🔵 INFO</button>
       </div>
+      <!-- キーワード検索 -->
+      <input id="logs-search-input" type="search" placeholder="🔍 キーワードで絞り込み..." style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border-soft);border-radius:8px;font-size:11px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:8px;">
       <div id="logs-count" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;"></div>
-      <div id="logs-content" style="font-family:'SF Mono','Fira Code',monospace;font-size:11px;max-height:60vh;overflow-y:auto;border-radius:8px;background:#0d1117;padding:10px;"></div>
+      <div id="logs-content" style="font-family:'SF Mono','Fira Code',monospace;font-size:11px;max-height:55vh;overflow-y:auto;border-radius:8px;background:#0d1117;padding:10px;"></div>
     </div>
   </div>
 
@@ -3334,38 +3349,74 @@
       ev.preventDefault(); // iOS Safari の強制クラッシュを抑制
     });
 
-    // ④ アプリログ（ring buffer — 最新80件、info/warn/errorを記録）
+    // ④ アプリログ（ring buffer — 最新200件、HA: IDB日次アーカイブ365日保持）
     const _LOG_KEY = '_kintai_log';
-    const _LOG_MAX = 80;
-    const _LOG_ARCHIVE_PFX = '_kintai_daily_';
-    const _LOG_ARCHIVE_DAYS = 30;
-    function _pruneOldDailyLogs() {
+    const _LOG_MAX = 200;
+    const _LOG_ARCHIVE_DAYS = 365;  // HA準拠: 1年保持
+    // IDB 日次ログ操作（HA: 365日保持）
+    async function idbSaveLogsDaily(date, entries) {
       try {
-        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - _LOG_ARCHIVE_DAYS);
-        const cutoffStr = cutoff.toISOString().slice(0, 10);
-        const toRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith(_LOG_ARCHIVE_PFX) && k.slice(_LOG_ARCHIVE_PFX.length) < cutoffStr) toRemove.push(k);
-        }
-        toRemove.forEach(k => localStorage.removeItem(k));
+        const db = await _openIDB();
+        if (!db) return;
+        const tx = db.transaction('logs_archive', 'readwrite');
+        tx.objectStore('logs_archive').put({ id: date, entries, updated_at: new Date().toISOString() });
       } catch(_) {}
     }
+    async function idbLoadLogsDaily(date) {
+      try {
+        const db = await _openIDB();
+        if (!db) return null;
+        return new Promise(resolve => {
+          const req = db.transaction('logs_archive').objectStore('logs_archive').get(date);
+          req.onsuccess = e => resolve(e.target.result);
+          req.onerror   = () => resolve(null);
+        });
+      } catch(_) { return null; }
+    }
+    async function idbListLogDates() {
+      try {
+        const db = await _openIDB();
+        if (!db) return [];
+        return new Promise(resolve => {
+          const req = db.transaction('logs_archive').objectStore('logs_archive').getAllKeys();
+          req.onsuccess = e => resolve([...(e.target.result || [])].sort().reverse());
+          req.onerror   = () => resolve([]);
+        });
+      } catch(_) { return []; }
+    }
+    async function idbPruneOldLogs(keepDays = 365) {
+      try {
+        const db = await _openIDB();
+        if (!db) return;
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - keepDays);
+        const cutoffStr = cutoff.toISOString().slice(0, 10);
+        const keys = await new Promise(resolve => {
+          const req = db.transaction('logs_archive').objectStore('logs_archive').getAllKeys();
+          req.onsuccess = e => resolve(e.target.result || []);
+          req.onerror   = () => resolve([]);
+        });
+        const tx = db.transaction('logs_archive', 'readwrite');
+        keys.filter(k => k < cutoffStr).forEach(k => tx.objectStore('logs_archive').delete(k));
+      } catch(_) {}
+    }
+
     function _appLog(level, source, msg) {
       try {
         const entry = { ts: new Date().toISOString(), level, source, msg: String(msg).slice(0, 300) };
-        // メインリングバッファ（直近80件）
+        // メインリングバッファ（直近200件 — HA強化）
         const log = JSON.parse(localStorage.getItem(_LOG_KEY) || '[]');
         log.unshift(entry);
         if (log.length > _LOG_MAX) log.length = _LOG_MAX;
         localStorage.setItem(_LOG_KEY, JSON.stringify(log));
-        // 日次アーカイブ（syslog形式、30日保持）
-        const dayKey = _LOG_ARCHIVE_PFX + entry.ts.slice(0, 10);
-        const dayLog = JSON.parse(localStorage.getItem(dayKey) || '[]');
-        dayLog.unshift(entry);
-        if (dayLog.length > 500) dayLog.length = 500;
-        localStorage.setItem(dayKey, JSON.stringify(dayLog));
-        if (Math.random() < 0.02) _pruneOldDailyLogs();
+        // IDB 日次アーカイブ（SysLog形式、365日保持）
+        const dayKey = entry.ts.slice(0, 10);
+        idbLoadLogsDaily(dayKey).then(existing => {
+          const arr = (existing?.entries) || [];
+          arr.unshift(entry);
+          if (arr.length > 2000) arr.length = 2000;  // 2000件/日
+          idbSaveLogsDaily(dayKey, arr);
+          if (Math.random() < 0.01) idbPruneOldLogs(365);
+        }).catch(() => {});
       } catch(_) {}
     }
     // console.warn / console.error をインターセプトして自動記録
@@ -3397,20 +3448,35 @@
         return 'jinjer同期に失敗しました。設定でjinjer認証情報を確認し再試行してください。';
       if (s === 'weather' || m.includes('open-meteo') || m.includes('geocod'))
         return '天気APIへの接続失敗。設定で都市を変更するかGPS権限を確認してください。';
-      if (s === 'idb' || m.includes('indexeddb') || m.includes('idbsave'))
-        return 'IndexedDBへのバックアップが失敗しました。ブラウザのストレージ権限を確認してください。';
+      if (s === 'idb' || m.includes('indexeddb') || m.includes('idbsave') || m.includes('idbload') || m.includes('idb復元'))
+        return 'IndexedDB操作でエラーが発生しました。設定→バックアップから手動復元、またはブラウザのストレージ権限を確認してください。';
       if (s === 'serviceworker' || m.includes('serviceworker'))
         return 'Service Workerの更新に失敗しました。緊急復旧→SWを強制更新を試みてください。';
-      if (s === 'tailscale' || m.includes('tailscale') || m.includes('timeout'))
-        return 'Tailscaleタイムアウト。VPNが接続中か、設定のMac IPアドレスを確認してください。';
-      if (m.includes('quota') || m.includes('storage'))
-        return 'ストレージ容量不足。古いスナップショットや不要なデータを削除してください。';
-      if (m.includes('network') || m.includes('fetch') || m.includes('failed to fetch'))
+      if (s === 'tailscale' || m.includes('tailscale'))
+        return 'Tailscale接続エラー。VPNが接続中か、設定のMac IPアドレスを確認してください。';
+      if (m.includes('referenceerror') || m.includes('cannot access') || m.includes('uninitialized'))
+        return 'JavaScript変数の初期化前アクセスです。ページをリロードして解消されない場合はキャッシュクリア (設定→緊急復旧→SW更新) を試みてください。';
+      if (m.includes('typeerror') || m.includes('cannot read properties') || m.includes('is not a function'))
+        return 'JavaScript型エラーです。null/undefinedへのアクセスが原因の可能性があります。ページをリロードしてください。';
+      if (m.includes('syntaxerror') || m.includes('unexpected token'))
+        return 'データの構文エラーです。インポートJSONの形式を確認するか、スナップショットから復元してください（設定→緊急復旧）。';
+      if (m.includes('heartbeat') || m.includes('_tick') || (s === 'heartbeat'))
+        return 'サーバーへの接続が不安定です。launchctl list | grep kintai でサーバープロセスを確認してください。';
+      if (m.includes('quota') || m.includes('storage full') || m.includes('storage'))
+        return 'ストレージ容量が不足しています。設定→緊急復旧→DBクリーンアップを実行してください。';
+      if (m.includes('permission') || m.includes('denied') || m.includes('permissionerror'))
+        return 'アクセス権限エラーです。ブラウザの設定でストレージ権限を確認してください。';
+      if (m.includes('network') || m.includes('fetch') || m.includes('failed to fetch') || m.includes('load failed'))
         return 'ネットワーク接続を確認してください。オフラインの可能性があります。';
+      if (m.includes('timeout') || m.includes('etimedout') || m.includes('aborterror'))
+        return 'タイムアウトです。サーバーが高負荷か停止している可能性があります。launchctl list | grep kintai で確認してください。';
       if (m.includes('parse') || m.includes('json'))
         return 'JSONデータの解析に失敗しました。インポートファイルの形式を確認してください。';
+      if (m.includes('econnrefused') || m.includes('connection refused'))
+        return 'サーバーへの接続が拒否されました。jinjer_server.py が起動しているか確認してください。';
       return null;
     }
+    window._logSuggestion = _logSuggestion;  // ログタブ IIFE からアクセス可能に
 
     /* =====================================================
        HA: 自動スナップショット（3世代ローリング保存）
@@ -3757,7 +3823,7 @@
        復元:     localStorage が空の場合 IndexedDB から自動復元
        ===================================================== */
     const IDB_NAME    = 'kintai_idb';
-    const IDB_VERSION = 2;  // v1: attendance → v2: + config_backup + tasks_backup
+    const IDB_VERSION = 3;  // v1: attendance → v2: + config_backup + tasks_backup → v3: + logs_archive (HA 365日)
     const IDB_STORE   = 'attendance';
 
     function _openIDB() {
@@ -3772,6 +3838,8 @@
               db.createObjectStore('config_backup', { keyPath: 'id' });
             if (!db.objectStoreNames.contains('tasks_backup'))
               db.createObjectStore('tasks_backup', { keyPath: 'id' });
+            if (!db.objectStoreNames.contains('logs_archive'))
+              db.createObjectStore('logs_archive', { keyPath: 'id' });  // id = 'YYYY-MM-DD'
           };
           req.onsuccess = e => resolve(e.target.result);
           req.onerror   = () => resolve(null);
@@ -5898,6 +5966,21 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v29', date: '2026-03-01',
+          title: '📋 SysLog HA 対応 + ログタブ全面刷新 + 改善提案修正',
+          items: [
+            { tag: 'fix',  text: 'ログキー不整合バグ修正: ログタブがアプリログを表示しなかった問題 (_kintai_app_log → _kintai_log) を解消' },
+            { tag: 'fix',  text: 'ERROR/WARN に改善提案が出ない問題を修正: _logSuggestion() を window に公開しログタブと統合' },
+            { tag: 'feat', text: '改善提案パターン拡充: ReferenceError/TypeError/heartbeat/quota/econnrefused など JS エラーに対する具体的な修正手順を追加' },
+            { tag: 'feat', text: 'SysLog HA アーキテクチャ: IDB logs_archive ストア追加、リングバッファ 80→200件、アーカイブ保持 30→365日（1年）' },
+            { tag: 'feat', text: 'ログタブ刷新: 統計サマリー（直近7日ミニバーグラフ）・日付ナビゲーション（◀/▶）・キーワード検索・JSONエクスポート' },
+            { tag: 'feat', text: '日付ブラウザ: アプリログを IDB から過去日付のログを取得して閲覧可能に' },
+            { tag: 'feat', text: 'jinjer_server.py: 日次ログアーカイブ (logs/dates/YYYY-MM-DD/) 自動作成、90日保持' },
+            { tag: 'feat', text: 'API /api/system/logs/dates で利用可能アーカイブ一覧を返却。/api/system/logs?date= で特定日のサーバーログを取得可能に' },
+            { tag: 'feat', text: 'IDB v3 移行 (logs_archive ストア追加)' },
+          ],
+        },
+        {
           version: 'v28', date: '2026-03-01',
           title: '🍎 iCloud Drive バックアップ統合 + jinjer ファイル管理改善',
           items: [
@@ -6116,7 +6199,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v28';
+        const swVer = 'kintai-v29';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -7132,6 +7215,7 @@
       let _logsCurrentSrc   = 'app';   // アプリログはサーバー不要で常時表示
       let _logsCurrentLevel = 'all';
       let _rawLines         = [];
+      let _rawObjects       = null;    // アプリソース時のみ JSON オブジェクト配列
 
       function _classifyLine(line) {
         if (/\bFATAL\b/i.test(line))                                        return 'fatal';
@@ -7142,30 +7226,40 @@
 
       function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-      function _renderLines() {
+      function _renderLines(keyword) {
         const el = document.getElementById('logs-content');
         const countEl = document.getElementById('logs-count');
         if (!el) return;
-        const filtered = _rawLines.filter(line => {
-          if (_logsCurrentLevel === 'all') return true;
-          return _classifyLine(line) === _logsCurrentLevel;
+        // {line, obj} ペアを作成（オブジェクト情報を保持）
+        const pairs = _rawLines.map((line, i) => ({ line, obj: _rawObjects ? _rawObjects[i] : null }));
+        const filtered = pairs.filter(({ line }) => {
+          if (_logsCurrentLevel !== 'all' && _classifyLine(line) !== _logsCurrentLevel) return false;
+          if (keyword && !line.toLowerCase().includes(keyword.toLowerCase())) return false;
+          return true;
         });
         countEl.textContent = `${filtered.length} 件 / 全 ${_rawLines.length} 件`;
         if (filtered.length === 0) {
           el.innerHTML = `<div style="color:#4b5563;font-size:12px;text-align:center;padding:20px;">該当ログなし</div>`;
           return;
         }
-        el.innerHTML = filtered.map(line => {
+        el.innerHTML = filtered.map(({ line, obj }) => {
           const level = _classifyLine(line);
           let cls = 'color:#a3e635;';
           if (level === 'fatal') cls = 'color:#ff1744;background:rgba(198,40,40,0.2);border-left:3px solid #ff1744;padding-left:6px;';
           else if (level === 'error') cls = 'color:#ef5350;background:rgba(198,40,40,0.12);border-left:3px solid #ef5350;padding-left:6px;';
           else if (level === 'warn')  cls = 'color:#ffa726;background:rgba(230,81,0,0.08);border-left:3px solid #ffa726;padding-left:6px;';
-          else cls = 'color:#a3e635;';
           let hint = '';
           if (level === 'error' || level === 'warn' || level === 'fatal') {
-            const m = _LOG_FIX_PATTERNS.find(p => p.re.test(line));
-            if (m) hint = `<div style="font-size:11px;color:#60a5fa;padding:3px 8px 3px 12px;background:rgba(96,165,250,0.08);border-radius:4px;margin:2px 0;">${_esc(m.fix)}</div>`;
+            if (obj && window._logSuggestion) {
+              // アプリログ: オブジェクトから contextual 改善提案
+              const sug = window._logSuggestion(obj.source || obj.tag, obj.msg, obj.level);
+              if (sug) hint = `<div style="font-size:11px;color:#60a5fa;padding:3px 8px 3px 12px;background:rgba(96,165,250,0.08);border-radius:4px;margin:2px 0;">💡 ${_esc(sug)}</div>`;
+            }
+            if (!hint) {
+              // サーバーログ or マッチなし: テキストパターンマッチ
+              const pat = _LOG_FIX_PATTERNS.find(p => p.re.test(line));
+              if (pat) hint = `<div style="font-size:11px;color:#60a5fa;padding:3px 8px 3px 12px;background:rgba(96,165,250,0.08);border-radius:4px;margin:2px 0;">▶ ${_esc(pat.fix)}</div>`;
+            }
           }
           return `<div style="padding:1px 4px;line-height:1.6;${cls}">${_esc(line)}${hint}</div>`;
         }).join('');
@@ -7177,15 +7271,22 @@
         if (!el) return;
         el.innerHTML = `<div style="color:#4b5563;font-size:12px;text-align:center;padding:20px;">読み込み中...</div>`;
         if (src === 'app') {
-          // アプリログ: localStorage の _kintai_app_log から取得
+          // アプリログ: localStorage の _kintai_log から取得（オブジェクト保持）
           try {
-            const raw = localStorage.getItem('_kintai_app_log') || '[]';
+            const raw = localStorage.getItem('_kintai_log') || '[]';
             const entries = JSON.parse(raw);
-            _rawLines = entries.map(e => `${e.ts||''} [${(e.level||'info').toUpperCase()}] [${e.tag||''}] ${e.msg||''}`);
-          } catch(_) { _rawLines = ['(アプリログ取得失敗)']; }
+            _rawObjects = entries;
+            _rawLines   = entries.map(e => {
+              const ts  = (e.ts || '').replace('T', ' ').slice(0, 19);
+              const lvl = (e.level || 'info').toUpperCase();
+              const src = e.source || e.tag || 'app';
+              return `${ts} [${lvl}] [${src}] ${e.msg || ''}`;
+            });
+          } catch(_) { _rawObjects = null; _rawLines = ['(アプリログ取得失敗)']; }
           _renderLines();
           return;
         }
+        _rawObjects = null;  // サーバー/Watchdog ソースはオブジェクトなし
         const base = window._srvBase || 'http://localhost:8899';
         try {
           const r = await fetch(`${base}/api/system/logs?type=${src}&lines=500`, { signal: AbortSignal.timeout(6000) });
@@ -7198,20 +7299,141 @@
         _renderLines();
       }
 
+      let _logsCurrentDate = new Date().toISOString().slice(0, 10);
+      let _logsBound = false;
+
+      // IDB日次ログからアプリログを読み込む（日付ブラウザ用）
+      async function _loadAppLogForDate(date) {
+        const today = new Date().toISOString().slice(0, 10);
+        if (date === today) {
+          // 当日はリングバッファから（最新）
+          try {
+            const raw = localStorage.getItem('_kintai_log') || '[]';
+            const entries = JSON.parse(raw);
+            _rawObjects = entries;
+            _rawLines   = entries.map(e => {
+              const ts  = (e.ts || '').replace('T', ' ').slice(0, 19);
+              const lvl = (e.level || 'info').toUpperCase();
+              const src = e.source || e.tag || 'app';
+              return `${ts} [${lvl}] [${src}] ${e.msg || ''}`;
+            });
+          } catch(_) { _rawObjects = null; _rawLines = ['(アプリログ取得失敗)']; }
+        } else {
+          // 過去日はIDBアーカイブから
+          try {
+            const rec = await idbLoadLogsDaily(date);
+            const entries = rec?.entries || [];
+            if (entries.length === 0) {
+              _rawObjects = null;
+              _rawLines = [`(${date} のログはアーカイブにありません)`];
+            } else {
+              _rawObjects = entries;
+              _rawLines   = entries.map(e => {
+                const ts  = (e.ts || '').replace('T', ' ').slice(0, 19);
+                const lvl = (e.level || 'info').toUpperCase();
+                const src = e.source || e.tag || 'app';
+                return `${ts} [${lvl}] [${src}] ${e.msg || ''}`;
+              });
+            }
+          } catch(_) { _rawObjects = null; _rawLines = [`(${date} のIDB読み込み失敗)`]; }
+        }
+        _renderLines();
+      }
+
+      // 直近7日の統計サマリー + ミニグラフ
+      async function _renderStats() {
+        const barEl = document.getElementById('logs-stats-bar');
+        const cvs   = document.getElementById('logs-mini-chart');
+        if (!barEl || !cvs) return;
+
+        const today = new Date().toISOString().slice(0, 10);
+        // 当日のリングバッファ統計
+        let fatal = 0, error = 0, warn = 0, info = 0;
+        try {
+          const raw = localStorage.getItem('_kintai_log') || '[]';
+          JSON.parse(raw).forEach(e => {
+            const lv = (e.level || 'info').toLowerCase();
+            if (lv === 'fatal') fatal++;
+            else if (lv === 'error') error++;
+            else if (lv === 'warn') warn++;
+            else info++;
+          });
+        } catch(_) {}
+        barEl.innerHTML = [
+          fatal > 0 ? `<span style="color:#ff1744;font-weight:700;">💀 FATAL: ${fatal}</span>` : '',
+          `<span style="color:#ef5350;">🔴 ERROR: ${error}</span>`,
+          `<span style="color:#ffa726;">🟡 WARN: ${warn}</span>`,
+          `<span style="color:#60a5fa;">🔵 INFO: ${info}</span>`,
+          `<span style="color:var(--text-muted);font-size:10px;">(当日・リングバッファ)</span>`,
+        ].filter(Boolean).join('&nbsp;&nbsp;');
+
+        // 直近7日ミニバーグラフ
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          days.push(d.toISOString().slice(0, 10));
+        }
+        const counts = await Promise.all(days.map(async d => {
+          if (d === today) return { fatal, error, warn, info };
+          try {
+            const rec = await idbLoadLogsDaily(d);
+            const arr = rec?.entries || [];
+            let f=0,e=0,w=0,n=0;
+            arr.forEach(en => {
+              const lv = (en.level||'info').toLowerCase();
+              if (lv==='fatal') f++; else if (lv==='error') e++; else if (lv==='warn') w++; else n++;
+            });
+            return {fatal:f,error:e,warn:w,info:n};
+          } catch(_) { return {fatal:0,error:0,warn:0,info:0}; }
+        }));
+
+        const ctx = cvs.getContext('2d');
+        const W = cvs.offsetWidth || 300; cvs.width = W;
+        const H = cvs.height = 36;
+        ctx.clearRect(0, 0, W, H);
+        const maxTotal = Math.max(1, ...counts.map(c => c.fatal + c.error + c.warn + c.info));
+        const bw = Math.floor(W / 7) - 2;
+        days.forEach((d, i) => {
+          const c = counts[i];
+          const total = c.fatal + c.error + c.warn + c.info;
+          const x = i * (bw + 2) + 1;
+          let y = H;
+          const draw = (val, col) => {
+            if (!val) return;
+            const h = Math.max(2, Math.round((val / maxTotal) * (H - 4)));
+            ctx.fillStyle = col; y -= h;
+            ctx.fillRect(x, y, bw, h);
+          };
+          draw(c.info,  '#1e3a5f');
+          draw(c.warn,  '#7c3300');
+          draw(c.error, '#7f1d1d');
+          draw(c.fatal, '#ff1744');
+          if (d === today) { ctx.strokeStyle = '#a3e635'; ctx.lineWidth = 1; ctx.strokeRect(x-0.5, 1, bw+1, H-2); }
+        });
+      }
+
       window._initLogsTab = function() {
+        if (_logsBound) { _loadLogs(_logsCurrentSrc); _renderStats(); return; }
+        _logsBound = true;
+
+        // 日付入力を今日で初期化
+        const dateInput = document.getElementById('logs-date-input');
+        if (dateInput) dateInput.value = _logsCurrentDate;
+
         // フィルターボタン
         document.querySelectorAll('.logs-lvl-btn').forEach(btn => {
           btn.onclick = () => {
             _logsCurrentLevel = btn.dataset.level;
             document.querySelectorAll('.logs-lvl-btn').forEach(b => {
               b.style.background = 'none';
-              b.style.color = b.dataset.level === 'all' ? 'var(--text-primary)' : b.style.borderColor || 'var(--text-muted)';
+              b.style.color = b.dataset.level === 'all' ? 'var(--text-primary)' : (b.style.borderColor || 'var(--text-muted)');
             });
             btn.style.background = 'var(--accent,#a3e635)';
             btn.style.color = '#000';
-            _renderLines();
+            _renderLines(document.getElementById('logs-search-input')?.value.trim());
           };
         });
+
         // ソースボタン
         document.querySelectorAll('.logs-src-btn').forEach(btn => {
           btn.onclick = () => {
@@ -7224,10 +7446,59 @@
             _loadLogs(_logsCurrentSrc);
           };
         });
+
+        // 日付ナビゲーション
+        function _shiftDate(days) {
+          const d = new Date(_logsCurrentDate + 'T00:00:00');
+          d.setDate(d.getDate() + days);
+          const nd = d.toISOString().slice(0, 10);
+          const today = new Date().toISOString().slice(0, 10);
+          if (nd > today) return;  // 未来には進まない
+          _logsCurrentDate = nd;
+          if (dateInput) dateInput.value = nd;
+          if (_logsCurrentSrc === 'app') _loadAppLogForDate(nd);
+          else _loadLogs(_logsCurrentSrc);
+        }
+        document.getElementById('logs-date-prev')?.addEventListener('click', () => _shiftDate(-1));
+        document.getElementById('logs-date-next')?.addEventListener('click', () => _shiftDate(+1));
+        dateInput?.addEventListener('change', e => {
+          _logsCurrentDate = e.target.value;
+          if (_logsCurrentSrc === 'app') _loadAppLogForDate(_logsCurrentDate);
+          else _loadLogs(_logsCurrentSrc);
+        });
+
         // 更新ボタン
-        document.getElementById('logs-refresh-btn')?.addEventListener('click', () => _loadLogs(_logsCurrentSrc));
-        // 初回ロード
+        document.getElementById('logs-refresh-btn')?.addEventListener('click', () => {
+          _loadLogs(_logsCurrentSrc);
+          _renderStats();
+        });
+
+        // キーワード検索
+        document.getElementById('logs-search-input')?.addEventListener('input', e => {
+          _renderLines(e.target.value.trim());
+        });
+
+        // エクスポートボタン
+        document.getElementById('logs-export-btn')?.addEventListener('click', () => {
+          const kw = document.getElementById('logs-search-input')?.value.trim() || '';
+          const pairs = _rawLines.map((line, i) => ({ line, obj: _rawObjects ? _rawObjects[i] : null }));
+          const out = pairs.filter(({ line }) => {
+            if (_logsCurrentLevel !== 'all' && _classifyLine(line) !== _logsCurrentLevel) return false;
+            if (kw && !line.toLowerCase().includes(kw.toLowerCase())) return false;
+            return true;
+          }).map(({ line, obj }) => obj || line);
+          const blob = new Blob([JSON.stringify({
+            exported_at: new Date().toISOString(), src: _logsCurrentSrc,
+            date: _logsCurrentDate, level: _logsCurrentLevel, count: out.length, entries: out
+          }, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+          a.download = `kintai_log_${_logsCurrentSrc}_${_logsCurrentDate}.json`;
+          a.click();
+        });
+
+        // 初回ロード + 統計
         _loadLogs(_logsCurrentSrc);
+        _renderStats();
       };
     })();
 

@@ -31,7 +31,8 @@ import threading
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import datetime as _dt
+import shutil
+from datetime import datetime as _dt, timedelta as _td
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, parse_qs
@@ -340,6 +341,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/system/logs':
             self._handle_system_logs(params)
 
+        # ===== /api/system/logs/dates — 利用可能な日付アーカイブ一覧 =====
+        elif path == '/api/system/logs/dates':
+            self._handle_log_dates()
+
         # ===== /api/kintai-data — カレンダーデータ取得 =====
         elif path == '/api/kintai-data':
             self._handle_data_get(KINTAI_DATA_FILE)
@@ -575,16 +580,36 @@ class JinjerHandler(BaseHTTPRequestHandler):
             self._send_json({'error': str(e)}, 500)
 
     def _handle_system_logs(self, params: dict):
-        """直近ログを返す。type=server|watchdog, lines=N"""
+        """直近ログを返す。type=server|watchdog, lines=N, date=YYYY-MM-DD"""
         log_type = params.get('type', ['server'])[0]
-        lines_n  = min(int(params.get('lines', ['100'])[0]), 500)
-        log_file = _HERE / 'logs' / ('watchdog.log' if log_type == 'watchdog' else 'server.log')
+        lines_n  = min(int(params.get('lines', ['100'])[0]), 1000)
+        date_str = (params.get('date', [''])[0]).strip()
+
+        if date_str:
+            # 日付指定: アーカイブから取得
+            log_file_name = 'watchdog.log' if log_type == 'watchdog' else 'server.log'
+            log_file = _LOG_ARCHIVE_DIR / date_str / log_file_name
+        else:
+            # 最新ファイル
+            log_file_name = 'watchdog.log' if log_type == 'watchdog' else 'server.log'
+            log_file = _LOG_DIR / log_file_name
+
         if not log_file.exists():
-            self._send_json({'error': 'ログファイルが見つかりません', 'type': log_type}, 404)
+            self._send_json({'error': 'ログファイルが見つかりません', 'type': log_type, 'date': date_str or 'latest'}, 404)
             return
         all_lines = log_file.read_text(encoding='utf-8', errors='replace').splitlines()
         recent = all_lines[-lines_n:] if len(all_lines) > lines_n else all_lines
-        self._send_json({'type': log_type, 'lines': recent, 'total': len(all_lines)})
+        self._send_json({'type': log_type, 'date': date_str or 'latest', 'lines': recent, 'total': len(all_lines)})
+
+    def _handle_log_dates(self):
+        """利用可能な日付アーカイブ一覧を返す"""
+        dates = []
+        if _LOG_ARCHIVE_DIR.exists():
+            for d in sorted(_LOG_ARCHIVE_DIR.iterdir(), reverse=True):
+                if d.is_dir() and re.match(r'^\d{4}-\d{2}-\d{2}$', d.name):
+                    files = [f.name for f in d.iterdir() if f.is_file()]
+                    dates.append({'date': d.name, 'files': files})
+        self._send_json({'dates': dates, 'archive_dir': str(_LOG_ARCHIVE_DIR), 'count': len(dates)})
 
     # ===== 静的ファイル配信 =====
     _MIME_MAP = {
@@ -952,11 +977,13 @@ if __name__ == '__main__':
 
     print(_BANNER.format(port=PORT))
 
-    # ─── ログローテーション ────────────────────────────────────────────────
-    _LOG_MAX_BYTES   = 2 * 1024 * 1024   # 2MB 超えたらローテーション
-    _LOG_KEEP        = 5                  # 世代数 (.1〜.5)
-    _LOG_ROTATE_INTERVAL = 3600          # 1時間ごとにチェック
-    _LOG_DIR         = _HERE / 'logs'
+    # ─── ログローテーション & 日付アーカイブ ────────────────────────────────
+    _LOG_MAX_BYTES        = 2 * 1024 * 1024   # 2MB 超えたらローテーション
+    _LOG_KEEP             = 5                  # サイズローテーション世代数 (.1〜.5)
+    _LOG_ROTATE_INTERVAL  = 3600               # 1時間ごとにチェック
+    _LOG_DIR              = _HERE / 'logs'
+    _LOG_ARCHIVE_DIR      = _HERE / 'logs' / 'dates'  # 日付別アーカイブ
+    _LOG_ARCHIVE_KEEP_DAYS = 90               # サーバーログ保持期間（ディスク節約）
 
     def _rotate_one(log_path: Path):
         """1ファイルのローテーション: path.5 を削除 → .4→.5 … → path→.1"""
@@ -992,6 +1019,41 @@ if __name__ == '__main__':
             _rotate_logs()
 
     threading.Thread(target=_rotate_loop, daemon=True, name='log-rotator').start()
+
+    # ─── 日次ログアーカイブ (SysLog HA: 90日保持) ────────────────────────────
+    def _archive_logs_daily():
+        """前日の server.log, watchdog.log を logs/dates/YYYY-MM-DD/ にコピー"""
+        try:
+            yesterday = (_dt.now() - _td(days=1)).strftime('%Y-%m-%d')
+            arc_dir = _LOG_ARCHIVE_DIR / yesterday
+            arc_dir.mkdir(parents=True, exist_ok=True)
+            for name in ('server.log', 'watchdog.log'):
+                src_f = _LOG_DIR / name
+                if src_f.exists():
+                    shutil.copy2(src_f, arc_dir / name)
+            print(f'[INFO] 日次ログアーカイブ完了: {arc_dir}', flush=True)
+            # 90日以上前のアーカイブを削除
+            cutoff = _dt.now() - _td(days=_LOG_ARCHIVE_KEEP_DAYS)
+            if _LOG_ARCHIVE_DIR.exists():
+                for d in list(_LOG_ARCHIVE_DIR.iterdir()):
+                    try:
+                        if d.is_dir() and _dt.strptime(d.name, '%Y-%m-%d') < cutoff:
+                            shutil.rmtree(d)
+                            print(f'[INFO] 古いログアーカイブを削除: {d.name}', flush=True)
+                    except Exception: pass
+        except Exception as ex:
+            print(f'[WARN] 日次ログアーカイブ失敗: {ex}', flush=True)
+
+    def _daily_archive_loop():
+        """起動時に1回実行、以降は毎日0時30秒に実行"""
+        _archive_logs_daily()
+        while True:
+            now = _dt.now()
+            nxt = (now + _td(days=1)).replace(hour=0, minute=0, second=30, microsecond=0)
+            time.sleep(max(1, (nxt - _dt.now()).total_seconds()))
+            _archive_logs_daily()
+
+    threading.Thread(target=_daily_archive_loop, daemon=True, name='daily-archiver').start()
 
     # ─── バックグラウンドで STRUCTURE.md を最新化 ───────────────────────────
     def _update_structure():
