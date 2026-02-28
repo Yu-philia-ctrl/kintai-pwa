@@ -2836,11 +2836,41 @@
       <div id="spec-api" style="font-size:12px;"></div>
     </div>
     <div class="card" id="spec-file-card">
-      <div class="card-title">📄 ファイル閲覧</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="card-title" style="margin-bottom:0;flex:1;">📄 ファイル閲覧</div>
+        <button id="spec-file-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄</button>
+      </div>
       <select id="spec-file-select" style="width:100%;padding:6px 8px;border:1px solid var(--border-soft);border-radius:8px;font-size:12px;margin-bottom:8px;background:var(--bg-card);font-family:inherit;">
-        <option>サーバー接続後に利用可能</option>
+        <option value="">── ファイルを選択 ──</option>
       </select>
-      <pre id="spec-file-content" style="font-size:10px;overflow:auto;max-height:280px;background:#111827;color:#a3e635;border-radius:8px;padding:10px;line-height:1.5;white-space:pre-wrap;word-break:break-all;"></pre>
+      <div id="spec-file-status" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;display:none;"></div>
+      <pre id="spec-file-content" style="font-size:10px;overflow:auto;max-height:340px;background:#111827;color:#a3e635;border-radius:8px;padding:10px;line-height:1.5;white-space:pre-wrap;word-break:break-all;">ファイルを選択すると内容が表示されます</pre>
+    </div>
+  </div>
+
+  <!-- ログタブ -->
+  <div id="page-logs" class="tab-page">
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0;flex:1;">📋 システムログ</div>
+        <button id="logs-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄 更新</button>
+      </div>
+      <!-- フィルター -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="logs-filter-bar">
+        <button class="logs-lvl-btn active" data-level="all"   style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:var(--accent);color:#fff;">ALL</button>
+        <button class="logs-lvl-btn" data-level="fatal" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #c62828;color:#c62828;background:none;">FATAL</button>
+        <button class="logs-lvl-btn" data-level="error" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e53935;color:#e53935;background:none;">ERROR</button>
+        <button class="logs-lvl-btn" data-level="warn"  style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #e65100;color:#e65100;background:none;">WARN</button>
+        <button class="logs-lvl-btn" data-level="info"  style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);color:var(--text-muted);background:none;">INFO</button>
+      </div>
+      <!-- ログソース切り替え -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <button class="logs-src-btn active" data-src="server"   style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:var(--bg-card-solid);">🖥 サーバー</button>
+        <button class="logs-src-btn" data-src="watchdog" style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:none;">👁 Watchdog</button>
+        <button class="logs-src-btn" data-src="app"      style="font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border-soft);background:none;">📱 アプリ</button>
+      </div>
+      <div id="logs-count" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;"></div>
+      <div id="logs-content" style="font-family:'SF Mono','Fira Code',monospace;font-size:11px;max-height:60vh;overflow-y:auto;border-radius:8px;background:#0d1117;padding:10px;"></div>
     </div>
   </div>
 
@@ -2859,14 +2889,35 @@
         <div class="modal-title">⚙️ タブ管理</div>
         <button class="modal-close" id="tab-mgr-close">✕</button>
       </div>
-      <div style="padding:0 14px;overflow-y:auto;max-height:55vh;">
+      <div style="padding:0 14px;overflow-y:auto;max-height:52vh;">
         <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
-          ☰ をドラッグして並び替え。右のトグルで表示/非表示。
+          ☰ をドラッグして並び替え。右のトグルで表示/非表示。カスタムタブは 🗑 で削除。
         </p>
         <div id="tab-mgr-list"></div>
       </div>
-      <div style="padding:0 14px 14px;">
-        <button id="tab-mgr-save" class="btn-primary" style="width:100%;margin-top:10px;">✓ 保存</button>
+      <!-- タブ追加フォーム -->
+      <div id="tab-add-form" style="display:none;padding:10px 14px;border-top:1px solid var(--border-soft);">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">＋ 新しいタブを追加</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input id="tab-add-icon" value="🔗" style="width:44px;font-size:18px;text-align:center;padding:4px;border:1px solid var(--border-soft);border-radius:8px;background:var(--bg-card);">
+          <input id="tab-add-label" placeholder="タブ名" style="flex:1;padding:6px 10px;border:1px solid var(--border-soft);border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg-card);">
+          <select id="tab-add-type" style="padding:6px 8px;border:1px solid var(--border-soft);border-radius:8px;font-size:12px;background:var(--bg-card);">
+            <option value="url">🌐 URL</option>
+            <option value="note">📝 メモ</option>
+            <option value="blank">⬜ 空白</option>
+          </select>
+        </div>
+        <div id="tab-add-content-row" style="margin-bottom:8px;">
+          <input id="tab-add-content" placeholder="URL (例: https://example.com)" style="width:100%;padding:6px 10px;border:1px solid var(--border-soft);border-radius:8px;font-size:12px;font-family:inherit;background:var(--bg-card);box-sizing:border-box;">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="tab-add-cancel-btn" class="btn-secondary" style="flex:1;font-size:13px;">キャンセル</button>
+          <button id="tab-add-confirm-btn" class="btn-primary" style="flex:1;font-size:13px;">追加</button>
+        </div>
+      </div>
+      <div style="padding:0 14px 14px;display:flex;gap:8px;">
+        <button id="tab-add-btn" class="btn-secondary" style="flex:1;margin-top:10px;font-size:13px;">＋ タブを追加</button>
+        <button id="tab-mgr-save" class="btn-primary" style="flex:2;margin-top:10px;">✓ 保存</button>
       </div>
     </div>
   </div>
@@ -3391,7 +3442,7 @@
     const STORE_KEY   = 'kintai_store_v1';   // 📅 カレンダー/勤怠データ（最重要）
     const LAST_KEY    = 'att_last_template'; // テンプレート
     const CFG_KEY     = 'kintai_config_v1';  // ⚙️ 設定
-    // TASKS_KEY = 'kintai_tasks_v1'         // ✅ タスクデータ (5160行付近で定義)
+    const TASKS_KEY   = 'kintai_tasks_v1';  // ✅ タスクデータ
     // _SENS_STORE_KEY = '_kintai_sens_v1'   // 🔒 暗号化センシティブデータ (3370行付近)
     /* ===================================================== */
 
@@ -5441,8 +5492,6 @@
     /* =====================================================
        TASK MANAGEMENT
        ===================================================== */
-    const TASKS_KEY = 'kintai_tasks_v1';
-
     function loadTasks() {
       try { return JSON.parse(localStorage.getItem(TASKS_KEY) || '[]'); } catch { return []; }
     }
@@ -5747,6 +5796,17 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v26', date: '2026-02-28',
+          title: 'バグ修正: TASKS_KEY TDZ / ALL_TABS参照エラー + タブ追加・削除 + ログタブ',
+          items: [
+            { tag: 'fix',  text: 'TASKS_KEY の TDZ (一時的デッドゾーン) バグ修正: init() 実行時に IDB復元スキップエラーが発生していた問題を解消' },
+            { tag: 'fix',  text: 'ALL_TABS 参照エラー修正: _BUILTIN_TABS にリネーム後も renderTabBar/renderMgrList が ALL_TABS を参照しタブバーが壊れていた問題を解消' },
+            { tag: 'feat', text: 'タブ管理: カスタムタブの追加（🌐 URL / 📝 メモ / ⬜ 空白）と 🗑 削除機能' },
+            { tag: 'feat', text: '📋 ログタブ追加: サーバー・Watchdog・アプリログを FATAL/ERROR/WARN/INFO でフィルタリング' },
+            { tag: 'feat', text: 'ログ改善提案: WARN/ERROR/FATAL 行に対して具体的な修正手順を自動表示' },
+          ],
+        },
+        {
           version: 'v25', date: '2026-02-28',
           title: 'DB管理タブ常時表示 + ログローテーション + jinjer同期改善',
           items: [
@@ -5928,7 +5988,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v25';
+        const swVer = 'kintai-v26';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -6258,54 +6318,84 @@
                  css:'🎨' }[ext] || '📄';
       }
 
-      async function loadSpecFiles() {
+      // プロジェクト内の主要ファイル一覧（ハードコード → サーバー不要で常に表示）
+      const KNOWN_FILES = [
+        { group: 'PWA 本体',      files: ['index.html', 'sw.js', 'manifest.json', 'recover.html'] },
+        { group: 'サーバー',       files: ['jinjer_server.py', 'sync_jinjer.py', 'report_sync.py', 'create_monthly_report.py', 'generate_structure.py'] },
+        { group: 'ドキュメント',   files: ['STRUCTURE.md', 'README.md'] },
+        { group: '設定・環境',     files: ['.gitignore', 'requirements.txt'] },
+        { group: 'ログ',           files: ['logs/server.log', 'logs/server_err.log', 'logs/watchdog.log', 'logs/jinjer_end.log'] },
+      ];
+
+      function _buildKnownFileSelect(extraFiles) {
         const sel = document.getElementById('spec-file-select');
         if (!sel) return;
-        try {
-          const r = await fetch(`${_getApi()}/api/files`, { signal: AbortSignal.timeout(5000) });
-          if (!r.ok) throw new Error();
-          const d = await r.json();
-          const files = (d.files || []).filter(f => !f.is_dir);
-          const byDir = {};
+        sel.innerHTML = '<option value="">── ファイルを選択 ──</option>';
+        // 既知ファイル
+        KNOWN_FILES.forEach(({ group, files }) => {
+          const grp = document.createElement('optgroup');
+          grp.label = group;
           files.forEach(f => {
-            const idx = f.path.lastIndexOf('/');
-            const dir = idx >= 0 ? f.path.slice(0, idx) : '';
-            (byDir[dir] = byDir[dir] || []).push(f);
+            const opt = document.createElement('option');
+            opt.value = f;
+            opt.textContent = `${_icon(f)} ${f.split('/').pop()}`;
+            grp.appendChild(opt);
           });
-          sel.innerHTML = '';
-          Object.keys(byDir).sort().forEach(dir => {
+          sel.appendChild(grp);
+        });
+        // サーバーから取得した追加ファイル（重複除く）
+        if (extraFiles && extraFiles.length > 0) {
+          const known = new Set(KNOWN_FILES.flatMap(g => g.files));
+          const extra = extraFiles.filter(f => !known.has(f.path));
+          if (extra.length > 0) {
             const grp = document.createElement('optgroup');
-            grp.label = dir || '(root)';
-            byDir[dir].forEach(f => {
+            grp.label = 'その他（サーバー検出）';
+            extra.forEach(f => {
               const opt = document.createElement('option');
               opt.value = f.path;
               const name = f.path.split('/').pop();
-              const kb = f.size > 0 ? ` ${(f.size/1024).toFixed(1)}KB` : '';
+              const kb = f.size > 0 ? ` (${(f.size/1024).toFixed(1)}KB)` : '';
               opt.textContent = `${_icon(f.path)} ${name}${kb}`;
               grp.appendChild(opt);
             });
             sel.appendChild(grp);
-          });
-          if (files.length > 0) {
-            const pre = document.getElementById('spec-file-content');
-            if (pre) pre.textContent = '← ファイルを選択してください';
           }
-        } catch(_) {
-          sel.innerHTML = '<option>サーバー接続後に利用可能</option>';
         }
       }
 
+      async function loadSpecFiles() {
+        // まず既知ファイルリストを即時表示（サーバー不要）
+        _buildKnownFileSelect(null);
+        // サーバーが繋がっていれば追加ファイルを取得してリストを補完
+        try {
+          const r = await fetch(`${_getApi()}/api/files`, { signal: AbortSignal.timeout(4000) });
+          if (r.ok) {
+            const d = await r.json();
+            const extras = (d.files || []).filter(f => !f.is_dir);
+            _buildKnownFileSelect(extras);
+          }
+        } catch(_) { /* サーバー未接続でも既知リストは表示済みなのでOK */ }
+      }
+
       async function showSpecFile(path) {
-        const pre = document.getElementById('spec-file-content');
+        const pre    = document.getElementById('spec-file-content');
+        const status = document.getElementById('spec-file-status');
         if (!pre) return;
         pre.textContent = '読み込み中…';
+        if (status) { status.style.display = ''; status.textContent = `📂 ${path}`; }
         try {
           const r = await fetch(`${_getApi()}/api/files/read?path=${encodeURIComponent(path)}`,
-            { signal: AbortSignal.timeout(10000) });
+            { signal: AbortSignal.timeout(15000) });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const d = await r.json();
-          pre.textContent = d.error ? `⚠️ ${d.error}` : d.content + (d.truncated ? '\n…(先頭200KB)' : '');
+          if (d.error) {
+            pre.textContent = `⚠️ ${d.error}`;
+          } else {
+            pre.textContent = d.content + (d.truncated ? '\n\n… (先頭200KB のみ表示)' : '');
+            if (status) status.textContent = `📂 ${path}  |  ${(d.size/1024).toFixed(1)}KB${d.truncated ? '  ⚠️ 省略あり' : ''}`;
+          }
         } catch(e) {
-          pre.textContent = `❌ ${e.message}`;
+          pre.textContent = `❌ サーバー未接続のため内容を取得できません\n(${e.message})\n\nサーバーが起動している場合は 🔄 を押してください。`;
         }
       }
 
@@ -6317,9 +6407,135 @@
       };
 
       document.getElementById('spec-refresh-btn')?.addEventListener('click', renderStructure);
+      document.getElementById('spec-file-refresh-btn')?.addEventListener('click', loadSpecFiles);
       document.getElementById('spec-file-select')?.addEventListener('change', e => {
         if (e.target.value) showSpecFile(e.target.value);
       });
+    })();
+
+    /* =====================================================
+       LOGS TAB
+       ===================================================== */
+    (function _initLogsTabModule() {
+      const _LOG_FIX_PATTERNS = [
+        { re: /openpyxl/i,                         fix: '▶ pip install openpyxl を実行してください' },
+        { re: /Connection reset by peer/i,          fix: '▶ watchdog 再起動の可能性。ThreadingMixIn が有効か確認してください' },
+        { re: /Address already in use/i,            fix: '▶ 既存プロセスが port 8899 を使用中。lsof -i:8899 で確認して kill してください' },
+        { re: /ModuleNotFoundError/i,               fix: '▶ 必要なモジュールがありません。pip install -r requirements.txt を実行してください' },
+        { re: /PermissionError/i,                   fix: '▶ ファイルアクセス権限エラー。chmod 644 対象ファイル で修正してください' },
+        { re: /Traceback/i,                         fix: '▶ Python 例外が発生しています。server_err.log の詳細を確認してください' },
+        { re: /ReferenceError.*uninitialized/i,     fix: '▶ JavaScript 変数の TDZ (一時的デッドゾーン) エラー。変数宣言位置を確認してください' },
+        { re: /Cannot access.*before initialization/i, fix: '▶ JavaScript const/let の宣言順序に問題があります。使用前に宣言してください' },
+        { re: /IDB復元スキップ/i,                   fix: '▶ IndexedDB 復元に失敗しました。ブラウザのストレージ権限を確認するか、設定 → バックアップから手動復元してください' },
+        { re: /SyntaxError/i,                       fix: '▶ コードの構文エラーです。開発者ツールのコンソールで詳細を確認してください' },
+        { re: /TypeError/i,                         fix: '▶ 型エラーです。null/undefined のプロパティアクセスがないか確認してください' },
+        { re: /NetworkError|fetch.*failed|Load failed/i, fix: '▶ ネットワークエラーです。サーバーが起動しているか、URL が正しいか確認してください' },
+        { re: /ECONNREFUSED|connect ECONNREFUSED/i, fix: '▶ サーバーへの接続が拒否されました。jinjer_server.py が起動しているか確認してください (launchctl list | grep kintai)' },
+        { re: /timeout|ETIMEDOUT/i,                 fix: '▶ タイムアウトです。サーバーが高負荷か停止している可能性があります' },
+        { re: /login|認証|auth/i,                   fix: '▶ 認証エラーです。jinjer のログイン情報 (.env) を確認してください' },
+        { re: /disk.*full|No space left/i,          fix: '▶ ディスクがいっぱいです。不要なファイルを削除してください (df -h で確認)' },
+      ];
+
+      let _logsCurrentSrc   = 'server';
+      let _logsCurrentLevel = 'all';
+      let _rawLines         = [];
+
+      function _classifyLine(line) {
+        if (/\bFATAL\b/i.test(line))                                        return 'fatal';
+        if (/\bERROR\b|\bError\b|Traceback|Exception|ECONNREFUSED/i.test(line)) return 'error';
+        if (/\bWARN(ING)?\b|警告/i.test(line))                              return 'warn';
+        return 'info';
+      }
+
+      function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+      function _renderLines() {
+        const el = document.getElementById('logs-content');
+        const countEl = document.getElementById('logs-count');
+        if (!el) return;
+        const filtered = _rawLines.filter(line => {
+          if (_logsCurrentLevel === 'all') return true;
+          return _classifyLine(line) === _logsCurrentLevel;
+        });
+        countEl.textContent = `${filtered.length} 件 / 全 ${_rawLines.length} 件`;
+        if (filtered.length === 0) {
+          el.innerHTML = `<div style="color:#4b5563;font-size:12px;text-align:center;padding:20px;">該当ログなし</div>`;
+          return;
+        }
+        el.innerHTML = filtered.map(line => {
+          const level = _classifyLine(line);
+          let cls = 'color:#a3e635;';
+          if (level === 'fatal') cls = 'color:#ff1744;background:rgba(198,40,40,0.2);border-left:3px solid #ff1744;padding-left:6px;';
+          else if (level === 'error') cls = 'color:#ef5350;background:rgba(198,40,40,0.12);border-left:3px solid #ef5350;padding-left:6px;';
+          else if (level === 'warn')  cls = 'color:#ffa726;background:rgba(230,81,0,0.08);border-left:3px solid #ffa726;padding-left:6px;';
+          else cls = 'color:#a3e635;';
+          let hint = '';
+          if (level === 'error' || level === 'warn' || level === 'fatal') {
+            const m = _LOG_FIX_PATTERNS.find(p => p.re.test(line));
+            if (m) hint = `<div style="font-size:11px;color:#60a5fa;padding:3px 8px 3px 12px;background:rgba(96,165,250,0.08);border-radius:4px;margin:2px 0;">${_esc(m.fix)}</div>`;
+          }
+          return `<div style="padding:1px 4px;line-height:1.6;${cls}">${_esc(line)}${hint}</div>`;
+        }).join('');
+        el.scrollTop = el.scrollHeight;
+      }
+
+      async function _loadLogs(src) {
+        const el = document.getElementById('logs-content');
+        if (!el) return;
+        el.innerHTML = `<div style="color:#4b5563;font-size:12px;text-align:center;padding:20px;">読み込み中...</div>`;
+        if (src === 'app') {
+          // アプリログ: localStorage の _kintai_app_log から取得
+          try {
+            const raw = localStorage.getItem('_kintai_app_log') || '[]';
+            const entries = JSON.parse(raw);
+            _rawLines = entries.map(e => `${e.ts||''} [${(e.level||'info').toUpperCase()}] [${e.tag||''}] ${e.msg||''}`);
+          } catch(_) { _rawLines = ['(アプリログ取得失敗)']; }
+          _renderLines();
+          return;
+        }
+        const base = window._srvBase || 'http://localhost:8899';
+        try {
+          const r = await fetch(`${base}/api/system/logs?type=${src}&lines=500`, { signal: AbortSignal.timeout(6000) });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          const d = await r.json();
+          _rawLines = (d.lines || []);
+        } catch(e) {
+          _rawLines = [`(ログ取得失敗: サーバーに接続できません — ${e.message})`];
+        }
+        _renderLines();
+      }
+
+      window._initLogsTab = function() {
+        // フィルターボタン
+        document.querySelectorAll('.logs-lvl-btn').forEach(btn => {
+          btn.onclick = () => {
+            _logsCurrentLevel = btn.dataset.level;
+            document.querySelectorAll('.logs-lvl-btn').forEach(b => {
+              b.style.background = 'none';
+              b.style.color = b.dataset.level === 'all' ? 'var(--text-primary)' : b.style.borderColor || 'var(--text-muted)';
+            });
+            btn.style.background = 'var(--accent,#a3e635)';
+            btn.style.color = '#000';
+            _renderLines();
+          };
+        });
+        // ソースボタン
+        document.querySelectorAll('.logs-src-btn').forEach(btn => {
+          btn.onclick = () => {
+            _logsCurrentSrc = btn.dataset.src;
+            document.querySelectorAll('.logs-src-btn').forEach(b => {
+              b.style.background = 'none'; b.style.fontWeight = 'normal';
+            });
+            btn.style.background = 'var(--bg-card-solid,#1e293b)';
+            btn.style.fontWeight = '700';
+            _loadLogs(_logsCurrentSrc);
+          };
+        });
+        // 更新ボタン
+        document.getElementById('logs-refresh-btn')?.addEventListener('click', () => _loadLogs(_logsCurrentSrc));
+        // 初回ロード
+        _loadLogs(_logsCurrentSrc);
+      };
     })();
 
     /* =====================================================
@@ -9727,10 +9943,11 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
        TAB MANAGER — 動的タブバー + 表示/非表示/ドラッグ並び替え
        ===================================================== */
     (function _initTabManager() {
-      const TAB_CFG_KEY = '_kintai_tab_config_v1';
+      const TAB_CFG_KEY    = '_kintai_tab_config_v1';
+      const CUSTOM_TAB_KEY = '_kintai_custom_tabs_v1';
 
-      // 全タブ定義
-      const ALL_TABS = [
+      // ── 組み込みタブ定義 ──────────────────────────────────────────────────
+      const _BUILTIN_TABS = [
         { id: 'calendar',  icon: '📅', label: '勤怠',    defaultVisible: true  },
         { id: 'hub',       icon: '🚀', label: 'ハブ',    defaultVisible: true  },
         { id: 'study',     icon: '📚', label: '学習',    defaultVisible: true  },
@@ -9743,7 +9960,45 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         { id: 'market',    icon: '📈', label: '市場価値',defaultVisible: false },
         { id: 'db',        icon: '🗄', label: 'DB管理',  defaultVisible: true  },
         { id: 'spec',      icon: '📁', label: '仕様',    defaultVisible: false },
+        { id: 'logs',      icon: '📋', label: 'ログ',    defaultVisible: false },
       ];
+
+      // ── カスタムタブ CRUD ──────────────────────────────────────────────────
+      // 各カスタムタブ: { id, icon, label, type: 'url'|'note'|'blank', content }
+      function loadCustomTabs() {
+        try { return JSON.parse(localStorage.getItem(CUSTOM_TAB_KEY) || '[]'); } catch(_) { return []; }
+      }
+      function saveCustomTabs(tabs) { localStorage.setItem(CUSTOM_TAB_KEY, JSON.stringify(tabs)); }
+
+      function _getAllTabs() {
+        return [..._BUILTIN_TABS, ...loadCustomTabs()];
+      }
+
+      // カスタムタブの HTML ページを動的生成（なければ）
+      function _ensureCustomTabPage(tab) {
+        const pageId = 'page-' + tab.id;
+        if (document.getElementById(pageId)) return;
+        const div = document.createElement('div');
+        div.id = pageId;
+        div.className = 'tab-page';
+        if (tab.type === 'url' && tab.content) {
+          div.innerHTML = `<iframe src="${tab.content}" style="width:100%;height:calc(100vh - 80px);border:none;border-radius:12px;" allow="fullscreen" loading="lazy"></iframe>`;
+        } else if (tab.type === 'note') {
+          div.innerHTML = `<div class="card">
+            <div class="card-title">${tab.icon} ${tab.label}</div>
+            <textarea id="note-${tab.id}" placeholder="メモを入力..." style="width:100%;min-height:300px;padding:10px;border:1px solid var(--border-soft);border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;background:var(--bg-card);color:var(--text-primary);">${tab.content||''}</textarea>
+            <button onclick="(function(){const ta=document.getElementById('note-${tab.id}');const tabs=JSON.parse(localStorage.getItem('${CUSTOM_TAB_KEY}')||'[]');const t=tabs.find(x=>x.id==='${tab.id}');if(t){t.content=ta.value;localStorage.setItem('${CUSTOM_TAB_KEY}',JSON.stringify(tabs));toast('💾 メモを保存しました');}})();" class="btn-primary" style="margin-top:8px;">💾 保存</button>
+          </div>`;
+        } else {
+          div.innerHTML = `<div class="card"><div class="card-title">${tab.icon} ${tab.label}</div><div style="color:var(--text-muted);font-size:13px;">カスタムタブ（空白）</div></div>`;
+        }
+        // タブページコンテナに追加
+        const nav = document.getElementById('bottom-tabs');
+        nav?.parentNode?.insertBefore(div, nav);
+      }
+
+      // 起動時: 既存カスタムタブのページを生成
+      loadCustomTabs().forEach(_ensureCustomTabPage);
 
       function loadTabConfig() {
         try { const r = localStorage.getItem(TAB_CFG_KEY); if (r) return JSON.parse(r); } catch(_) {}
@@ -9752,12 +10007,13 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       function saveTabConfig(cfg) { localStorage.setItem(TAB_CFG_KEY, JSON.stringify(cfg)); }
 
       function getEffectiveConfig() {
+        const allTabs = _getAllTabs();
         const saved = loadTabConfig();
-        const base = saved || ALL_TABS.map(t => ({ id: t.id, visible: t.defaultVisible }));
+        const base = saved || allTabs.map(t => ({ id: t.id, visible: t.defaultVisible ?? true }));
         const knownIds = new Set(base.map(c => c.id));
         const merged = [...base];
-        for (const t of ALL_TABS) {
-          if (!knownIds.has(t.id)) merged.push({ id: t.id, visible: t.defaultVisible });
+        for (const t of allTabs) {
+          if (!knownIds.has(t.id)) merged.push({ id: t.id, visible: t.defaultVisible ?? true });
         }
         return merged;
       }
@@ -9785,6 +10041,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         if (tabName === 'market')   { if (window._renderMarket) window._renderMarket(); }
         if (tabName === 'db')       { if (window._initDbTab) window._initDbTab(); }
         if (tabName === 'spec')     { if (window._initSpecTab) window._initSpecTab(); }
+        if (tabName === 'logs')     { if (window._initLogsTab) window._initLogsTab(); }
       }
       window._switchTab = switchTab;
 
@@ -9801,7 +10058,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         }
 
         config.filter(c => c.visible).forEach(cfg => {
-          const info = ALL_TABS.find(t => t.id === cfg.id);
+          const info = _getAllTabs().find(t => t.id === cfg.id);
           if (!info) return;
           const btn = document.createElement('button');
           btn.className = 'tab-btn' + (cfg.id === _currentTab ? ' active' : '');
@@ -9829,8 +10086,9 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         if (!listEl) return;
         listEl.innerHTML = '';
         _editConfig.forEach((cfg, idx) => {
-          const info = ALL_TABS.find(t => t.id === cfg.id);
+          const info = _getAllTabs().find(t => t.id === cfg.id);
           if (!info) return;
+          const isCustom = !_BUILTIN_TABS.find(t => t.id === cfg.id);
           const row = document.createElement('div');
           row.className = 'tab-mgr-item';
           row.dataset.idx = idx;
@@ -9839,6 +10097,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
             <span class="tab-mgr-handle" title="ドラッグで並び替え">☰</span>
             <span class="tab-mgr-icon">${info.icon}</span>
             <span class="tab-mgr-label">${info.label}</span>
+            ${isCustom ? `<button class="tab-mgr-delete" data-tab-id="${cfg.id}" title="削除" style="background:none;border:none;font-size:14px;cursor:pointer;padding:4px 6px;color:var(--danger,#c62828);opacity:0.7;margin-right:2px;">🗑</button>` : ''}
             <button class="tab-mgr-toggle ${cfg.visible ? 'on' : ''}" data-idx="${idx}"></button>
           `;
           listEl.appendChild(row);
@@ -9934,6 +10193,20 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
             btn.classList.toggle('on', _editConfig[idx].visible);
           });
         });
+
+        // ─── カスタムタブ削除 ─────────────────────────────────────────
+        listEl.querySelectorAll('.tab-mgr-delete').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tabId;
+            if (!confirm(`「${_getAllTabs().find(t=>t.id===tabId)?.label || tabId}」を削除しますか？`)) return;
+            saveCustomTabs(loadCustomTabs().filter(t => t.id !== tabId));
+            const eIdx = _editConfig.findIndex(c => c.id === tabId);
+            if (eIdx !== -1) _editConfig.splice(eIdx, 1);
+            document.getElementById('page-' + tabId)?.remove();
+            renderMgrList();
+            toast('🗑 タブを削除しました');
+          });
+        });
       }
 
       function openTabMgr() {
@@ -9951,6 +10224,49 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         toast('✓ タブ設定を保存しました');
       });
       modal?.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+
+      // ─── タブ追加フォーム ─────────────────────────────────────────────
+      const _addForm = document.getElementById('tab-add-form');
+      document.getElementById('tab-add-btn')?.addEventListener('click', () => {
+        _addForm.style.display = _addForm.style.display === 'none' ? 'block' : 'none';
+        if (_addForm.style.display === 'block') document.getElementById('tab-add-label')?.focus();
+      });
+      document.getElementById('tab-add-cancel-btn')?.addEventListener('click', () => {
+        _addForm.style.display = 'none';
+      });
+      document.getElementById('tab-add-type')?.addEventListener('change', e => {
+        const row = document.getElementById('tab-add-content-row');
+        const inp = document.getElementById('tab-add-content');
+        if (e.target.value === 'url') {
+          row.style.display = 'block';
+          inp.placeholder = 'URL (例: https://example.com)';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+      document.getElementById('tab-add-confirm-btn')?.addEventListener('click', () => {
+        const icon  = (document.getElementById('tab-add-icon')?.value  || '').trim() || '📄';
+        const label = (document.getElementById('tab-add-label')?.value || '').trim();
+        const type  = document.getElementById('tab-add-type')?.value || 'blank';
+        const content = (document.getElementById('tab-add-content')?.value || '').trim();
+        if (!label) { toast('⚠️ タブ名を入力してください'); return; }
+        const id = 'custom_' + Date.now();
+        const newTab = { id, icon, label, type, content };
+        const customs = loadCustomTabs();
+        customs.push(newTab);
+        saveCustomTabs(customs);
+        _ensureCustomTabPage(newTab);
+        _editConfig.push({ id, visible: true });
+        // フォームリセット
+        _addForm.style.display = 'none';
+        document.getElementById('tab-add-label').value = '';
+        document.getElementById('tab-add-icon').value  = '🔗';
+        document.getElementById('tab-add-type').value  = 'url';
+        document.getElementById('tab-add-content').value = '';
+        document.getElementById('tab-add-content-row').style.display = 'block';
+        renderMgrList();
+        toast('✓ タブを追加しました');
+      });
     })();
 
     /* =====================================================

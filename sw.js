@@ -3,7 +3,7 @@
    ※ CACHE バージョンを上げると全クライアントのキャッシュが更新される
    ===================================================== */
 
-const CACHE      = 'kintai-v25';
+const CACHE      = 'kintai-v26';
 const CACHE_STATIC = 'kintai-static-v1'; // アイコン等の静的アセット
 const PRECACHE   = ['./index.html', './manifest.json', './recover.html', './icon-apple.png', './icon-192.png', './icon-512.png'];
 const STATIC_EXT = ['.png', '.jpg', '.svg', '.ico', '.woff2'];
