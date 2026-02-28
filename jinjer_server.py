@@ -278,6 +278,19 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/system/logs':
             self._handle_system_logs(params)
 
+        # ===== /api/tailscale-url — Tailscale Serve の HTTPS URL を返す =====
+        elif path == '/api/tailscale-url':
+            self._handle_tailscale_url()
+
+        # ===== 静的ファイル配信 — http://localhost:8899/ で PWA を直接表示 =====
+        # Safari は HTTPS(GitHub Pages) → HTTP(localhost) の混在コンテンツをブロックするため、
+        # Mac では http://localhost:8899/ を直接開くことで同一オリジンになりブロックを回避できる。
+        elif path in ('/', '/index.html'):
+            self._send_static('index.html')
+        elif path in ('/sw.js', '/manifest.json', '/recover.html',
+                      '/icon-apple.png', '/icon-192.png', '/icon-512.png'):
+            self._send_static(path)
+
         else:
             self._send_json({'error': 'Not found'}, 404)
 
@@ -474,6 +487,103 @@ class JinjerHandler(BaseHTTPRequestHandler):
         recent = all_lines[-lines_n:] if len(all_lines) > lines_n else all_lines
         self._send_json({'type': log_type, 'lines': recent, 'total': len(all_lines)})
 
+    # ===== 静的ファイル配信 =====
+    _MIME_MAP = {
+        '.html': 'text/html; charset=utf-8',
+        '.js':   'application/javascript; charset=utf-8',
+        '.json': 'application/json; charset=utf-8',
+        '.css':  'text/css; charset=utf-8',
+        '.png':  'image/png',
+        '.jpg':  'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.svg':  'image/svg+xml',
+        '.ico':  'image/x-icon',
+        '.woff2': 'font/woff2',
+        '.woff':  'font/woff',
+        '.txt':   'text/plain; charset=utf-8',
+        '.webmanifest': 'application/manifest+json',
+    }
+
+    def _send_static(self, rel_path: str):
+        """静的ファイルを配信する (パストラバーサル対策済み)"""
+        try:
+            target = (_HERE / rel_path.lstrip('/')).resolve()
+            target.relative_to(_HERE.resolve())  # パストラバーサル防止
+        except (ValueError, OSError):
+            self._send_json({'error': 'Forbidden'}, 403)
+            return
+        if not target.exists() or target.is_dir():
+            self._send_json({'error': 'Not found'}, 404)
+            return
+        mime = self._MIME_MAP.get(target.suffix.lower(), 'application/octet-stream')
+        try:
+            body = target.read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', mime)
+            self.send_header('Content-Length', str(len(body)))
+            # SW / マニフェストはキャッシュを無効化（常に最新を使用）
+            if target.name in ('sw.js', 'manifest.json'):
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            else:
+                self.send_header('Cache-Control', 'max-age=3600')
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    def _handle_tailscale_url(self):
+        """Tailscale Serve の HTTPS URL を検出して返す。
+        1. `tailscale serve status --json` で serve 設定を確認
+        2. なければ `tailscale status --json` でホスト名を取得して URL を構築
+        """
+        https_url = None
+        method = 'none'
+
+        # ── 方法1: serve 設定から直接取得 ──────────────────────────────────
+        try:
+            r = subprocess.run(
+                ['tailscale', 'serve', 'status', '--json'],
+                capture_output=True, text=True, timeout=5
+            )
+            if r.returncode == 0 and r.stdout.strip():
+                data = json.loads(r.stdout)
+                # SelfDNS フィールドから HTTPS URL を構築
+                dns = (data.get('Self', {}).get('DNSName', '') or '').rstrip('.')
+                if dns:
+                    https_url = f'https://{dns}'
+                    method = 'serve-status'
+        except Exception:
+            pass
+
+        # ── 方法2: tailscale status からホスト名を取得 ────────────────────
+        if not https_url:
+            try:
+                r2 = subprocess.run(
+                    ['tailscale', 'status', '--json'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if r2.returncode == 0 and r2.stdout.strip():
+                    data2 = json.loads(r2.stdout)
+                    dns2 = (data2.get('Self', {}).get('DNSName', '') or '').rstrip('.')
+                    if dns2:
+                        https_url = f'https://{dns2}'
+                        method = 'status'
+            except Exception:
+                pass
+
+        if https_url:
+            self._send_json({
+                'https_url': https_url,
+                'method': method,
+                'note': 'Mac で "tailscale serve --bg 8899" を実行すると、このURLでPWAに接続できます',
+            })
+        else:
+            self._send_json({
+                'https_url': None,
+                'method': 'not-found',
+                'note': 'Tailscale がインストールされていないか、起動していません',
+            })
+
     def _handle_system_restart(self):
         """launchd 経由でサーバー自身を1秒後に再起動する"""
         def _do_restart():
@@ -519,6 +629,10 @@ def _kill_port(port: int) -> bool:
 
 
 _BANNER = f"""jinjer同期サーバー起動: http://0.0.0.0:{{port}}
+  📱 PWA ローカルアクセス: http://localhost:{{port}}/
+     ↑ Safari では GitHub Pages(HTTPS) からは localhost:8899 に接続できないため
+       このURLを直接ブックマークしてください。
+  GET  /api/health                      — ヘルスチェック
   GET  /api/jinjer?months=2026-02       — jinjer 勤怠データ取得
   GET  /api/reports                     — 作業報告書ファイル一覧
   GET  /api/reports/read?year=2026&month=02 — 指定月 Excel → JSON

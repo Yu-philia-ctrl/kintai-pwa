@@ -1678,6 +1678,146 @@
       background: var(--bg-card-solid); color: var(--text-main);
       font-family: monospace;
     }
+
+    /* ======= HTTPS バナー ======= */
+    .https-banner {
+      display: none;
+      position: sticky; top: 0; z-index: 900;
+      background: linear-gradient(135deg, #ff8c00, #ff5500);
+      color: #fff; padding: 10px 14px; font-size: 12px; line-height: 1.5;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+    .https-banner a { color: #ffe0b2; font-weight: 700; text-decoration: underline; }
+    .https-banner-close { float: right; cursor: pointer; font-size: 16px; line-height: 1; margin-left: 8px; opacity: 0.8; }
+
+    /* ======= タブ管理ボタン ======= */
+    .tab-manage-btn {
+      flex: 0 0 auto; min-width: 44px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 8px 4px 6px; font-size: 9px; font-weight: 700;
+      color: var(--text-muted); border: none; background: none;
+      cursor: pointer; font-family: inherit; gap: 2px;
+      transition: color 0.15s; -webkit-tap-highlight-color: transparent;
+      border-left: 1px solid rgba(180,190,220,0.3);
+    }
+    .tab-manage-btn:active { color: var(--accent-blue); }
+
+    /* ======= タブ管理モーダル ======= */
+    .tab-mgr-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 0; border-bottom: 1px solid var(--border-color);
+      transition: background 0.12s, opacity 0.12s;
+      border-radius: 8px;
+    }
+    .tab-mgr-item:last-child { border-bottom: none; }
+    .tab-mgr-item.drag-over { background: rgba(60,80,200,0.08); }
+    .tab-mgr-item.dragging { opacity: 0.4; }
+    .tab-mgr-handle {
+      font-size: 20px; cursor: grab; color: var(--text-muted);
+      user-select: none; touch-action: none; padding: 0 4px;
+    }
+    .tab-mgr-handle:active { cursor: grabbing; }
+    .tab-mgr-icon { font-size: 20px; width: 26px; text-align: center; }
+    .tab-mgr-label { flex: 1; font-size: 14px; font-weight: 600; }
+    .tab-mgr-toggle {
+      position: relative; width: 44px; height: 26px;
+      background: var(--border-color); border-radius: 13px; cursor: pointer;
+      transition: background 0.2s; flex-shrink: 0; border: none;
+    }
+    .tab-mgr-toggle.on { background: var(--accent-blue); }
+    .tab-mgr-toggle::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px; border-radius: 50%; background: #fff;
+      transition: left 0.2s; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    .tab-mgr-toggle.on::after { left: 21px; }
+
+    /* ======= 従業員管理タブ ======= */
+    .emp-list { display: flex; flex-direction: column; gap: 10px; }
+    .emp-card {
+      background: var(--bg-card-solid); border-radius: 14px;
+      border: 1px solid var(--border-color);
+      padding: 14px; display: flex; align-items: flex-start; gap: 12px;
+      box-shadow: 0 2px 8px rgba(60,80,200,0.06);
+      transition: box-shadow 0.15s;
+    }
+    .emp-card:active { box-shadow: 0 4px 16px rgba(60,80,200,0.14); }
+    .emp-avatar {
+      width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; color: #fff;
+    }
+    .emp-info { flex: 1; min-width: 0; }
+    .emp-name { font-size: 15px; font-weight: 700; color: var(--text-main); }
+    .emp-role { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .emp-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .emp-tag {
+      font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+      background: var(--bg-page); color: var(--text-muted);
+      border: 1px solid var(--border-color);
+    }
+    .emp-tag.active-tag { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+    .emp-tag.inactive-tag { background: #fce4ec; color: #c62828; border-color: #ef9a9a; }
+    .emp-actions { display: flex; flex-direction: column; gap: 4px; }
+    .emp-action-btn {
+      background: var(--bg-card-solid); border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 4px 10px; font-size: 11px; cursor: pointer;
+      color: var(--text-muted); font-family: inherit;
+    }
+    .emp-action-btn:active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+    .emp-empty { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
+    .emp-add-btn {
+      width: 100%; padding: 14px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      color: #fff; font-size: 15px; font-weight: 700; border: none;
+      cursor: pointer; font-family: inherit; margin-bottom: 12px;
+      box-shadow: 0 4px 14px rgba(60,80,200,0.25);
+    }
+
+    /* ======= 市場価値タブ ======= */
+    .market-score-ring {
+      width: 120px; height: 120px; margin: 0 auto 16px;
+      position: relative; display: flex; align-items: center; justify-content: center;
+    }
+    .market-score-ring svg { position: absolute; top: 0; left: 0; transform: rotate(-90deg); }
+    .market-score-ring-inner { text-align: center; z-index: 1; }
+    .market-score-num { font-size: 34px; font-weight: 800; color: var(--accent-blue); line-height: 1; }
+    .market-score-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .market-income-estimate {
+      text-align: center; padding: 14px; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(60,80,200,0.08), rgba(130,80,200,0.08));
+      border: 1px solid rgba(60,80,200,0.15); margin-bottom: 14px;
+    }
+    .market-income-num { font-size: 28px; font-weight: 800; color: var(--accent-blue); }
+    .market-income-unit { font-size: 14px; color: var(--text-muted); }
+    .market-section-title { font-size: 13px; font-weight: 700; color: var(--text-muted); margin: 14px 0 8px; letter-spacing: 0.5px; }
+    .market-skill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .market-skill-chip {
+      padding: 8px 10px; border-radius: 10px; cursor: pointer;
+      border: 2px solid var(--border-color); background: var(--bg-card-solid);
+      font-size: 12px; font-weight: 600; color: var(--text-muted);
+      transition: all 0.15s; text-align: left; font-family: inherit;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .market-skill-chip.selected {
+      border-color: var(--accent-blue); background: rgba(60,80,200,0.08);
+      color: var(--accent-blue);
+    }
+    .market-skill-chip.selected::before { content: '✓ '; }
+    .market-slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .market-slider-label { font-size: 12px; color: var(--text-muted); min-width: 80px; }
+    .market-slider { flex: 1; accent-color: var(--accent-blue); }
+    .market-slider-val { font-size: 13px; font-weight: 700; color: var(--accent-blue); min-width: 30px; text-align: right; }
+    .market-breakdown { display: flex; flex-direction: column; gap: 6px; }
+    .market-bd-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .market-bd-label { color: var(--text-muted); min-width: 110px; }
+    .market-bd-bar-wrap { flex: 1; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; }
+    .market-bd-bar { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); transition: width 0.4s; }
+    .market-bd-val { font-weight: 700; color: var(--accent-blue); min-width: 32px; text-align: right; }
+    .market-reco { background: rgba(60,80,200,0.06); border-radius: 12px; padding: 12px; font-size: 12px; line-height: 1.7; }
+    .market-reco strong { color: var(--accent-blue); }
   </style>
 </head>
 
@@ -1702,6 +1842,14 @@
       <button class="backup-now-btn" id="btn-backup-now">一括バックアップ</button>
       <span class="backup-dismiss" id="backup-dismiss">×</span>
     </div>
+  </div>
+
+  <!-- HTTPS 混在コンテンツ警告バナー -->
+  <div class="https-banner" id="https-banner">
+    <span class="https-banner-close" id="https-banner-close">✕</span>
+    ⚠️ <strong>Safari でサーバーに接続できません。</strong>
+    HTTPS(GitHub Pages) → HTTP(localhost) は Safari でブロックされます。<br>
+    Mac では <a href="http://localhost:8899/" target="_blank" rel="noopener">http://localhost:8899/</a> を直接ブックマークして開いてください。
   </div>
 
   <!-- ===== TAB: 勤怠カレンダー ===== -->
@@ -2391,6 +2539,21 @@
         </div>
         <hr style="border:none;border-top:1px solid var(--border-soft);margin:4px 0;">
         <div class="settings-row">
+          <div class="settings-label">🌐 外部 HTTPS URL（iPhone 接続用）</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="url" id="settings-ext-url" class="settings-input" placeholder="例: https://macbook.tailnet.ts.net" autocomplete="off" style="flex:1;margin:0;">
+            <button id="settings-ext-url-detect" class="btn-secondary" style="font-size:11px;white-space:nowrap;padding:6px 10px;">🔍 自動検出</button>
+          </div>
+          <div class="settings-hint" style="margin-top:4px;">
+            iPhoneから jinjer同期・報告書 に接続するためのHTTPS URL。<br>
+            <strong>Tailscale Serve</strong>（推奨）: Mac で
+            <code style="background:var(--bg-page);padding:1px 5px;border-radius:4px;font-size:11px;">tailscale serve --bg 8899</code>
+            を実行 → 自動検出ボタンで取得。iPhone に Tailscale アプリが必要。<br>
+            <strong>Cloudflare Tunnel</strong>: <code style="background:var(--bg-page);padding:1px 5px;border-radius:4px;font-size:11px;">cloudflared tunnel --url http://localhost:8899</code>
+            で取得した URL を貼り付け（iPhone に何も不要）。
+          </div>
+        </div>
+        <div class="settings-row">
           <div class="settings-label">🔒 Tailscale MacBook IP</div>
           <input type="text" id="settings-ts-mac" class="settings-input" placeholder="例: 100.x.x.x" autocomplete="off" inputmode="decimal">
         </div>
@@ -2502,32 +2665,111 @@
   </div>
 
   <!-- Bottom Tab Navigation -->
+  <!-- ===== TAB: 従業員管理 ===== -->
+  <div id="page-employee" class="tab-page">
+    <button class="emp-add-btn" id="emp-add-btn">＋ 従業員を追加</button>
+    <div class="emp-list" id="emp-list"></div>
+  </div>
+
+  <!-- ===== TAB: 市場価値 ===== -->
+  <div id="page-market" class="tab-page">
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">📈 あなたの市場価値</div>
+      <div class="market-score-ring" id="market-ring">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border-color)" stroke-width="10"/>
+          <circle id="market-ring-arc" cx="60" cy="60" r="50" fill="none"
+            stroke="url(#mgrad)" stroke-width="10" stroke-linecap="round"
+            stroke-dasharray="314" stroke-dashoffset="314"/>
+          <defs>
+            <linearGradient id="mgrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="var(--accent-blue)"/>
+              <stop offset="100%" stop-color="var(--accent-purple)"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="market-score-ring-inner">
+          <div class="market-score-num" id="market-score-num">--</div>
+          <div class="market-score-label">スコア</div>
+        </div>
+      </div>
+      <div class="market-income-estimate" id="market-income-box" style="display:none;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">推定年収レンジ</div>
+        <div class="market-income-num" id="market-income-low">--</div>
+        <span class="market-income-unit"> 〜 </span>
+        <span class="market-income-num" id="market-income-high">--</span>
+        <span class="market-income-unit">万円/年</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">⏱ 経験年数</div>
+      <div class="market-slider-row">
+        <span class="market-slider-label">IT 経験</span>
+        <input type="range" class="market-slider" id="mkt-exp-it" min="0" max="20" value="3">
+        <span class="market-slider-val" id="mkt-exp-it-val">3年</span>
+      </div>
+      <div class="market-slider-row">
+        <span class="market-slider-label">現在の職種</span>
+        <input type="range" class="market-slider" id="mkt-exp-role" min="0" max="20" value="1">
+        <span class="market-slider-val" id="mkt-exp-role-val">1年</span>
+      </div>
+      <div class="market-slider-row">
+        <span class="market-slider-label">マネジメント</span>
+        <input type="range" class="market-slider" id="mkt-exp-mgmt" min="0" max="10" value="0">
+        <span class="market-slider-val" id="mkt-exp-mgmt-val">0年</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">💻 スキルセット（複数選択可）</div>
+      <div class="market-section-title">プログラミング言語</div>
+      <div class="market-skill-grid" id="mkt-skills-lang"></div>
+      <div class="market-section-title">フレームワーク / ライブラリ</div>
+      <div class="market-skill-grid" id="mkt-skills-fw"></div>
+      <div class="market-section-title">クラウド / インフラ</div>
+      <div class="market-skill-grid" id="mkt-skills-cloud"></div>
+      <div class="market-section-title">資格</div>
+      <div class="market-skill-grid" id="mkt-skills-cert"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">📊 スコア内訳</div>
+      <div class="market-breakdown" id="mkt-breakdown"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💡 市場価値向上のアドバイス</div>
+      <div class="market-reco" id="mkt-reco"></div>
+    </div>
+  </div>
+
   <nav class="bottom-tabs" id="bottom-tabs">
-    <button class="tab-btn active" data-tab="calendar">
-      <span class="tab-icon">📅</span>勤怠
-    </button>
-    <button class="tab-btn" data-tab="hub">
-      <span class="tab-icon">🚀</span>ハブ
-    </button>
-    <button class="tab-btn" data-tab="study">
-      <span class="tab-icon">📚</span>学習
-    </button>
-    <button class="tab-btn" data-tab="project">
-      <span class="tab-icon">📊</span>進捗
-    </button>
-    <button class="tab-btn" data-tab="report">
-      <span class="tab-icon">📋</span>報告書
-    </button>
-    <button class="tab-btn" data-tab="jobs">
-      <span class="tab-icon">💼</span>案件
-    </button>
-    <button class="tab-btn" data-tab="ai">
-      <span class="tab-icon">🤖</span>AI
-    </button>
-    <button class="tab-btn" data-tab="system">
-      <span class="tab-icon">🔧</span>システム
+    <!-- タブボタンは JS (_initTabManager) で動的に生成されます -->
+    <button class="tab-manage-btn" id="tab-manage-btn" title="タブ管理">
+      <span style="font-size:18px;">⊕</span>管理
     </button>
   </nav>
+
+  <!-- タブ管理モーダル -->
+  <div class="modal-backdrop" id="tab-mgr-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title">⚙️ タブ管理</div>
+        <button class="modal-close" id="tab-mgr-close">✕</button>
+      </div>
+      <div style="padding:0 14px;overflow-y:auto;max-height:55vh;">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
+          ☰ をドラッグして並び替え。右のトグルで表示/非表示。
+        </p>
+        <div id="tab-mgr-list"></div>
+      </div>
+      <div style="padding:0 14px 14px;">
+        <button id="tab-mgr-save" class="btn-primary" style="width:100%;margin-top:10px;">✓ 保存</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Progress overlay（jinjer同期・重い処理用） -->
   <div class="progress-overlay" id="progress-overlay">
@@ -3907,17 +4149,32 @@
       return result;
     }
 
-    // サーバーURL解決: localhostを最優先、なければTailscale IP
+    // サーバーURL解決 (優先順位):
+    //   1. http://localhost:PORT  — Mac 上で直接開いている場合 (同一オリジン)
+    //   2. 設定の externalHttpsUrl — Tailscale Serve / Cloudflare Tunnel (iPhone等から接続)
+    //   3. http://TailscaleIP:PORT — 旧フォールバック (Chrome on Mac only)
     async function _resolveServerUrl(port) {
-      // Macブラウザ / ローカルサーバー起動中 → localhost が最速
-      // /api/health は常に200を返す専用エンドポイント
+      // ── 1. localhost (Mac 直接アクセス / http://localhost:8899/ から開いた場合) ──
       try {
         const ctrl = new AbortController();
         setTimeout(() => ctrl.abort(), 2000);
         const r = await fetch(`http://localhost:${port}/api/health`, { signal: ctrl.signal });
         if (r.ok) return `http://localhost:${port}`;
       } catch(_) {}
-      // フォールバック: Tailscale IP
+
+      // ── 2. 設定済み HTTPS URL (Tailscale Serve / Cloudflare Tunnel) ──────────
+      const cfg = loadConfig();
+      const extUrl = cfg.externalHttpsUrl;
+      if (extUrl && extUrl.startsWith('https://')) {
+        try {
+          const ctrl3 = new AbortController();
+          setTimeout(() => ctrl3.abort(), 4000);
+          const r3 = await fetch(`${extUrl}/api/health`, { signal: ctrl3.signal });
+          if (r3.ok) return extUrl;
+        } catch(_) {}
+      }
+
+      // ── 3. Tailscale IP (HTTP) — Chrome のみ localhost 例外なし環境で動作 ────
       const sens = await loadSensitiveData();
       if (sens.tsMac) {
         try {
@@ -4169,6 +4426,7 @@
       document.getElementById('settings-style-gender').value = cfg.styleGender   || 'メンズ';
       document.getElementById('settings-style-type').value   = cfg.styleType     || 'casual';
       document.getElementById('settings-style-color').value  = cfg.styleColor    || 'basic';
+      document.getElementById('settings-ext-url').value      = cfg.externalHttpsUrl || '';
       document.getElementById('settings-ts-mac').value       = sens.tsMac     || '';
       document.getElementById('settings-ts-iphone').value    = sens.tsIphone  || '';
       document.getElementById('settings-ts-user').value      = cfg.tsUser     || '';
@@ -4208,7 +4466,8 @@
         styleGender: document.getElementById('settings-style-gender').value,
         styleType:   document.getElementById('settings-style-type').value,
         styleColor:  document.getElementById('settings-style-color').value,
-        tsUser:         document.getElementById('settings-ts-user').value.trim(),
+        tsUser:            document.getElementById('settings-ts-user').value.trim(),
+        externalHttpsUrl:  document.getElementById('settings-ext-url').value.trim().replace(/\/$/, ''),
         jinjerCompany:     document.getElementById('settings-jinjer-company').value.trim(),
         jinjerEmail:       document.getElementById('settings-jinjer-email').value.trim(),
         jinjerStartMonth:  document.getElementById('settings-jinjer-start-month').value.trim() || '2025-10',
@@ -4235,6 +4494,32 @@
       if (jinjerLink) jinjerLink.href = cfg.jinjerUrl;
       document.getElementById('settings-modal').classList.remove('show');
       toast('設定を保存しました');
+    });
+
+    // 外部HTTPS URL 自動検出ボタン
+    document.getElementById('settings-ext-url-detect')?.addEventListener('click', async () => {
+      const btn = document.getElementById('settings-ext-url-detect');
+      btn.textContent = '⏳…';
+      btn.disabled = true;
+      try {
+        const r = await fetch('http://localhost:8899/api/tailscale-url', { signal: AbortSignal.timeout(6000) });
+        if (r.ok) {
+          const data = await r.json();
+          if (data.https_url) {
+            document.getElementById('settings-ext-url').value = data.https_url;
+            toast(`✅ 検出: ${data.https_url}`);
+          } else {
+            toast('⚠ Tailscale URL が見つかりません。先に "tailscale serve --bg 8899" を実行してください。');
+          }
+        } else {
+          throw new Error(`HTTP ${r.status}`);
+        }
+      } catch(e) {
+        toast('❌ ローカルサーバーに接続できません。http://localhost:8899/ を開いて設定してください。');
+      } finally {
+        btn.textContent = '🔍 自動検出';
+        btn.disabled = false;
+      }
     });
 
     /* =====================================================
@@ -5587,28 +5872,7 @@
     /* =====================================================
        TAB NAVIGATION
        ===================================================== */
-    (function initTabs() {
-      const tabs   = document.querySelectorAll('.tab-btn[data-tab]');
-      const pages  = document.querySelectorAll('.tab-page');
-      const calFabs = [document.getElementById('fab-group')];
-
-      function switchTab(tabName) {
-        tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
-        pages.forEach(p => p.classList.toggle('active', p.id === 'page-' + tabName));
-        const isCal = (tabName === 'calendar');
-        calFabs.forEach(f => f?.classList.toggle('hidden', !isCal));
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        if (tabName === 'hub')     { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); }
-        if (tabName === 'study')   renderStudy();
-        if (tabName === 'project') renderProjects();
-        if (tabName === 'report')  { initReportTab(); }
-        if (tabName === 'jobs')    { initJobsTab(); }
-        if (tabName === 'ai')      { if (window.initAiTab) window.initAiTab(); }
-        if (tabName === 'system')  { if (window._initSystemTab) window._initSystemTab(); }
-      }
-
-      tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
-    })();
+    // タブナビゲーションは _initTabManager (下部) で動的に管理します
 
     /* =====================================================
        FAB GROUP TOGGLE
@@ -8618,6 +8882,625 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           });
         });
       });
+    })();
+
+    /* =====================================================
+       HTTPS MIXED CONTENT BANNER
+       ===================================================== */
+    (function initHttpsBanner() {
+      // HTTPS ページから HTTP localhost への接続は Safari でブロックされる
+      // → GitHub Pages(HTTPS) でアクセスしている場合のみバナーを表示
+      const isHttps = location.protocol === 'https:';
+      const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if (!isHttps || isLocalhost) return;
+
+      // ローカルサーバー存在チェック (fetch できれば非表示)
+      const DISMISSED_KEY = '_kintai_https_banner_dismissed';
+      if (sessionStorage.getItem(DISMISSED_KEY)) return;
+
+      const banner = document.getElementById('https-banner');
+      if (!banner) return;
+
+      // Safari ではこの fetch 自体がブロックされて catch に落ちる → バナー表示
+      fetch('http://localhost:8899/api/health', { signal: AbortSignal.timeout(1500) })
+        .then(r => { if (!r.ok) throw new Error(); })
+        .catch(() => {
+          banner.style.display = 'block';
+        });
+
+      document.getElementById('https-banner-close')?.addEventListener('click', () => {
+        banner.style.display = 'none';
+        sessionStorage.setItem(DISMISSED_KEY, '1');
+      });
+    })();
+
+    /* =====================================================
+       TAB MANAGER — 動的タブバー + 表示/非表示/ドラッグ並び替え
+       ===================================================== */
+    (function _initTabManager() {
+      const TAB_CFG_KEY = '_kintai_tab_config_v1';
+
+      // 全タブ定義
+      const ALL_TABS = [
+        { id: 'calendar',  icon: '📅', label: '勤怠',    defaultVisible: true  },
+        { id: 'hub',       icon: '🚀', label: 'ハブ',    defaultVisible: true  },
+        { id: 'study',     icon: '📚', label: '学習',    defaultVisible: true  },
+        { id: 'project',   icon: '📊', label: '進捗',    defaultVisible: true  },
+        { id: 'report',    icon: '📋', label: '報告書',  defaultVisible: true  },
+        { id: 'jobs',      icon: '💼', label: '案件',    defaultVisible: true  },
+        { id: 'ai',        icon: '🤖', label: 'AI',      defaultVisible: true  },
+        { id: 'system',    icon: '🔧', label: 'システム',defaultVisible: true  },
+        { id: 'employee',  icon: '👥', label: '従業員',  defaultVisible: false },
+        { id: 'market',    icon: '📈', label: '市場価値',defaultVisible: false },
+      ];
+
+      function loadTabConfig() {
+        try { const r = localStorage.getItem(TAB_CFG_KEY); if (r) return JSON.parse(r); } catch(_) {}
+        return null;
+      }
+      function saveTabConfig(cfg) { localStorage.setItem(TAB_CFG_KEY, JSON.stringify(cfg)); }
+
+      function getEffectiveConfig() {
+        const saved = loadTabConfig();
+        const base = saved || ALL_TABS.map(t => ({ id: t.id, visible: t.defaultVisible }));
+        const knownIds = new Set(base.map(c => c.id));
+        const merged = [...base];
+        for (const t of ALL_TABS) {
+          if (!knownIds.has(t.id)) merged.push({ id: t.id, visible: t.defaultVisible });
+        }
+        return merged;
+      }
+
+      let _currentTab = 'calendar';
+
+      function switchTab(tabName) {
+        _currentTab = tabName;
+        document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.tab === tabName);
+        });
+        document.querySelectorAll('.tab-page').forEach(p => {
+          p.classList.toggle('active', p.id === 'page-' + tabName);
+        });
+        document.getElementById('fab-group')?.classList.toggle('hidden', tabName !== 'calendar');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); }
+        if (tabName === 'study')    renderStudy();
+        if (tabName === 'project')  renderProjects();
+        if (tabName === 'report')   { initReportTab(); }
+        if (tabName === 'jobs')     { initJobsTab(); }
+        if (tabName === 'ai')       { if (window.initAiTab) window.initAiTab(); }
+        if (tabName === 'system')   { if (window._initSystemTab) window._initSystemTab(); }
+        if (tabName === 'employee') { if (window._renderEmployeeList) window._renderEmployeeList(); }
+        if (tabName === 'market')   { if (window._renderMarket) window._renderMarket(); }
+      }
+      window._switchTab = switchTab;
+
+      function renderTabBar() {
+        const nav = document.getElementById('bottom-tabs');
+        if (!nav) return;
+        const config = getEffectiveConfig();
+        const manageBtn = nav.querySelector('#tab-manage-btn');
+        nav.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.remove());
+
+        const visibleIds = config.filter(c => c.visible).map(c => c.id);
+        if (visibleIds.length > 0 && !visibleIds.includes(_currentTab)) {
+          _currentTab = visibleIds[0];
+        }
+
+        config.filter(c => c.visible).forEach(cfg => {
+          const info = ALL_TABS.find(t => t.id === cfg.id);
+          if (!info) return;
+          const btn = document.createElement('button');
+          btn.className = 'tab-btn' + (cfg.id === _currentTab ? ' active' : '');
+          btn.dataset.tab = cfg.id;
+          btn.innerHTML = `<span class="tab-icon">${info.icon}</span>${info.label}`;
+          btn.addEventListener('click', () => switchTab(cfg.id));
+          nav.insertBefore(btn, manageBtn);
+        });
+
+        document.querySelectorAll('.tab-page').forEach(p => {
+          p.classList.toggle('active', p.id === 'page-' + _currentTab);
+        });
+        document.getElementById('fab-group')?.classList.toggle('hidden', _currentTab !== 'calendar');
+      }
+
+      renderTabBar();
+
+      // ===== ドラッグ&ドロップ (マウス + タッチ対応) =====
+      const modal = document.getElementById('tab-mgr-modal');
+      const listEl = document.getElementById('tab-mgr-list');
+      let _editConfig = [];
+      let _dragSrcIdx = null;
+
+      function renderMgrList() {
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        _editConfig.forEach((cfg, idx) => {
+          const info = ALL_TABS.find(t => t.id === cfg.id);
+          if (!info) return;
+          const row = document.createElement('div');
+          row.className = 'tab-mgr-item';
+          row.dataset.idx = idx;
+          row.setAttribute('draggable', 'true');
+          row.innerHTML = `
+            <span class="tab-mgr-handle" title="ドラッグで並び替え">☰</span>
+            <span class="tab-mgr-icon">${info.icon}</span>
+            <span class="tab-mgr-label">${info.label}</span>
+            <button class="tab-mgr-toggle ${cfg.visible ? 'on' : ''}" data-idx="${idx}"></button>
+          `;
+          listEl.appendChild(row);
+        });
+
+        // ─── マウスドラッグ ───────────────────────────────────────────────
+        listEl.querySelectorAll('.tab-mgr-item').forEach(row => {
+          row.addEventListener('dragstart', e => {
+            _dragSrcIdx = parseInt(row.dataset.idx);
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          row.addEventListener('dragend', () => {
+            listEl.querySelectorAll('.tab-mgr-item').forEach(r => r.classList.remove('dragging', 'drag-over'));
+          });
+          row.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const over = parseInt(row.dataset.idx);
+            if (over !== _dragSrcIdx) {
+              listEl.querySelectorAll('.tab-mgr-item').forEach(r => r.classList.remove('drag-over'));
+              row.classList.add('drag-over');
+            }
+          });
+          row.addEventListener('drop', e => {
+            e.preventDefault();
+            const destIdx = parseInt(row.dataset.idx);
+            if (_dragSrcIdx !== null && _dragSrcIdx !== destIdx) {
+              const moved = _editConfig.splice(_dragSrcIdx, 1)[0];
+              _editConfig.splice(destIdx, 0, moved);
+              renderMgrList();
+            }
+          });
+        });
+
+        // ─── タッチドラッグ (iOS / Android) ──────────────────────────────
+        let _touchSrcIdx = null, _touchClone = null, _touchStartY = 0;
+        listEl.querySelectorAll('.tab-mgr-handle').forEach(handle => {
+          handle.addEventListener('touchstart', e => {
+            const row = handle.closest('.tab-mgr-item');
+            _touchSrcIdx = parseInt(row.dataset.idx);
+            _touchStartY = e.touches[0].clientY;
+            row.classList.add('dragging');
+            // 視覚クローン
+            _touchClone = row.cloneNode(true);
+            _touchClone.style.cssText = `position:fixed;left:14px;right:14px;z-index:9999;opacity:0.85;
+              pointer-events:none;background:var(--bg-card-solid);border-radius:12px;
+              box-shadow:0 6px 24px rgba(0,0,0,0.2);padding:0 10px;`;
+            _touchClone.style.top = (row.getBoundingClientRect().top) + 'px';
+            document.body.appendChild(_touchClone);
+            e.preventDefault();
+          }, { passive: false });
+
+          handle.addEventListener('touchmove', e => {
+            if (_touchClone == null) return;
+            const dy = e.touches[0].clientY - _touchStartY;
+            const srcRow = listEl.children[_touchSrcIdx];
+            const top = srcRow?.getBoundingClientRect().top + dy;
+            _touchClone.style.top = top + 'px';
+
+            // 現在どの行の上にいるか検出
+            const touchY = e.touches[0].clientY;
+            listEl.querySelectorAll('.tab-mgr-item').forEach(r => r.classList.remove('drag-over'));
+            let hovered = null;
+            listEl.querySelectorAll('.tab-mgr-item').forEach(r => {
+              const rect = r.getBoundingClientRect();
+              if (touchY >= rect.top && touchY <= rect.bottom) hovered = r;
+            });
+            if (hovered) hovered.classList.add('drag-over');
+            e.preventDefault();
+          }, { passive: false });
+
+          handle.addEventListener('touchend', () => {
+            if (_touchClone) { _touchClone.remove(); _touchClone = null; }
+            const destRow = listEl.querySelector('.tab-mgr-item.drag-over');
+            const destIdx = destRow ? parseInt(destRow.dataset.idx) : null;
+            listEl.querySelectorAll('.tab-mgr-item').forEach(r => r.classList.remove('dragging', 'drag-over'));
+            if (_touchSrcIdx !== null && destIdx !== null && _touchSrcIdx !== destIdx) {
+              const moved = _editConfig.splice(_touchSrcIdx, 1)[0];
+              _editConfig.splice(destIdx, 0, moved);
+              renderMgrList();
+            }
+            _touchSrcIdx = null;
+          });
+        });
+
+        // ─── トグル ─────────────────────────────────────────────────────
+        listEl.querySelectorAll('.tab-mgr-toggle').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.idx);
+            if (_editConfig[idx].id === 'calendar' && _editConfig[idx].visible) return;
+            _editConfig[idx].visible = !_editConfig[idx].visible;
+            btn.classList.toggle('on', _editConfig[idx].visible);
+          });
+        });
+      }
+
+      function openTabMgr() {
+        _editConfig = getEffectiveConfig().map(c => ({ ...c }));
+        renderMgrList();
+        modal.classList.add('show');
+      }
+
+      document.getElementById('tab-manage-btn')?.addEventListener('click', openTabMgr);
+      document.getElementById('tab-mgr-close')?.addEventListener('click', () => modal.classList.remove('show'));
+      document.getElementById('tab-mgr-save')?.addEventListener('click', () => {
+        saveTabConfig(_editConfig);
+        renderTabBar();
+        modal.classList.remove('show');
+        toast('✓ タブ設定を保存しました');
+      });
+      modal?.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+    })();
+
+    /* =====================================================
+       EMPLOYEE MANAGEMENT
+       ===================================================== */
+    (function _initEmployeeManager() {
+      const EMP_KEY = '_kintai_employees_v1';
+      const EMPLOYMENT_TYPES = ['正社員', '契約社員', 'パート・アルバイト', '業務委託', '派遣社員', 'インターン'];
+      const ROLES = ['エンジニア', 'デザイナー', 'プロジェクトマネージャー', 'ディレクター', 'マーケター', '営業', '経理', '人事', 'その他'];
+
+      function loadEmployees() {
+        try { return JSON.parse(localStorage.getItem(EMP_KEY) || '[]'); } catch(_) { return []; }
+      }
+      function saveEmployees(list) {
+        localStorage.setItem(EMP_KEY, JSON.stringify(list));
+      }
+      function newId() { return 'emp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
+
+      window._renderEmployeeList = function() {
+        const listEl = document.getElementById('emp-list');
+        if (!listEl) return;
+        const emps = loadEmployees();
+        if (emps.length === 0) {
+          listEl.innerHTML = '<div class="emp-empty">👥 従業員が登録されていません<br><small>「従業員を追加」ボタンから登録してください</small></div>';
+          return;
+        }
+        listEl.innerHTML = '';
+        emps.forEach(emp => {
+          const card = document.createElement('div');
+          card.className = 'emp-card';
+          const initials = emp.name ? emp.name.charAt(0) : '?';
+          const statusTag = emp.status === 'inactive'
+            ? '<span class="emp-tag inactive-tag">退職</span>'
+            : '<span class="emp-tag active-tag">在籍</span>';
+          card.innerHTML = `
+            <div class="emp-avatar">${initials}</div>
+            <div class="emp-info">
+              <div class="emp-name">${emp.name || '(名前未設定)'}</div>
+              <div class="emp-role">${emp.role || ''} ${emp.department ? '/ ' + emp.department : ''}</div>
+              <div class="emp-tags">
+                ${statusTag}
+                ${emp.employmentType ? `<span class="emp-tag">${emp.employmentType}</span>` : ''}
+                ${emp.startDate ? `<span class="emp-tag">入社: ${emp.startDate}</span>` : ''}
+              </div>
+            </div>
+            <div class="emp-actions">
+              <button class="emp-action-btn" data-id="${emp.id}" data-action="edit">✏️</button>
+              <button class="emp-action-btn" data-id="${emp.id}" data-action="delete" style="color:#e53935;">🗑</button>
+            </div>
+          `;
+          listEl.appendChild(card);
+        });
+
+        listEl.querySelectorAll('.emp-action-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            const action = btn.dataset.action;
+            if (action === 'edit') _openEmpModal(id);
+            if (action === 'delete') _deleteEmployee(id);
+          });
+        });
+      };
+
+      function _deleteEmployee(id) {
+        if (!confirm('この従業員を削除しますか？')) return;
+        const list = loadEmployees().filter(e => e.id !== id);
+        saveEmployees(list);
+        window._renderEmployeeList();
+        toast('🗑 従業員を削除しました');
+      }
+
+      function _openEmpModal(editId) {
+        const emps = loadEmployees();
+        const existing = editId ? emps.find(e => e.id === editId) : null;
+
+        // 動的にモーダル生成
+        let modal = document.getElementById('emp-modal');
+        if (!modal) {
+          modal = document.createElement('div');
+          modal.id = 'emp-modal';
+          modal.className = 'modal-backdrop';
+          modal.innerHTML = `
+            <div class="modal-sheet" style="max-height:88vh;overflow-y:auto;">
+              <div class="modal-handle"></div>
+              <div class="modal-header">
+                <div class="modal-title" id="emp-modal-title">従業員を追加</div>
+                <button class="modal-close" id="emp-modal-close">✕</button>
+              </div>
+              <div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:10px;">
+                <label style="font-size:12px;font-weight:700;color:var(--text-muted);">氏名 *</label>
+                <input id="emp-f-name" class="settings-input" placeholder="山田 太郎" style="margin:0;">
+                <label style="font-size:12px;font-weight:700;color:var(--text-muted);">メールアドレス</label>
+                <input id="emp-f-email" class="settings-input" type="email" placeholder="yamada@example.com" style="margin:0;">
+                <label style="font-size:12px;font-weight:700;color:var(--text-muted);">職種・役割</label>
+                <select id="emp-f-role" class="settings-input" style="margin:0;">
+                  ${ROLES.map(r => `<option>${r}</option>`).join('')}
+                </select>
+                <label style="font-size:12px;font-weight:700;color:var(--text-muted);">部署</label>
+                <input id="emp-f-dept" class="settings-input" placeholder="開発部" style="margin:0;">
+                <label style="font-size:12px;font-weight:700;color:var(--text-muted);">雇用形態</label>
+                <select id="emp-f-type" class="settings-input" style="margin:0;">
+                  ${EMPLOYMENT_TYPES.map(t => `<option>${t}</option>`).join('')}
+                </select>
+                <label style="font-size:12px;font-weight:700;color:var(--text-muted);">入社日</label>
+                <input id="emp-f-start" class="settings-input" type="date" style="margin:0;">
+                <label style="font-size:12px;font-weight:700;color:var(--text-muted);">状態</label>
+                <select id="emp-f-status" class="settings-input" style="margin:0;">
+                  <option value="active">在籍中</option>
+                  <option value="inactive">退職</option>
+                </select>
+                <label style="font-size:12px;font-weight:700;color:var(--text-muted);">備考</label>
+                <textarea id="emp-f-notes" class="settings-input" rows="2" placeholder="メモ..." style="margin:0;resize:none;"></textarea>
+                <button id="emp-f-save" class="btn-primary" style="margin-top:6px;">保存</button>
+              </div>
+            </div>`;
+          document.body.appendChild(modal);
+          modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+          document.getElementById('emp-modal-close').addEventListener('click', () => modal.classList.remove('show'));
+        }
+
+        // フォームに既存データをセット
+        document.getElementById('emp-modal-title').textContent = existing ? '従業員を編集' : '従業員を追加';
+        document.getElementById('emp-f-name').value = existing?.name || '';
+        document.getElementById('emp-f-email').value = existing?.email || '';
+        document.getElementById('emp-f-role').value = existing?.role || ROLES[0];
+        document.getElementById('emp-f-dept').value = existing?.department || '';
+        document.getElementById('emp-f-type').value = existing?.employmentType || EMPLOYMENT_TYPES[0];
+        document.getElementById('emp-f-start').value = existing?.startDate || '';
+        document.getElementById('emp-f-status').value = existing?.status || 'active';
+        document.getElementById('emp-f-notes').value = existing?.notes || '';
+
+        const saveBtn = document.getElementById('emp-f-save');
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.addEventListener('click', () => {
+          const name = document.getElementById('emp-f-name').value.trim();
+          if (!name) { toast('❌ 氏名は必須です'); return; }
+          const emp = {
+            id: existing?.id || newId(),
+            name,
+            email: document.getElementById('emp-f-email').value.trim(),
+            role: document.getElementById('emp-f-role').value,
+            department: document.getElementById('emp-f-dept').value.trim(),
+            employmentType: document.getElementById('emp-f-type').value,
+            startDate: document.getElementById('emp-f-start').value,
+            status: document.getElementById('emp-f-status').value,
+            notes: document.getElementById('emp-f-notes').value.trim(),
+            updatedAt: new Date().toISOString(),
+          };
+          const list = loadEmployees();
+          if (existing) {
+            const i = list.findIndex(e => e.id === existing.id);
+            if (i >= 0) list[i] = emp; else list.push(emp);
+          } else {
+            list.push(emp);
+          }
+          saveEmployees(list);
+          window._renderEmployeeList();
+          modal.classList.remove('show');
+          toast(existing ? '✓ 従業員情報を更新しました' : '✓ 従業員を追加しました');
+        });
+
+        modal.classList.add('show');
+      }
+
+      document.getElementById('emp-add-btn')?.addEventListener('click', () => _openEmpModal(null));
+    })();
+
+    /* =====================================================
+       MARKET VALUE ASSESSMENT
+       ===================================================== */
+    (function _initMarketValue() {
+      const MKT_KEY = '_kintai_market_v1';
+
+      const SKILLS = {
+        lang:  [
+          { id: 'js',     label: 'JavaScript', pts: 15 },
+          { id: 'ts',     label: 'TypeScript',  pts: 18 },
+          { id: 'python', label: 'Python',       pts: 16 },
+          { id: 'java',   label: 'Java',         pts: 15 },
+          { id: 'go',     label: 'Go',           pts: 20 },
+          { id: 'rust',   label: 'Rust',         pts: 22 },
+          { id: 'swift',  label: 'Swift',        pts: 16 },
+          { id: 'kotlin', label: 'Kotlin',       pts: 16 },
+          { id: 'php',    label: 'PHP',          pts: 10 },
+          { id: 'ruby',   label: 'Ruby',         pts: 12 },
+        ],
+        fw: [
+          { id: 'react',    label: 'React',       pts: 18 },
+          { id: 'vue',      label: 'Vue.js',      pts: 14 },
+          { id: 'angular',  label: 'Angular',     pts: 13 },
+          { id: 'nextjs',   label: 'Next.js',     pts: 18 },
+          { id: 'django',   label: 'Django',      pts: 14 },
+          { id: 'fastapi',  label: 'FastAPI',     pts: 16 },
+          { id: 'spring',   label: 'Spring',      pts: 15 },
+          { id: 'nodejs',   label: 'Node.js',     pts: 14 },
+          { id: 'flutter',  label: 'Flutter',     pts: 16 },
+          { id: 'llm',      label: 'LLM/AI統合',  pts: 25 },
+        ],
+        cloud: [
+          { id: 'aws',    label: 'AWS',           pts: 22 },
+          { id: 'gcp',    label: 'GCP',           pts: 20 },
+          { id: 'azure',  label: 'Azure',         pts: 20 },
+          { id: 'docker', label: 'Docker',        pts: 16 },
+          { id: 'k8s',    label: 'Kubernetes',    pts: 22 },
+          { id: 'ci',     label: 'CI/CD',         pts: 14 },
+          { id: 'linux',  label: 'Linux',         pts: 12 },
+          { id: 'pg',     label: 'PostgreSQL',    pts: 12 },
+        ],
+        cert: [
+          { id: 'ap',      label: '応用情報技術者',      pts: 20 },
+          { id: 'fe',      label: '基本情報技術者',      pts: 12 },
+          { id: 'aws_saa', label: 'AWS SAA',             pts: 20 },
+          { id: 'aws_pro', label: 'AWS Professional',    pts: 30 },
+          { id: 'gcp_ace', label: 'GCP Associate',       pts: 18 },
+          { id: 'pmp',     label: 'PMP',                 pts: 25 },
+          { id: 'scrum',   label: 'Scrum Master',        pts: 18 },
+          { id: 'sec',     label: '情報セキュリティ SP',  pts: 22 },
+        ],
+      };
+
+      function loadState() {
+        try { return JSON.parse(localStorage.getItem(MKT_KEY) || '{}'); } catch(_) { return {}; }
+      }
+      function saveState(s) { localStorage.setItem(MKT_KEY, JSON.stringify(s)); }
+
+      function renderSkillGrid(containerId, skills, selected) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        el.innerHTML = '';
+        skills.forEach(sk => {
+          const btn = document.createElement('button');
+          btn.className = 'market-skill-chip' + (selected.has(sk.id) ? ' selected' : '');
+          btn.textContent = sk.label;
+          btn.dataset.id = sk.id;
+          btn.addEventListener('click', () => {
+            btn.classList.toggle('selected');
+            recalc();
+          });
+          el.appendChild(btn);
+        });
+      }
+
+      function getSelected(containerId) {
+        return new Set(
+          [...document.querySelectorAll(`#${containerId} .market-skill-chip.selected`)].map(b => b.dataset.id)
+        );
+      }
+
+      function recalc() {
+        const expIt   = parseInt(document.getElementById('mkt-exp-it')?.value   || 0);
+        const expRole = parseInt(document.getElementById('mkt-exp-role')?.value || 0);
+        const expMgmt = parseInt(document.getElementById('mkt-exp-mgmt')?.value || 0);
+
+        // スキルポイント合計 (カテゴリ別上限あり)
+        const allCats = { lang: 60, fw: 60, cloud: 50, cert: 60 };
+        let skillPts = 0;
+        const catPts = {};
+        for (const [cat, skills] of Object.entries(SKILLS)) {
+          const sel = getSelected(`mkt-skills-${cat}`);
+          let pts = skills.filter(sk => sel.has(sk.id)).reduce((s, sk) => s + sk.pts, 0);
+          pts = Math.min(pts, allCats[cat]);
+          catPts[cat] = pts;
+          skillPts += pts;
+        }
+
+        // 経験年数ポイント
+        const expPts = Math.min(expIt * 8, 80) + Math.min(expRole * 5, 40) + Math.min(expMgmt * 10, 50);
+
+        // 総スコア (最大 300)
+        const raw = skillPts + expPts;
+        const score = Math.min(Math.round(raw * 300 / 400), 300);
+
+        // 推定年収 (万円)
+        const baseIncome = 300;
+        const incomeRange = score * 2.2;
+        const incLow  = Math.round((baseIncome + incomeRange * 0.7) / 10) * 10;
+        const incHigh = Math.round((baseIncome + incomeRange * 1.2) / 10) * 10;
+
+        // スコアリング UI 更新
+        const scoreEl = document.getElementById('market-score-num');
+        const arcEl   = document.getElementById('market-ring-arc');
+        if (scoreEl) scoreEl.textContent = score;
+        if (arcEl) {
+          const pct = score / 300;
+          const circumference = 314;
+          arcEl.style.strokeDashoffset = String(circumference - circumference * pct);
+        }
+
+        document.getElementById('market-income-box').style.display = '';
+        document.getElementById('market-income-low').textContent  = incLow;
+        document.getElementById('market-income-high').textContent = incHigh;
+
+        // 内訳
+        const bdEl = document.getElementById('mkt-breakdown');
+        if (bdEl) {
+          const rows = [
+            { label: '言語スキル',       val: catPts.lang,  max: 60 },
+            { label: 'FW/ライブラリ',    val: catPts.fw,    max: 60 },
+            { label: 'クラウド/インフラ', val: catPts.cloud, max: 50 },
+            { label: '資格',             val: catPts.cert,  max: 60 },
+            { label: 'IT 経験年数',       val: Math.min(expIt*8, 80),    max: 80 },
+            { label: '職種経験年数',      val: Math.min(expRole*5, 40),  max: 40 },
+            { label: 'マネジメント',      val: Math.min(expMgmt*10, 50), max: 50 },
+          ];
+          bdEl.innerHTML = rows.map(r => `
+            <div class="market-bd-row">
+              <span class="market-bd-label">${r.label}</span>
+              <div class="market-bd-bar-wrap"><div class="market-bd-bar" style="width:${Math.round(r.val/r.max*100)}%"></div></div>
+              <span class="market-bd-val">${r.val}</span>
+            </div>`).join('');
+        }
+
+        // アドバイス
+        const recoEl = document.getElementById('mkt-reco');
+        if (recoEl) {
+          const advice = [];
+          if (catPts.cloud < 20) advice.push('<strong>☁️ クラウド</strong>: AWS/GCP の基礎資格を取得すると年収が大幅アップします。');
+          if (catPts.cert < 20)  advice.push('<strong>📜 資格</strong>: 応用情報技術者・AWS SAA など実績として評価されやすい資格を狙いましょう。');
+          if (!getSelected('mkt-skills-fw').has('llm')) advice.push('<strong>🤖 AI/LLM</strong>: LLM 統合スキルは現在最も市場価値が高い領域の一つです。');
+          if (expMgmt < 2) advice.push('<strong>👔 マネジメント</strong>: チームリードや副PM を経験すると年収レンジが大きく上昇します。');
+          if (expIt < 5)   advice.push('<strong>⏱ 経験</strong>: IT 経験 5 年以上でスコアが大きく伸びます。継続的な実務が重要です。');
+          if (advice.length === 0) advice.push('<strong>🏆 素晴らしい！</strong>現在のスキルセットは非常に競争力があります。継続的な学習で更に差をつけましょう。');
+          recoEl.innerHTML = advice.join('<br><br>');
+        }
+
+        // 状態を保存
+        const state = {
+          expIt, expRole, expMgmt,
+          selected: {
+            lang:  [...getSelected('mkt-skills-lang')],
+            fw:    [...getSelected('mkt-skills-fw')],
+            cloud: [...getSelected('mkt-skills-cloud')],
+            cert:  [...getSelected('mkt-skills-cert')],
+          }
+        };
+        saveState(state);
+      }
+
+      window._renderMarket = function() {
+        const state = loadState();
+        const sel = state.selected || {};
+
+        // スライダー初期値
+        ['it', 'role', 'mgmt'].forEach(k => {
+          const inp = document.getElementById(`mkt-exp-${k}`);
+          const val = document.getElementById(`mkt-exp-${k}-val`);
+          if (inp && state[`exp${k.charAt(0).toUpperCase()+k.slice(1)}`] != null) {
+            inp.value = state[`exp${k.charAt(0).toUpperCase()+k.slice(1)}`];
+          }
+          if (inp && val) val.textContent = inp.value + '年';
+          inp?.addEventListener('input', () => {
+            if (val) val.textContent = inp.value + '年';
+            recalc();
+          });
+        });
+
+        // スキルグリッド描画 (保存済み選択を反映)
+        for (const [cat, skills] of Object.entries(SKILLS)) {
+          renderSkillGrid(`mkt-skills-${cat}`, skills, new Set(sel[cat] || []));
+        }
+        recalc();
+      };
     })();
 
     /* =====================================================
