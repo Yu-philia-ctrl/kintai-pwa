@@ -2,6 +2,12 @@
 .env
 .env.*
 config.local.py
+secrets.json
+*.key
+*.pem
+*.p12
+credentials.json
+service-account.json
 
 # Python
 __pycache__/

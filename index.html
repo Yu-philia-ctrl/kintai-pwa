@@ -418,16 +418,32 @@
 
     /* ======= TOAST ======= */
     .toast {
-      position:fixed; left:50%; bottom:calc(max(var(--safe-bottom), 20px) + 4px);
-      transform:translateX(-50%);
-      background:rgba(0,0,0,0.78); color:#fff;
-      padding:10px 14px; border-radius:999px;
-      font-size:12px; font-weight:700;
-      z-index:2000; display:none;
-      max-width:92vw; white-space:nowrap;
-      overflow:hidden; text-overflow:ellipsis;
+      position: fixed;
+      left: 50%;
+      bottom: calc(max(var(--safe-bottom), 20px) + var(--tab-bar-h) + 8px);
+      transform: translateX(-50%) translateY(12px);
+      background: rgba(22, 24, 38, 0.92);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      z-index: 2000;
+      max-width: 92vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: 0;
+      pointer-events: none;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.28);
+      transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22,1,0.36,1);
     }
-    .toast.show { display:block; }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
 
     /* ======= PROGRESS OVERLAY ======= */
     .progress-overlay {
@@ -477,6 +493,53 @@
     .net-banner.show  { transform: translateY(0); }
     .net-banner.online  { background: rgba(34,136,56,0.92); }
     .net-banner.offline { background: rgba(180,30,30,0.92); }
+
+    /* ======= SKELETON / SHIMMER LOADING ======= */
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg,
+        rgba(200,210,230,0.35) 25%,
+        rgba(220,228,245,0.55) 50%,
+        rgba(200,210,230,0.35) 75%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite;
+      border-radius: 8px;
+    }
+
+    /* ======= GLOBAL BUTTON MICRO-INTERACTIONS ======= */
+    .pill-button,
+    .data-btn,
+    .btn-secondary,
+    .fab-group-toggle,
+    .fab-today,
+    .fab-task,
+    .fab-recover {
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.12s cubic-bezier(0.34,1.56,0.64,1),
+                  opacity 0.12s ease,
+                  box-shadow 0.12s ease;
+    }
+    .pill-button:active,
+    .data-btn:active,
+    .btn-secondary:active {
+      transform: scale(0.96);
+      opacity: 0.88;
+    }
+
+    /* ======= CARD HOVER ELEVATION ======= */
+    @media (hover: hover) {
+      .card {
+        transition: box-shadow 0.22s ease, transform 0.22s cubic-bezier(0.22,1,0.36,1);
+      }
+      .card:hover {
+        box-shadow: 0 12px 48px rgba(60,80,200,0.14), 0 1px 0 rgba(255,255,255,0.7) inset;
+        transform: translateY(-1px);
+      }
+    }
 
     /* ======= INSTALL BANNER ======= */
     .install-banner {
@@ -651,6 +714,53 @@
     /* AI ページを active 時に flex レイアウトにする */
     #page-ai.active { display: flex !important; }
 
+    /* ======= DB STATUS CARD ======= */
+    .db-status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .db-status-item {
+      background: rgba(255,255,255,0.5);
+      border-radius: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(180,190,220,0.3);
+      transition: background 0.2s;
+    }
+    .db-status-item-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .db-status-item-value {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .db-status-item-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .db-status-item-ok .db-status-item-value  { color: #2e7d32; }
+    .db-status-item-warn .db-status-item-value { color: #e65100; }
+    .db-status-item-err .db-status-item-value  { color: #c62828; }
+    .db-status-refresh-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      gap: 6px;
+    }
+    .db-status-last-updated {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
     /* ======= JOBS TAB ======= */
     .jobs-server-banner {
       background: #fff8e1; border: 1px solid #ffe0b2; border-radius: 10px;
@@ -722,8 +832,19 @@
     .tab-icon { font-size: 20px; line-height: 1; }
 
     /* ======= TAB PAGES ======= */
-    .tab-page { display: none; }
-    .tab-page.active { display: block; }
+    .tab-page {
+      display: none;
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    .tab-page.active {
+      display: block;
+      animation: tabFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes tabFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
     /* ======= HUB / LAUNCHER ======= */
     .jinjer-card {
@@ -1652,6 +1773,26 @@
       <div id="sysinfo-summary" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">読み込み中…</div>
       <button class="btn-secondary" id="sysinfo-open-btn" style="width:100%;margin-bottom:6px;">📂 ファイルブラウザを開く</button>
       <button class="btn-secondary" id="sysinfo-structure-btn" style="width:100%;">📋 STRUCTURE.md を見る</button>
+    </div>
+
+    <!-- DB ステータスカード -->
+    <div class="card" id="db-status-card">
+      <div class="card-title">🗄 データストア状態</div>
+      <div id="db-status-content">
+        <div class="db-status-grid">
+          <div class="db-status-item skeleton" style="height:58px;"></div>
+          <div class="db-status-item skeleton" style="height:58px;"></div>
+          <div class="db-status-item skeleton" style="height:58px;"></div>
+          <div class="db-status-item skeleton" style="height:58px;"></div>
+        </div>
+      </div>
+      <div class="db-status-refresh-row">
+        <span class="db-status-last-updated" id="db-status-updated"></span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-secondary" id="db-refresh-btn" style="padding:4px 10px;font-size:11px;">🔄 更新</button>
+          <button class="btn-secondary" id="db-export-all-btn" style="padding:4px 10px;font-size:11px;">💾 全バックアップ</button>
+        </div>
+      </div>
     </div>
 
     <!-- Tailscale VPN / SSH card -->
@@ -2971,6 +3112,7 @@
       delete safe.tsIphone;
       delete safe.jinjerPass;
       localStorage.setItem(CFG_KEY, JSON.stringify(safe));
+      idbSaveConfig(safe); // 非同期 IDB バックアップ
     }
 
     /* =====================================================
@@ -2980,7 +3122,7 @@
        復元:     localStorage が空の場合 IndexedDB から自動復元
        ===================================================== */
     const IDB_NAME    = 'kintai_idb';
-    const IDB_VERSION = 1;
+    const IDB_VERSION = 2;  // v1: attendance → v2: + config_backup + tasks_backup
     const IDB_STORE   = 'attendance';
 
     function _openIDB() {
@@ -2988,7 +3130,13 @@
         try {
           const req = indexedDB.open(IDB_NAME, IDB_VERSION);
           req.onupgradeneeded = e => {
-            e.target.result.createObjectStore(IDB_STORE, { keyPath: 'id' });
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('attendance'))
+              db.createObjectStore('attendance', { keyPath: 'id' });
+            if (!db.objectStoreNames.contains('config_backup'))
+              db.createObjectStore('config_backup', { keyPath: 'id' });
+            if (!db.objectStoreNames.contains('tasks_backup'))
+              db.createObjectStore('tasks_backup', { keyPath: 'id' });
           };
           req.onsuccess = e => resolve(e.target.result);
           req.onerror   = () => resolve(null);
@@ -3011,6 +3159,48 @@
       return new Promise(resolve => {
         try {
           const req = db.transaction(IDB_STORE).objectStore(IDB_STORE).get('main');
+          req.onsuccess = () => resolve(req.result?.data || null);
+          req.onerror   = () => resolve(null);
+        } catch (_) { resolve(null); }
+      });
+    }
+
+    async function idbSaveConfig(cfg) {
+      const db = await _openIDB();
+      if (!db) return;
+      try {
+        const tx = db.transaction('config_backup', 'readwrite');
+        tx.objectStore('config_backup').put({ id: 'main', data: cfg, saved_at: new Date().toISOString() });
+      } catch (_) {}
+    }
+
+    async function idbLoadConfig() {
+      const db = await _openIDB();
+      if (!db) return null;
+      return new Promise(resolve => {
+        try {
+          const req = db.transaction('config_backup').objectStore('config_backup').get('main');
+          req.onsuccess = () => resolve(req.result?.data || null);
+          req.onerror   = () => resolve(null);
+        } catch (_) { resolve(null); }
+      });
+    }
+
+    async function idbSaveTasksUnified(tasks) {
+      const db = await _openIDB();
+      if (!db) return;
+      try {
+        const tx = db.transaction('tasks_backup', 'readwrite');
+        tx.objectStore('tasks_backup').put({ id: 'main', data: tasks, saved_at: new Date().toISOString() });
+      } catch (_) {}
+    }
+
+    async function idbLoadTasksUnified() {
+      const db = await _openIDB();
+      if (!db) return null;
+      return new Promise(resolve => {
+        try {
+          const req = db.transaction('tasks_backup').objectStore('tasks_backup').get('main');
           req.onsuccess = () => resolve(req.result?.data || null);
           req.onerror   = () => resolve(null);
         } catch (_) { resolve(null); }
@@ -3057,16 +3247,28 @@
 
     // 起動時: localStorage が空なら IndexedDB から復元
     async function restoreFromIDBIfNeeded() {
+      let restored = false;
+      // 勤怠データ
       const ls = localStorage.getItem(STORE_KEY);
-      const isEmpty = !ls || ls === '{"months":{}}';
-      if (!isEmpty) return false;
-      const idbData = await idbLoad();
-      if (idbData && Object.keys(idbData.months || {}).length > 0) {
-        localStorage.setItem(STORE_KEY, JSON.stringify(idbData));
-        toast('💾 IndexedDBからデータを復元しました');
-        return true;
+      const storeEmpty = !ls || ls === '{"months":{}}';
+      if (storeEmpty) {
+        const idbData = await idbLoad();
+        if (idbData && Object.keys(idbData.months || {}).length > 0) {
+          localStorage.setItem(STORE_KEY, JSON.stringify(idbData));
+          toast('💾 IndexedDBから勤怠データを復元しました');
+          restored = true;
+        }
       }
-      return false;
+      // 設定
+      const lsCfg = localStorage.getItem(CFG_KEY);
+      if (!lsCfg || lsCfg === '{}') {
+        const idbCfg = await idbLoadConfig();
+        if (idbCfg && Object.keys(idbCfg).length > 0) {
+          localStorage.setItem(CFG_KEY, JSON.stringify(idbCfg));
+          if (!restored) toast('💾 IndexedDBから設定を復元しました');
+        }
+      }
+      return restored;
     }
 
     function buildSkeleton(ym) {
@@ -3143,10 +3345,15 @@
     const toastEl   = document.getElementById('toast');
     const overlayEl = document.getElementById('overlay');
 
-    function toast(msg) {
+    let _toastTimer = null;
+    function toast(msg, duration = 2200) {
       toastEl.textContent = msg;
       toastEl.classList.add('show');
-      setTimeout(() => toastEl.classList.remove('show'), 1400);
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => {
+        toastEl.classList.remove('show');
+        _toastTimer = null;
+      }, duration);
     }
 
     function setLoading(v) {
@@ -4667,57 +4874,160 @@
        TASK IDB AUTO-BACKUP  — localStorage が消えても復元できる
        ===================================================== */
     (function initTaskIdbBackup() {
-      const DB   = 'kintaiTaskBackupDB';
-      const STOR = 'tasks';
-      let _db = null;
-
-      function _open() {
-        if (_db) return Promise.resolve(_db);
-        return new Promise((res, rej) => {
-          const r = indexedDB.open(DB, 1);
-          r.onupgradeneeded = e => e.target.result.createObjectStore(STOR, { keyPath: 'id' });
-          r.onsuccess = e => { _db = e.target.result; res(_db); };
-          r.onerror   = () => rej(r.error);
-        });
-      }
-
-      // 外部から saveTasks 経由で呼ばれる
+      // 統合 kintai_idb の tasks_backup ストアを使用
       window._taskIdbBackup = async function(tasks) {
-        try {
-          const db = await _open();
-          const tx = db.transaction(STOR, 'readwrite');
-          const s  = tx.objectStore(STOR);
-          s.clear();
-          tasks.forEach(t => s.put(t));
-          return new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
-        } catch (e) { console.warn('[TaskIDB] backup failed', e); }
+        try { await idbSaveTasksUnified(tasks); } catch (e) { console.warn('[TaskIDB] backup failed', e); }
       };
-
-      async function _restore() {
-        try {
-          const db = await _open();
-          return new Promise(res => {
-            const r = db.transaction(STOR, 'readonly').objectStore(STOR).getAll();
-            r.onsuccess = () => res(r.result || []);
-            r.onerror   = () => res([]);
-          });
-        } catch { return []; }
-      }
 
       // 起動時: localStorage が空なら IDB から復元
       (async () => {
         if (loadTasks().length === 0) {
-          const backup = await _restore();
-          if (backup.length > 0) {
+          const backup = await idbLoadTasksUnified();
+          if (backup && backup.length > 0) {
             localStorage.setItem(TASKS_KEY, JSON.stringify(backup));
             if (typeof toast === 'function')
               toast(`💾 バックアップから ${backup.length} 件のタスクを復元しました`);
           }
         } else {
-          // 起動時に IDB へも同期
           window._taskIdbBackup(loadTasks());
         }
       })();
+    })();
+
+    /* =====================================================
+       DB STATUS PANEL — ハブタブのデータストア状態表示
+       ===================================================== */
+    (function initDbStatus() {
+      const container = document.getElementById('db-status-content');
+      const updatedEl = document.getElementById('db-status-updated');
+      if (!container) return;
+
+      async function refresh() {
+        const items = [];
+
+        // 1. 勤怠データ (localStorage)
+        const storeStr = localStorage.getItem(STORE_KEY) || '{}';
+        let storeMonths = 0;
+        try { storeMonths = Object.keys(JSON.parse(storeStr).months || {}).length; } catch(_) {}
+        items.push({
+          label: '勤怠データ (LS)',
+          value: `${storeMonths}ヶ月`,
+          sub: `${Math.round(storeStr.length / 1024)}KB`,
+          status: storeMonths > 0 ? 'ok' : 'warn',
+        });
+
+        // 2. 勤怠データ (IDB)
+        const idbData = await idbLoad();
+        const idbMonths = Object.keys(idbData?.months || {}).length;
+        items.push({
+          label: '勤怠データ (IDB)',
+          value: `${idbMonths}ヶ月`,
+          sub: idbData ? '同期済み' : '未バックアップ',
+          status: idbMonths > 0 ? 'ok' : (storeMonths > 0 ? 'warn' : 'err'),
+        });
+
+        // 3. タスク (localStorage)
+        const tasks = loadTasks();
+        items.push({
+          label: 'タスク (LS)',
+          value: `${tasks.length}件`,
+          sub: `${Math.round(JSON.stringify(tasks).length / 1024)}KB`,
+          status: tasks.length > 0 ? 'ok' : 'warn',
+        });
+
+        // 4. タスク (IDB)
+        const idbTasks = await idbLoadTasksUnified();
+        items.push({
+          label: 'タスク (IDB)',
+          value: `${idbTasks?.length ?? 0}件`,
+          sub: idbTasks ? '同期済み' : '未バックアップ',
+          status: (idbTasks?.length ?? 0) > 0 ? 'ok' : 'warn',
+        });
+
+        // 5. 設定 (localStorage)
+        const cfgStr = localStorage.getItem(CFG_KEY) || '{}';
+        let cfgKeys = 0;
+        try { cfgKeys = Object.keys(JSON.parse(cfgStr)).length; } catch(_) {}
+        items.push({
+          label: '設定 (LS)',
+          value: `${cfgKeys}項目`,
+          sub: `${cfgStr.length}B`,
+          status: cfgKeys > 0 ? 'ok' : 'warn',
+        });
+
+        // 6. 設定 (IDB)
+        const idbCfg = await idbLoadConfig();
+        items.push({
+          label: '設定 (IDB)',
+          value: idbCfg ? `${Object.keys(idbCfg).length}項目` : '未保存',
+          sub: idbCfg ? '同期済み' : '未バックアップ',
+          status: idbCfg ? 'ok' : 'warn',
+        });
+
+        // 7. localStorage 合計使用量
+        let lsTotal = 0;
+        for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
+        const lsKB = Math.round(lsTotal / 1024);
+        const lsPct = Math.round(lsTotal / (5 * 1024 * 1024) * 100);
+        items.push({
+          label: 'LS 合計使用量',
+          value: `${lsKB}KB`,
+          sub: `上限5MBの約${lsPct}%`,
+          status: lsPct < 70 ? 'ok' : lsPct < 90 ? 'warn' : 'err',
+        });
+
+        // 8. APIキー保存状態
+        const hasSens = !!localStorage.getItem('_kintai_sens_v1');
+        items.push({
+          label: 'APIキー',
+          value: hasSens ? '暗号化済み' : '未設定',
+          sub: hasSens ? 'AES-GCM' : 'AIタブで設定可',
+          status: 'ok',
+        });
+
+        container.innerHTML = `<div class="db-status-grid">${
+          items.map(it => `
+            <div class="db-status-item db-status-item-${it.status}">
+              <div class="db-status-item-label">${it.label}</div>
+              <div class="db-status-item-value">${it.value}</div>
+              <div class="db-status-item-sub">${it.sub}</div>
+            </div>
+          `).join('')
+        }</div>`;
+
+        if (updatedEl) updatedEl.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP')}`;
+      }
+
+      window._refreshDbStatus = refresh;
+
+      // ボタンイベント
+      document.getElementById('db-refresh-btn')?.addEventListener('click', refresh);
+
+      document.getElementById('db-export-all-btn')?.addEventListener('click', async () => {
+        const store  = loadStore();
+        const tasks  = loadTasks();
+        const cfg    = loadConfig();
+        const idbD   = await idbLoad();
+        const idbT   = await idbLoadTasksUnified();
+        const idbC   = await idbLoadConfig();
+        const payload = {
+          exported_at: new Date().toISOString(),
+          version: '2.0',
+          kintai: store,
+          tasks,
+          config: cfg,
+          idb_snapshot: { kintai: idbD, tasks: idbT, config: idbC },
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `kintai-full-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        toast('💾 全データのエクスポートが完了しました');
+      });
+
+      // ハブタブ初回表示時に遅延読み込み
+      setTimeout(refresh, 1800);
     })();
 
     /* =====================================================
@@ -5026,7 +5336,7 @@
         const isCal = (tabName === 'calendar');
         calFabs.forEach(f => f?.classList.toggle('hidden', !isCal));
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        if (tabName === 'hub')     { renderLauncher(); renderTailscaleCard(); }
+        if (tabName === 'hub')     { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); }
         if (tabName === 'study')   renderStudy();
         if (tabName === 'project') renderProjects();
         if (tabName === 'report')  { initReportTab(); }
