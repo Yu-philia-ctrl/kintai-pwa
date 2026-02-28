@@ -64,6 +64,15 @@ CACHE_TTL = 300  # 5分
 ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
 STRUCTURE_MD = _HERE / 'STRUCTURE.md'
 
+# ===== サーバーサイドデータブリッジ =====
+# GitHub Pages / localhost / iPhone など異なるオリジン間でデータを共有するためのファイルストア。
+# localStorage はオリジンごとに分離されているため、サーバーファイルが橋渡しになる。
+DATA_DIR = _HERE / 'data'
+DATA_DIR.mkdir(exist_ok=True)
+KINTAI_DATA_FILE = DATA_DIR / 'kintai_store.json'   # カレンダーデータ
+TASKS_DATA_FILE  = DATA_DIR / 'kintai_tasks.json'   # タスクデータ
+# ※ data/ は .gitignore で除外すること（個人データのため）
+
 # ===== フリーランス案件フィード =====
 JOBS_CACHE_TTL = 3600  # 1時間
 _jobs_cache: dict = {}
@@ -278,6 +287,14 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/system/logs':
             self._handle_system_logs(params)
 
+        # ===== /api/kintai-data — カレンダーデータ取得 =====
+        elif path == '/api/kintai-data':
+            self._handle_data_get(KINTAI_DATA_FILE)
+
+        # ===== /api/tasks-data — タスクデータ取得 =====
+        elif path == '/api/tasks-data':
+            self._handle_data_get(TASKS_DATA_FILE)
+
         # ===== /api/tailscale-url — Tailscale Serve の HTTPS URL を返す =====
         elif path == '/api/tailscale-url':
             self._handle_tailscale_url()
@@ -298,8 +315,16 @@ class JinjerHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path   = parsed.path
 
+        # ===== /api/kintai-data — カレンダーデータ保存 =====
+        if path == '/api/kintai-data':
+            self._handle_data_post(KINTAI_DATA_FILE)
+
+        # ===== /api/tasks-data — タスクデータ保存 =====
+        elif path == '/api/tasks-data':
+            self._handle_data_post(TASKS_DATA_FILE)
+
         # ===== /api/reports/sync =====
-        if path == '/api/reports/sync':
+        elif path == '/api/reports/sync':
             if not _REPORT_OK:
                 self._send_json({'error': 'report_sync.py が利用できません'}, 500)
                 return
@@ -528,6 +553,45 @@ class JinjerHandler(BaseHTTPRequestHandler):
                 self.send_header('Cache-Control', 'max-age=3600')
             self.end_headers()
             self.wfile.write(body)
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    # ===== データブリッジ: ファイル読み書き =====
+    def _handle_data_get(self, data_file: Path):
+        """ファイルストアからデータを返す。ファイルが存在しなければ空を返す。"""
+        if data_file.exists():
+            try:
+                raw = data_file.read_text(encoding='utf-8')
+                data = json.loads(raw)
+                # 最終更新時刻を付与
+                stat = data_file.stat()
+                data['_server_updated_at'] = _dt.fromtimestamp(stat.st_mtime).isoformat()
+                self._send_json(data)
+                return
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+                return
+        # ファイル未存在 → 空データ返却
+        self._send_json({'months': {}, '_server_updated_at': None})
+
+    def _handle_data_post(self, data_file: Path):
+        """データをファイルストアに保存する。自動バックアップ付き。"""
+        body = self._read_body()
+        if not body:
+            self._send_json({'error': 'ボディが空です'}, 400)
+            return
+        try:
+            # 既存ファイルがあればローテーションバックアップ (最大3世代)
+            if data_file.exists():
+                bak = data_file.with_suffix(f'.bak{int(time.time())}')
+                data_file.rename(bak)
+                # 古いバックアップを3世代を超えたら削除
+                baks = sorted(data_file.parent.glob(data_file.stem + '.bak*'), key=lambda p: p.stat().st_mtime)
+                for old in baks[:-3]:
+                    old.unlink(missing_ok=True)
+            body['_server_saved_at'] = _dt.now().isoformat()
+            data_file.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding='utf-8')
+            self._send_json({'ok': True, 'saved_at': body['_server_saved_at']})
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
 

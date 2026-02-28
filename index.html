@@ -2063,6 +2063,36 @@
         <div id="ts-ping-result" style="font-size:11px;margin-top:8px;text-align:center;display:none;"></div>
       </div>
     </div>
+
+    <!-- iPhone 接続ガイドカード -->
+    <div class="card" id="iphone-guide-card" style="margin-bottom:10px;">
+      <div class="card-title">📱 iPhone 接続ガイド</div>
+      <div style="font-size:12px;line-height:1.8;color:var(--text-muted);">
+        <div style="font-weight:700;color:var(--text-main);margin-bottom:6px;">🔴 現在の状態確認</div>
+        <div id="iphone-guide-status" style="padding:8px;background:var(--bg-page);border-radius:8px;margin-bottom:10px;font-size:11px;">
+          確認中...
+        </div>
+        <div style="font-weight:700;color:var(--text-main);margin-bottom:6px;">📋 Tailscale Serve セットアップ手順</div>
+        <ol style="padding-left:20px;margin:0 0 10px;">
+          <li><strong>Tailscale.app を起動</strong>（ステータスバーのTailscaleアイコン → オン）</li>
+          <li>ターミナルで実行: <code style="background:var(--bg-page);padding:2px 6px;border-radius:4px;">tailscale serve --bg 8899</code></li>
+          <li>設定（⚙️）→ 外部HTTPS URL → 「🔍 自動検出」</li>
+          <li>iPhone に <strong>Tailscale アプリ</strong>をインストールして同じアカウントでログイン</li>
+        </ol>
+        <div style="font-weight:700;color:var(--text-main);margin-bottom:6px;">☁️ Cloudflare Tunnel（Tailscale不要・iPhone何も不要）</div>
+        <div style="font-family:monospace;font-size:11px;background:var(--bg-page);padding:8px;border-radius:8px;">
+          brew install cloudflare/cloudflare/cloudflared<br>
+          cloudflared tunnel --url http://localhost:8899<br>
+          <span style="color:var(--text-muted)"># 表示された https://xxxx.trycloudflare.com を設定に貼る</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- システム改善提案カード -->
+    <div class="card" id="improvement-card">
+      <div class="card-title">🚀 システム改善ロードマップ</div>
+      <div id="improvement-list" style="font-size:12px;line-height:2;"></div>
+    </div>
   </div>
 
   <!-- ===== TAB: 資格・学習進捗 ===== -->
@@ -2602,6 +2632,11 @@
             危険な操作（全データ消去など）にPINロックをかけます。4〜6桁の数字。
           </div>
         </div>
+      </div>
+      <div style="padding:0 14px 6px;">
+        <button id="settings-restore-server" class="btn-secondary" style="width:100%;font-size:12px;padding:10px;">
+          ☁️ サーバーブリッジからデータを手動復元（別端末・別URLからの移行）
+        </button>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="settings-cancel">キャンセル</button>
@@ -3280,9 +3315,18 @@
        CONSTANTS
        ===================================================== */
     const STATUS_LIST = ["未", "出社", "在宅", "休日", "休み", "祝日"];
-    const STORE_KEY   = 'kintai_store_v1';
-    const LAST_KEY    = 'att_last_template';
-    const CFG_KEY     = 'kintai_config_v1';
+    /* =====================================================
+       ⚠️ CRITICAL DATA KEYS — 絶対に変更・削除禁止 ⚠️
+       以下のキーはユーザーの業務データが格納されています。
+       システム改修時にこれらのキーを変更すると全データが失われます。
+       新しいキーが必要な場合は別名で追加し、マイグレーション処理を実装すること。
+       ===================================================== */
+    const STORE_KEY   = 'kintai_store_v1';   // 📅 カレンダー/勤怠データ（最重要）
+    const LAST_KEY    = 'att_last_template'; // テンプレート
+    const CFG_KEY     = 'kintai_config_v1';  // ⚙️ 設定
+    // TASKS_KEY = 'kintai_tasks_v1'         // ✅ タスクデータ (5160行付近で定義)
+    // _SENS_STORE_KEY = '_kintai_sens_v1'   // 🔒 暗号化センシティブデータ (3370行付近)
+    /* ===================================================== */
 
     /* =====================================================
        JAPANESE HOLIDAY CALCULATION
@@ -3592,6 +3636,7 @@
         } catch(_) { console.error('[saveStore] 保存完全失敗'); }
       }
       idbSave(store); // 非同期ミラー（fire-and-forget）
+      _syncDataToServer('kintai', store); // サーバーブリッジ (非同期)
       // スナップショット: 30分に1回だけ保存（頻繁な書き込みを抑制）
       try {
         const lastSnap = localStorage.getItem('_kintai_snap_last') || '0';
@@ -3602,21 +3647,81 @@
       } catch(_) {}
     }
 
-    // 起動時: localStorage が空なら IndexedDB から復元
+    /* =====================================================
+       SERVER DATA BRIDGE — クロスオリジン/クロスデバイスデータ同期
+       localStorage はオリジン（URL）ごとに分離されているため、
+       ローカルサーバーをデータの橋渡しとして使用する。
+       - saveStore/saveTasks → サーバーへ非同期POST（サイレント）
+       - restoreFromIDBIfNeeded → IDB失敗時はサーバーからGET
+       ===================================================== */
+    const _SERVER_SYNC_THROTTLE = new Map(); // key → last sync ts
+
+    async function _syncDataToServer(type, data) {
+      // 同じキーで5秒以内の連続送信を抑制
+      const now = Date.now();
+      if ((now - (_SERVER_SYNC_THROTTLE.get(type) || 0)) < 5000) return;
+      _SERVER_SYNC_THROTTLE.set(type, now);
+
+      const base = await _resolveServerUrl(8899);
+      if (!base) return;
+      const endpoint = type === 'kintai' ? '/api/kintai-data' : '/api/tasks-data';
+      try {
+        await fetch(`${base}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+          signal: AbortSignal.timeout(4000),
+        });
+      } catch(_) {} // サイレント失敗（オフライン時はスキップ）
+    }
+
+    async function _restoreFromServer(type) {
+      const base = await _resolveServerUrl(8899);
+      if (!base) return null;
+      const endpoint = type === 'kintai' ? '/api/kintai-data' : '/api/tasks-data';
+      try {
+        const r = await fetch(`${base}${endpoint}`, { signal: AbortSignal.timeout(4000) });
+        if (!r.ok) return null;
+        const data = await r.json();
+        return data;
+      } catch(_) { return null; }
+    }
+
+    // 起動時: localStorage が空なら IDB → サーバー の順で復元
     async function restoreFromIDBIfNeeded() {
       let restored = false;
-      // 勤怠データ
+      // ── 勤怠データ ───────────────────────────────────────────────────────
       const ls = localStorage.getItem(STORE_KEY);
       const storeEmpty = !ls || ls === '{"months":{}}';
       if (storeEmpty) {
+        // 1st: IndexedDB
         const idbData = await idbLoad();
         if (idbData && Object.keys(idbData.months || {}).length > 0) {
           localStorage.setItem(STORE_KEY, JSON.stringify(idbData));
           toast('💾 IndexedDBから勤怠データを復元しました');
           restored = true;
         }
+        // 2nd: サーバーブリッジ (IDB も空だった場合)
+        if (!restored) {
+          const serverData = await _restoreFromServer('kintai');
+          if (serverData && Object.keys(serverData.months || {}).length > 0) {
+            // _server_* メタキーを除去してから保存
+            const clean = { months: serverData.months };
+            localStorage.setItem(STORE_KEY, JSON.stringify(clean));
+            idbSave(clean);
+            toast('☁️ サーバーブリッジから勤怠データを復元しました');
+            restored = true;
+          }
+        }
+      } else {
+        // データあり → サーバーに最新を送信してブリッジを更新
+        try {
+          const store = JSON.parse(ls);
+          _syncDataToServer('kintai', store);
+        } catch(_) {}
       }
-      // 設定
+
+      // ── 設定 ───────────────────────────────────────────────────────────
       const lsCfg = localStorage.getItem(CFG_KEY);
       if (!lsCfg || lsCfg === '{}') {
         const idbCfg = await idbLoadConfig();
@@ -4496,6 +4601,43 @@
       toast('設定を保存しました');
     });
 
+    // サーバーブリッジ手動復元ボタン
+    document.getElementById('settings-restore-server')?.addEventListener('click', async () => {
+      const btn = document.getElementById('settings-restore-server');
+      btn.textContent = '⏳ 復元中...';
+      btn.disabled = true;
+      let restoredAny = false;
+      try {
+        // カレンダーデータ
+        const serverKintai = await _restoreFromServer('kintai');
+        if (serverKintai && Object.keys(serverKintai.months || {}).length > 0) {
+          const clean = { months: serverKintai.months };
+          localStorage.setItem(STORE_KEY, JSON.stringify(clean));
+          await idbSave(clean);
+          restoredAny = true;
+        }
+        // タスク
+        const serverTasks = await _restoreFromServer('tasks');
+        const tasks = serverTasks?.tasks;
+        if (Array.isArray(tasks) && tasks.length > 0) {
+          localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+          await idbSaveTasksUnified(tasks);
+          restoredAny = true;
+        }
+        if (restoredAny) {
+          toast('✅ サーバーブリッジからデータを復元しました。ページを再読み込みします...');
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          toast('⚠ サーバーにデータが見つかりません。先に元のURLでページを開いてください。');
+        }
+      } catch(e) {
+        toast(`❌ 復元失敗: ${e.message}`);
+      } finally {
+        btn.textContent = '☁️ サーバーブリッジからデータを手動復元（別端末・別URLからの移行）';
+        btn.disabled = false;
+      }
+    });
+
     // 外部HTTPS URL 自動検出ボタン
     document.getElementById('settings-ext-url-detect')?.addEventListener('click', async () => {
       const btn = document.getElementById('settings-ext-url-detect');
@@ -5166,6 +5308,7 @@
     function saveTasks(tasks) {
       localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
       window._taskIdbBackup?.(tasks); // 非同期 IDB バックアップ
+      _syncDataToServer('tasks', { tasks }); // サーバーブリッジ (非同期)
     }
 
     function _esc(s) {
@@ -5279,17 +5422,29 @@
         try { await idbSaveTasksUnified(tasks); } catch (e) { console.warn('[TaskIDB] backup failed', e); }
       };
 
-      // 起動時: localStorage が空なら IDB から復元
+      // 起動時: localStorage が空なら IDB → サーバーブリッジ の順で復元
       (async () => {
         if (loadTasks().length === 0) {
+          // 1st: IndexedDB
           const backup = await idbLoadTasksUnified();
           if (backup && backup.length > 0) {
             localStorage.setItem(TASKS_KEY, JSON.stringify(backup));
             if (typeof toast === 'function')
               toast(`💾 バックアップから ${backup.length} 件のタスクを復元しました`);
+          } else {
+            // 2nd: サーバーブリッジ
+            const serverData = await _restoreFromServer('tasks');
+            const serverTasks = serverData?.tasks;
+            if (Array.isArray(serverTasks) && serverTasks.length > 0) {
+              localStorage.setItem(TASKS_KEY, JSON.stringify(serverTasks));
+              await idbSaveTasksUnified(serverTasks);
+              if (typeof toast === 'function')
+                toast(`☁️ サーバーから ${serverTasks.length} 件のタスクを復元しました`);
+            }
           }
         } else {
           window._taskIdbBackup(loadTasks());
+          _syncDataToServer('tasks', { tasks: loadTasks() }); // 起動時にサーバーを更新
         }
       })();
     })();
@@ -5545,7 +5700,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v19';
+        const swVer = 'kintai-v21';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -5562,9 +5717,66 @@
         ].map(s => `<div>${s}</div>`).join('');
       }
 
+      // iPhone 接続ガイドの現在状態を表示
+      async function renderIphoneGuideStatus() {
+        const el = document.getElementById('iphone-guide-status');
+        if (!el) return;
+        const lines = [];
+        // サーバー疎通確認
+        const base = await _resolveServerUrl(8899).catch(() => null);
+        if (base) {
+          lines.push(`🟢 <strong>ローカルサーバー</strong>: 起動中 (${base})`);
+        } else {
+          lines.push(`🔴 <strong>ローカルサーバー</strong>: 停止中 — jinjer_server.py を起動してください`);
+        }
+        // 外部 HTTPS URL 設定確認
+        const cfg = loadConfig();
+        const extUrl = cfg.externalHttpsUrl || '';
+        if (extUrl) {
+          lines.push(`🟢 <strong>外部HTTPS URL</strong>: ${extUrl.replace(/^(https?:\/\/[^/]{0,6})[^/]*(\/.*)?$/, '$1…$2')}`);
+        } else {
+          lines.push(`🟡 <strong>外部HTTPS URL</strong>: 未設定 — 設定(⚙️)から入力または自動検出`);
+        }
+        // サーバーブリッジ確認
+        if (base) {
+          try {
+            const r = await fetch(`${base}/api/kintai-data`, { signal: AbortSignal.timeout(2000) });
+            const d = await r.json();
+            const mCount = Object.keys(d.months || {}).length;
+            const saved = d._server_saved_at ? new Date(d._server_saved_at).toLocaleString('ja-JP') : '-';
+            lines.push(`🟢 <strong>データブリッジ</strong>: ${mCount}ヶ月分保存済み (最終: ${saved})`);
+          } catch(_) {
+            lines.push(`🟡 <strong>データブリッジ</strong>: 未同期 — 勤怠タブを開くと自動同期されます`);
+          }
+        }
+        el.innerHTML = lines.map(s => `<div>${s}</div>`).join('');
+      }
+
+      // システム改善ロードマップを表示
+      function renderImprovementList() {
+        const el = document.getElementById('improvement-list');
+        if (!el) return;
+        const items = [
+          { done: true,  text: 'v11 — 案件フィード（CrowdWorks/Lancers 自動取得）' },
+          { done: true,  text: 'v14 — HA watchdog + サーバー自動復旧' },
+          { done: true,  text: 'v16 — AI チャット（Claude / ChatGPT / Gemini）' },
+          { done: true,  text: 'v18 — 統合IDB v2 + セキュリティ強化 (AES-GCM)' },
+          { done: true,  text: 'v20 — 従業員管理 + 市場価値診断タブ' },
+          { done: true,  text: 'v21 — iPhone HTTPS接続 + タブD&D並び替え + データブリッジ' },
+          { done: false, text: '次期 — Excel 自動アップロード（iCloud Drive 経由）' },
+          { done: false, text: '次期 — プッシュ通知（打刻忘れ・月末リマインダー）' },
+          { done: false, text: '次期 — AI による月次レポート自動生成' },
+        ];
+        el.innerHTML = items.map(({ done, text }) =>
+          `<div>${done ? '✅' : '⬜'} ${text}</div>`
+        ).join('');
+      }
+
       window._initSystemTab = function() {
         renderChangelog();
         renderSysinfo();
+        renderImprovementList();
+        renderIphoneGuideStatus(); // 非同期（サーバー確認あり）
         loadLog('server');
       };
 
