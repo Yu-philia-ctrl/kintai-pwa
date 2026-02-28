@@ -339,7 +339,9 @@ def convert_all(all_rows: dict) -> dict:
     return {'months': months_data}
 
 
-ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
+# iCloud Drive パス: :root/attendance/jinjer/ に統合
+_ICLOUD_ROOT = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/:root'
+ICLOUD_DIR = _ICLOUD_ROOT / 'attendance' / 'jinjer'  # jinjer同期ファイル置き場
 
 
 def save_to_icloud_and_local(target_months: list, pwa_data: dict) -> str:
@@ -359,13 +361,13 @@ def save_to_icloud_and_local(target_months: list, pwa_data: dict) -> str:
     local.write_text(content, encoding='utf-8')
     print(f'✅ ローカル保存 → {local}')
 
-    # iCloud Driveにもコピー
+    # iCloud Driveにもコピー (attendance/jinjer/ フォルダ)
     try:
         ICLOUD_DIR.mkdir(parents=True, exist_ok=True)
         icloud = ICLOUD_DIR / filename
         icloud.write_text(content, encoding='utf-8')
         print(f'☁️  iCloud Drive → {icloud}')
-        print(f'   iPhoneのファイルアプリ → iCloud Drive → kintai フォルダ で確認できます')
+        print(f'   iPhoneのファイルアプリ → iCloud Drive → :root → attendance → jinjer フォルダ で確認できます')
     except Exception as e:
         print(f'⚠️  iCloud Driveへのコピー失敗: {e}')
 

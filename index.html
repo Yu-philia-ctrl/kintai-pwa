@@ -2811,10 +2811,23 @@
         <button id="db-idb-restore-tasks" class="btn-secondary" style="font-size:12px;flex:1;">✅ タスクをIDBから復元</button>
       </div>
     </div>
-    <div class="card">
+    <div class="card" style="margin-bottom:10px;">
       <div class="card-title">☁️ サーバーブリッジ</div>
       <div id="db-bridge-summary" style="font-size:12px;color:var(--text-sub);margin-bottom:10px;"></div>
       <button id="db-bridge-restore" class="btn-primary" style="font-size:12px;width:100%;">☁️ ブリッジからすべて復元</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🍎 iCloud Drive バックアップ</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;padding:6px 10px;background:rgba(96,165,250,0.06);border-radius:6px;">
+        📍 <strong>保存先:</strong> iCloud Drive → :root → attendance/<br>
+        🔄 勤怠データ保存時に自動バックアップ。Mac/iPhone 両方からアクセス可能。
+      </div>
+      <div id="db-icloud-summary" style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">読み込み中...</div>
+      <div id="db-icloud-backups" style="max-height:160px;overflow-y:auto;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="db-icloud-backup-now-btn" class="btn-secondary" style="font-size:12px;flex:1;">☁️ 今すぐバックアップ</button>
+        <button id="db-icloud-restore-btn" class="btn-secondary" style="font-size:12px;flex:1;">♻️ 最新から復元</button>
+      </div>
     </div>
   </div>
 
@@ -5885,6 +5898,18 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v28', date: '2026-03-01',
+          title: '🍎 iCloud Drive バックアップ統合 + jinjer ファイル管理改善',
+          items: [
+            { tag: 'feat', text: '☁️ iCloud Drive バックアップ自動化: 勤怠データ保存時に :root/attendance/attendance_backup.json へ自動書き出し' },
+            { tag: 'feat', text: '世代バックアップ: :root/attendance/Backup/ に最大30世代の timestamped スナップショットを保存' },
+            { tag: 'feat', text: 'DB管理タブ: iCloud バックアップカード追加 — 最終バックアップ日時・世代一覧・手動バックアップ・最新から復元' },
+            { tag: 'feat', text: 'jinjer同期ファイル保存先を :root/attendance/jinjer/ へ統合 (旧: iCloud Drive/kintai/)' },
+            { tag: 'feat', text: 'API /api/backup/list・/api/backup/now・/api/backup/restore・/api/backup/read を追加' },
+            { tag: 'fix',  text: 'Mac/iPhone 両方の iCloud Drive ファイルアプリから同一フォルダを参照可能に' },
+          ],
+        },
+        {
           version: 'v27', date: '2026-03-01',
           title: '⚡ パフォーマンスエンジニアリングタブ + ログ/仕様タブ改善',
           items: [
@@ -6091,7 +6116,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v27';
+        const swVer = 'kintai-v28';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -6264,10 +6289,51 @@
         }
       }
 
+      async function renderIcloudSummary() {
+        const sumEl = document.getElementById('db-icloud-summary');
+        const listEl = document.getElementById('db-icloud-backups');
+        if (!sumEl || !listEl) return;
+        try {
+          const base = _getApi();
+          const d = await fetch(`${base}/api/backup/list`, { signal: AbortSignal.timeout(4000) })
+            .then(r => r.ok ? r.json() : null).catch(() => null);
+          if (!d) {
+            sumEl.textContent = '⚠️ サーバー未接続（ローカルサーバー起動時のみ利用可）';
+            listEl.innerHTML = '';
+            return;
+          }
+          const main = d.main_backup;
+          if (main?.exists) {
+            const date = new Date(main.mtime * 1000).toLocaleString('ja-JP');
+            const kb = (main.size / 1024).toFixed(1);
+            sumEl.innerHTML = `<div>📄 <strong>attendance_backup.json</strong>: ${kb} KB (最終更新: ${date})</div>
+              <div style="color:var(--text-muted);margin-top:2px;">jinjer同期ファイル: ${d.jinjer_files?.length || 0}件</div>`;
+          } else {
+            sumEl.innerHTML = '<div style="color:var(--text-muted);">📄 メインバックアップ未作成（勤怠データを保存すると自動作成されます）</div>';
+          }
+          const baks = d.backups || [];
+          if (baks.length === 0) {
+            listEl.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:4px 0;">世代バックアップなし</div>';
+          } else {
+            listEl.innerHTML = baks.slice().reverse().map(b => {
+              const dt = new Date(b.mtime * 1000).toLocaleString('ja-JP');
+              const kb = (b.size / 1024).toFixed(1);
+              return `<div style="font-size:11px;padding:3px 6px;border-bottom:1px solid var(--border-soft);display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:var(--text-sub);">${b.name}</span>
+                <span style="color:var(--text-muted);white-space:nowrap;margin-left:8px;">${kb}KB · ${dt}</span>
+              </div>`;
+            }).join('');
+          }
+        } catch(e) {
+          sumEl.textContent = `⚠️ エラー: ${e.message}`;
+        }
+      }
+
       window._initDbTab = function() {
         renderDbTable('');
         renderIdbSummary();
         renderBridgeSummary();
+        renderIcloudSummary();
       };
 
       document.getElementById('db-query-btn')?.addEventListener('click', () => {
@@ -6339,6 +6405,39 @@
           }
           toast('☁️ ブリッジから復元完了');
           renderDbTable('');
+        } catch(e) { toast(`❌ サーバー未接続: ${e.message}`); }
+      });
+
+      document.getElementById('db-icloud-backup-now-btn')?.addEventListener('click', async () => {
+        try {
+          const base = _getApi();
+          const r = await fetch(`${base}/api/backup/now`, { method: 'POST', signal: AbortSignal.timeout(8000) });
+          const d = await r.json();
+          if (d.ok) {
+            toast(`☁️ iCloudバックアップ完了 (${d.label || 'manual'})`);
+            renderIcloudSummary();
+          } else {
+            toast(`❌ バックアップ失敗: ${d.error || '不明'}`);
+          }
+        } catch(e) { toast(`❌ サーバー未接続: ${e.message}`); }
+      });
+
+      document.getElementById('db-icloud-restore-btn')?.addEventListener('click', async () => {
+        if (!confirm('iCloud Drive の最新バックアップ (attendance_backup.json) からデータを復元しますか？\n現在のデータは上書きされます。')) return;
+        try {
+          const base = _getApi();
+          const r = await fetch(`${base}/api/backup/restore`, { method: 'POST', signal: AbortSignal.timeout(8000) });
+          const d = await r.json();
+          if (d.ok && d.months) {
+            const clean = { months: d.months };
+            localStorage.setItem(STORE_KEY, JSON.stringify(clean));
+            idbSave(clean);
+            toast(`☁️ iCloudから復元完了: ${Object.keys(d.months).length}ヶ月分`);
+            renderDbTable('');
+            renderIcloudSummary();
+          } else {
+            toast(`❌ 復元失敗: ${d.error || 'バックアップファイルが見つかりません'}`);
+          }
         } catch(e) { toast(`❌ サーバー未接続: ${e.message}`); }
       });
     })();

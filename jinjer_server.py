@@ -61,6 +61,13 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8899
 _START_TIME = time.time()           # uptime 計算用
 _cache = {}   # cache_key → { ts, data }
 CACHE_TTL = 300  # 5分
+# ===== iCloud Drive パス定義 =====
+# `:root` フォルダ = iCloud Drive のルート（Mac/iPhone 両方からアクセス可能）
+_ICLOUD_ROOT = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/:root'
+ICLOUD_ATT_DIR    = _ICLOUD_ROOT / 'attendance'          # 勤怠アプリ統合フォルダ
+ICLOUD_JINJER_DIR = ICLOUD_ATT_DIR / 'jinjer'            # jinjer同期ファイル置き場
+ICLOUD_BACKUP_DIR = ICLOUD_ATT_DIR / 'Backup'            # 世代バックアップ置き場
+# 旧パス (互換性のため保持)
 ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
 STRUCTURE_MD = _HERE / 'STRUCTURE.md'
 
@@ -158,7 +165,7 @@ def _fetch_lancers_feed(work_type: str) -> list:
 
 
 def _save_to_icloud(target_months: list, pwa_data: dict):
-    """スクレイプ結果を iCloud Drive の kintai フォルダに保存する"""
+    """スクレイプ結果を iCloud Drive の kintai フォルダに保存する (旧互換)"""
     try:
         ICLOUD_DIR.mkdir(parents=True, exist_ok=True)
         if len(target_months) == 1:
@@ -168,9 +175,55 @@ def _save_to_icloud(target_months: list, pwa_data: dict):
         content = json.dumps(pwa_data, ensure_ascii=False, indent=2)
         icloud_path = ICLOUD_DIR / filename
         icloud_path.write_text(content, encoding='utf-8')
-        print(f'☁️  iCloud Drive → {icloud_path}')
+        print(f'☁️  iCloud Drive (旧) → {icloud_path}')
     except Exception as e:
         print(f'⚠️  iCloud Driveへの保存失敗: {e}')
+
+
+def _icloud_backup(kintai_data: dict, label: str = '') -> dict:
+    """kintai 勤怠データを iCloud Drive の :root/attendance/ にバックアップする。
+
+    保存先:
+      attendance/attendance_backup.json          ← 常に最新版 (既存 app.py と同フォーマット)
+      attendance/Backup/attendance_backup_YYYYMMDD_HHMMSS.json ← 世代管理 (最大30件)
+
+    Returns:
+      {'ok': bool, 'path': str, 'backup_path': str, 'error': str}
+    """
+    ts = _dt.now().strftime('%Y%m%d_%H%M%S')
+    result = {'ok': False, 'ts': ts}
+    try:
+        ICLOUD_ATT_DIR.mkdir(parents=True, exist_ok=True)
+        ICLOUD_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+        # メタ情報を除いたクリーンなデータを作成 (attendance_backup.json 互換フォーマット)
+        clean = {k: v for k, v in kintai_data.items()
+                 if k not in ('_server_saved_at', '_server_updated_at')}
+
+        content = json.dumps(clean, ensure_ascii=False, indent=2)
+
+        # ── メインバックアップ (attendance_backup.json) を上書き ──────────────
+        main_path = ICLOUD_ATT_DIR / 'attendance_backup.json'
+        main_path.write_text(content, encoding='utf-8')
+        print(f'☁️  iCloud backup → {main_path}')
+
+        # ── 世代バックアップ (Backup/YYYYMMDD_HHMMSS.json) ────────────────────
+        bak_name  = f'attendance_backup_{ts}.json'
+        bak_path  = ICLOUD_BACKUP_DIR / bak_name
+        bak_path.write_text(content, encoding='utf-8')
+        print(f'☁️  iCloud Backup  → {bak_path}')
+
+        # 古い世代を 30 件に制限
+        baks = sorted(ICLOUD_BACKUP_DIR.glob('attendance_backup_*.json'),
+                      key=lambda p: p.stat().st_mtime)
+        for old in baks[:-30]:
+            old.unlink(missing_ok=True)
+
+        result.update({'ok': True, 'main': str(main_path), 'backup': str(bak_path)})
+    except Exception as e:
+        print(f'⚠️  iCloudバックアップ失敗: {e}')
+        result['error'] = str(e)
+    return result
 
 
 class ReuseHTTPServer(ThreadingMixIn, HTTPServer):
@@ -299,6 +352,14 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/tailscale-url':
             self._handle_tailscale_url()
 
+        # ===== /api/backup/list — iCloud バックアップ一覧 =====
+        elif path == '/api/backup/list':
+            self._handle_backup_list()
+
+        # ===== /api/backup/read — バックアップ内容取得 =====
+        elif path == '/api/backup/read':
+            self._handle_backup_read(params)
+
         # ===== 静的ファイル配信 — http://localhost:8899/ で PWA を直接表示 =====
         # Safari は HTTPS(GitHub Pages) → HTTP(localhost) の混在コンテンツをブロックするため、
         # Mac では http://localhost:8899/ を直接開くことで同一オリジンになりブロックを回避できる。
@@ -357,6 +418,14 @@ class JinjerHandler(BaseHTTPRequestHandler):
         # ===== /api/system/restart =====
         elif path == '/api/system/restart':
             self._handle_system_restart()
+
+        # ===== /api/backup/now — 手動 iCloud バックアップ実行 =====
+        elif path == '/api/backup/now':
+            self._handle_backup_now()
+
+        # ===== /api/backup/restore — バックアップから kintai データを復元 =====
+        elif path == '/api/backup/restore':
+            self._handle_backup_restore()
 
         else:
             self._send_json({'error': 'Not found'}, 404)
@@ -596,7 +665,12 @@ class JinjerHandler(BaseHTTPRequestHandler):
                     old.unlink(missing_ok=True)
             body['_server_saved_at'] = _dt.now().isoformat()
             data_file.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding='utf-8')
-            self._send_json({'ok': True, 'saved_at': body['_server_saved_at']})
+            # カレンダーデータの場合は iCloud にも自動バックアップ
+            icloud_result = {}
+            if data_file == KINTAI_DATA_FILE and body.get('months'):
+                icloud_result = _icloud_backup(body)
+            self._send_json({'ok': True, 'saved_at': body['_server_saved_at'],
+                             'icloud': icloud_result})
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
 
@@ -652,6 +726,130 @@ class JinjerHandler(BaseHTTPRequestHandler):
                 'method': 'not-found',
                 'note': 'Tailscale がインストールされていないか、起動していません',
             })
+
+    # ===== iCloud バックアップ管理 =============================================
+
+    def _handle_backup_list(self):
+        """iCloud Backup/ フォルダのバックアップ一覧を返す"""
+        try:
+            backups = []
+            # Backup/ ディレクトリのバックアップ一覧
+            if ICLOUD_BACKUP_DIR.exists():
+                for f in sorted(ICLOUD_BACKUP_DIR.glob('attendance_backup_*.json'),
+                                key=lambda p: p.stat().st_mtime, reverse=True):
+                    stat = f.stat()
+                    backups.append({
+                        'name':    f.name,
+                        'size_kb': round(stat.st_size / 1024, 1),
+                        'mtime':   _dt.fromtimestamp(stat.st_mtime).isoformat(),
+                    })
+            # メインバックアップ情報
+            main_info = None
+            main_path = ICLOUD_ATT_DIR / 'attendance_backup.json'
+            if main_path.exists():
+                stat = main_path.stat()
+                main_info = {
+                    'size_kb': round(stat.st_size / 1024, 1),
+                    'mtime':   _dt.fromtimestamp(stat.st_mtime).isoformat(),
+                }
+            # jinjer ファイル一覧
+            jinjer_files = []
+            if ICLOUD_JINJER_DIR.exists():
+                for f in sorted(ICLOUD_JINJER_DIR.glob('*.json'),
+                                key=lambda p: p.stat().st_mtime, reverse=True):
+                    stat = f.stat()
+                    jinjer_files.append({
+                        'name':    f.name,
+                        'size_kb': round(stat.st_size / 1024, 1),
+                        'mtime':   _dt.fromtimestamp(stat.st_mtime).isoformat(),
+                    })
+            self._send_json({
+                'icloud_dir':    str(ICLOUD_ATT_DIR),
+                'main':          main_info,
+                'backups':       backups,
+                'jinjer_files':  jinjer_files,
+            })
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    def _handle_backup_read(self, params: dict):
+        """指定バックアップファイルの内容を返す"""
+        name = params.get('file', [''])[0]
+        if not name:
+            self._send_json({'error': 'file パラメータが必要です'}, 400)
+            return
+        # パストラバーサル防止
+        if '/' in name or '\\' in name or name.startswith('.'):
+            self._send_json({'error': '不正なファイル名です'}, 403)
+            return
+        target = ICLOUD_BACKUP_DIR / name
+        if not target.exists():
+            # メインバックアップも試す
+            target = ICLOUD_ATT_DIR / name
+        if not target.exists() or not target.suffix == '.json':
+            self._send_json({'error': 'ファイルが見つかりません'}, 404)
+            return
+        try:
+            data = json.loads(target.read_text(encoding='utf-8'))
+            months = list(data.get('months', {}).keys())
+            self._send_json({
+                'name':   name,
+                'data':   data,
+                'months': months,
+                'mtime':  _dt.fromtimestamp(target.stat().st_mtime).isoformat(),
+            })
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    def _handle_backup_now(self):
+        """手動で iCloud バックアップを今すぐ実行する"""
+        try:
+            if not KINTAI_DATA_FILE.exists():
+                self._send_json({'error': 'kintai_store.json が存在しません。先にデータを保存してください。'}, 404)
+                return
+            data = json.loads(KINTAI_DATA_FILE.read_text(encoding='utf-8'))
+            result = _icloud_backup(data, label='manual')
+            self._send_json(result)
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    def _handle_backup_restore(self):
+        """バックアップから kintai データを復元する (data/kintai_store.json を上書き)"""
+        body = self._read_body()
+        file_name = body.get('file', '') if body else ''
+        if not file_name:
+            # ファイル名未指定時は attendance_backup.json (最新) から復元
+            src = ICLOUD_ATT_DIR / 'attendance_backup.json'
+        else:
+            if '/' in file_name or '\\' in file_name:
+                self._send_json({'error': '不正なファイル名です'}, 403)
+                return
+            src = ICLOUD_BACKUP_DIR / file_name
+        if not src.exists():
+            self._send_json({'error': f'バックアップファイルが見つかりません: {src.name}'}, 404)
+            return
+        try:
+            data = json.loads(src.read_text(encoding='utf-8'))
+            months = list(data.get('months', {}).keys())
+            if not months:
+                self._send_json({'error': 'バックアップデータに月データがありません'}, 400)
+                return
+            # 既存ファイルをローテーションバックアップしてから上書き
+            if KINTAI_DATA_FILE.exists():
+                bak = KINTAI_DATA_FILE.with_suffix(f'.bak{int(time.time())}')
+                KINTAI_DATA_FILE.rename(bak)
+            data['_server_saved_at']    = _dt.now().isoformat()
+            data['_restored_from']      = src.name
+            data['_restored_at']        = _dt.now().isoformat()
+            KINTAI_DATA_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+            self._send_json({
+                'ok':     True,
+                'source': src.name,
+                'months': months,
+                'saved_at': data['_server_saved_at'],
+            })
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
 
     def _handle_system_restart(self):
         """launchd 経由でサーバー自身を1秒後に再起動する"""
