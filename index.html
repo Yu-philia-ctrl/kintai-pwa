@@ -1388,6 +1388,11 @@
       white-space: pre-wrap; word-break: break-all;
     }
     .cl-log-area:empty::after { content: 'ログを読み込み中...'; opacity: 0.5; }
+    .log-line { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; padding: 1px 4px; line-height: 1.6; }
+    .log-error { background: rgba(198,40,40,0.12); color: #c62828; border-left: 3px solid #c62828; }
+    .log-warn  { background: rgba(230,81,0,0.08);  color: #e65100; border-left: 3px solid #e65100; }
+    .log-info  { color: #a3e635; }
+    .log-fix   { font-size: 11px; color: #1565c0; padding: 2px 8px; background: rgba(21,101,192,0.1); border-radius: 4px; margin: 2px 0 2px 8px; }
 
     /* ======= CAMERA MEASUREMENT ======= */
     .measure-ref-btn, .measure-type-btn {
@@ -2783,6 +2788,62 @@
     </div>
   </div>
 
+  <!-- ===== TAB: DB管理 ===== -->
+  <div id="page-db" class="tab-page">
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">🗄 DB管理・データ確認</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input id="db-query-input" placeholder="キー名 or 値で絞り込み（例: kintai）"
+          style="flex:1;min-width:120px;padding:6px 10px;border:1px solid var(--border-soft);border-radius:8px;font-size:12px;font-family:inherit;">
+        <button id="db-query-btn" class="btn-secondary" style="font-size:12px;padding:6px 12px;">🔍 絞り込み</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button id="db-restore-idb-btn" class="btn-secondary" style="font-size:12px;flex:1;">♻️ IDB→LS 復元</button>
+        <button id="db-backup-now-btn" class="btn-secondary" style="font-size:12px;flex:1;">💾 今すぐバックアップ</button>
+      </div>
+      <div id="db-table-area" style="overflow-x:auto;"></div>
+    </div>
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">📦 IDB スナップショット</div>
+      <div id="db-idb-summary" style="font-size:12px;color:var(--text-sub);margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="db-idb-restore-kintai" class="btn-secondary" style="font-size:12px;flex:1;">📅 勤怠データをIDBから復元</button>
+        <button id="db-idb-restore-tasks" class="btn-secondary" style="font-size:12px;flex:1;">✅ タスクをIDBから復元</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">☁️ サーバーブリッジ</div>
+      <div id="db-bridge-summary" style="font-size:12px;color:var(--text-sub);margin-bottom:10px;"></div>
+      <button id="db-bridge-restore" class="btn-primary" style="font-size:12px;width:100%;">☁️ ブリッジからすべて復元</button>
+    </div>
+  </div>
+
+  <!-- ===== TAB: 仕様 ===== -->
+  <div id="page-spec" class="tab-page">
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">🏗 システム構成</div>
+      <div id="spec-arch" style="font-size:12px;line-height:1.7;color:var(--text-sub);"></div>
+    </div>
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="card-title" style="margin-bottom:0;flex:1;">📂 ディレクトリ構成</div>
+        <button id="spec-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄</button>
+      </div>
+      <pre id="spec-structure" style="font-size:10px;overflow:auto;max-height:350px;background:#111827;color:#a3e635;border-radius:8px;padding:10px;margin-top:8px;line-height:1.5;"></pre>
+    </div>
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">🔌 API エンドポイント</div>
+      <div id="spec-api" style="font-size:12px;"></div>
+    </div>
+    <div class="card" id="spec-file-card">
+      <div class="card-title">📄 ファイル閲覧</div>
+      <select id="spec-file-select" style="width:100%;padding:6px 8px;border:1px solid var(--border-soft);border-radius:8px;font-size:12px;margin-bottom:8px;background:var(--bg-card);font-family:inherit;">
+        <option>サーバー接続後に利用可能</option>
+      </select>
+      <pre id="spec-file-content" style="font-size:10px;overflow:auto;max-height:280px;background:#111827;color:#a3e635;border-radius:8px;padding:10px;line-height:1.5;white-space:pre-wrap;word-break:break-all;"></pre>
+    </div>
+  </div>
+
   <nav class="bottom-tabs" id="bottom-tabs">
     <!-- タブボタンは JS (_initTabManager) で動的に生成されます -->
     <button class="tab-manage-btn" id="tab-manage-btn" title="タブ管理">
@@ -3421,10 +3482,24 @@
     const _DEV_ID_KEY     = '_kintai_dev_id';
 
     async function _getSensKey() {
+      // ① LS から取得
       let devId = localStorage.getItem(_DEV_ID_KEY);
+      // ② LS になければ IDB config_backup から復元
+      if (!devId) {
+        try {
+          const idbCfg = await idbLoadConfig();
+          if (idbCfg?._dev_id) {
+            devId = idbCfg._dev_id;
+            localStorage.setItem(_DEV_ID_KEY, devId); // LS に書き戻す
+          }
+        } catch(_) {}
+      }
+      // ③ それでもなければ新規生成して両方に保存
       if (!devId) {
         devId = (crypto.randomUUID?.() ?? Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join(''));
         localStorage.setItem(_DEV_ID_KEY, devId);
+        // IDB にも保存 (非同期)
+        idbLoadConfig().then(cfg => idbSaveConfig({ ...(cfg||{}), _dev_id: devId })).catch(()=>{});
       }
       const raw = await crypto.subtle.importKey('raw', new TextEncoder().encode(devId), 'PBKDF2', false, ['deriveKey']);
       return crypto.subtle.deriveKey(
@@ -3720,10 +3795,21 @@
           }
         }
       } else {
-        // データあり → サーバーに最新を送信してブリッジを更新
+        // データあり → IDB + サーバーブリッジ両方に即時バックアップ（起動時フォースバックアップ）
         try {
           const store = JSON.parse(ls);
-          _syncDataToServer('kintai', store);
+          idbSave(store);                        // IDB へ即時バックアップ
+          _syncDataToServer('kintai', store);    // サーバーブリッジへ
+        } catch(_) {}
+      }
+
+      // ── タスク起動時バックアップ ────────────────────────────────────────
+      const lsTasks = localStorage.getItem(TASKS_KEY);
+      if (lsTasks) {
+        try {
+          const tasks = JSON.parse(lsTasks);
+          idbSaveTasksUnified(tasks);
+          _syncDataToServer('tasks', { tasks });
         } catch(_) {}
       }
 
@@ -3732,8 +3818,12 @@
       if (!lsCfg || lsCfg === '{}') {
         const idbCfg = await idbLoadConfig();
         if (idbCfg && Object.keys(idbCfg).length > 0) {
-          localStorage.setItem(CFG_KEY, JSON.stringify(idbCfg));
-          if (!restored) toast('💾 IndexedDBから設定を復元しました');
+          // _dev_id は CFG_KEY には書き戻さない（センシティブ）
+          const { _dev_id: _, ...safeCfg } = idbCfg;
+          if (Object.keys(safeCfg).length > 0) {
+            localStorage.setItem(CFG_KEY, JSON.stringify(safeCfg));
+            if (!restored) toast('💾 IndexedDBから設定を復元しました');
+          }
         }
       }
       return restored;
@@ -5028,6 +5118,15 @@
     (async function init() {
       try {
         const t = new Date();
+        // 起動直後: LS に devId があれば IDB にも保存しておく（将来の復元用）
+        try {
+          const currentDevId = localStorage.getItem(_DEV_ID_KEY);
+          if (currentDevId) {
+            idbLoadConfig().then(cfg => {
+              if (!cfg?._dev_id) idbSaveConfig({ ...(cfg||{}), _dev_id: currentDevId });
+            }).catch(()=>{});
+          }
+        } catch(_) {}
         // IDB復元（失敗しても続行）
         let restored = false;
         try { restored = await restoreFromIDBIfNeeded(); } catch(e) { console.warn('[init] IDB復元スキップ:', e); }
@@ -5061,6 +5160,16 @@
         console.error('[init] 致命的エラー:', fatal);
       }
     })();
+
+    // 定期 IDB バックアップ: 5分ごとに現在の LS データを IDB に書き込む
+    setInterval(() => {
+      try {
+        const store = loadStore();
+        if (Object.keys(store.months || {}).length > 0) idbSave(store);
+        const tasks = typeof loadTasks === 'function' ? loadTasks() : null;
+        if (tasks?.length) idbSaveTasksUnified(tasks);
+      } catch(_) {}
+    }, 5 * 60 * 1000);
 
     /* =====================================================
        NETWORK STATUS MONITOR（オフライン/オンライン通知）
@@ -5125,34 +5234,40 @@
       }
 
       async function _tick() {
-        const alive = await _pingSrv();
-        const justRecovered = (alive && _srvAlive === false);
-        _srvAlive = alive;
-        _updateSrvDot(alive);
+        try {
+          const alive = await _pingSrv();
+          const justRecovered = (alive && _srvAlive === false);
+          _srvAlive = alive;
+          _updateSrvDot(alive);
 
-        if (justRecovered) {
-          // ──── サーバー復旧: 各タブを自動リロード ────
+          if (justRecovered) {
+            // ──── サーバー復旧: 各タブを自動リロード ────
 
-          // 報告書タブ: バナー非表示 + データ再ロード
-          if (!_reportServerOk) {
-            (async () => {
-              await checkReportServer();
-              const b = document.getElementById('report-server-banner');
-              if (b) b.style.display = _reportServerOk ? 'none' : 'block';
-              if (_reportServerOk) { try { await loadReportList(); } catch(e) {} }
-            })();
+            // 報告書タブ: バナー非表示 + データ再ロード
+            if (!_reportServerOk) {
+              (async () => {
+                await checkReportServer();
+                const b = document.getElementById('report-server-banner');
+                if (b) b.style.display = _reportServerOk ? 'none' : 'block';
+                if (_reportServerOk) { try { await loadReportList(); } catch(e) {} }
+              })();
+            }
+
+            // 案件タブ: バナー非表示 + データ再ロード
+            const jb = document.getElementById('jobs-server-banner');
+            if (jb && jb.style.display !== 'none') {
+              _jobsData = null;
+              try { _loadJobsData(); } catch(e) {}
+            }
           }
-
-          // 案件タブ: バナー非表示 + データ再ロード
-          const jb = document.getElementById('jobs-server-banner');
-          if (jb && jb.style.display !== 'none') {
-            _jobsData = null;
-            try { _loadJobsData(); } catch(e) {}
-          }
+        } catch(e) {
+          console.warn('[heartbeat] _tick error:', e);
+          _srvAlive = false;
+          _updateSrvDot(false);
+        } finally {
+          // 必ずスケジュール: 未接続 10s / 接続中 30s
+          setTimeout(_tick, _srvAlive ? 30000 : 10000);
         }
-
-        // 適応型インターバル: 未接続時は 10s で素早く再検出、接続中は 30s で節電
-        setTimeout(_tick, alive ? 30000 : 10000);
       }
 
       // ページロード直後に即座に解決を試みる（5s待ちをなくす）
@@ -5632,6 +5747,48 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v25', date: '2026-02-28',
+          title: 'DB管理タブ常時表示 + ログローテーション + jinjer同期改善',
+          items: [
+            { tag: 'fix',  text: 'DB管理タブをデフォルト表示に変更（defaultVisible: true）' },
+            { tag: 'feat', text: '定期IDBバックアップ: 5分ごとに勤怠・タスクデータをIndexedDBに自動保存' },
+            { tag: 'feat', text: 'ログローテーション: 起動時+1時間ごとに 2MB 超でローテーション（5世代保存）' },
+            { tag: 'fix',  text: 'jinjer同期: ボタン検出パターン拡充・複数URLフォールバック・失敗時スクリーンショット' },
+            { tag: 'fix',  text: 'jinjer同期: 失敗時にスタックトレースを server.log に記録、生データを logs/ に保存' },
+            { tag: 'feat', text: 'jinjer同期: iCloud + ローカル両方に自動保存する save_to_icloud_and_local() に統一' },
+          ],
+        },
+        {
+          version: 'v24', date: '2026-02-28',
+          title: 'データ消失防止 + DB管理タブ + 仕様タブ + ログ改善',
+          items: [
+            { tag: 'fix',  text: 'SRVハートビート: _tick() に try-catch-finally を追加。例外でハートビートが止まるバグを修正' },
+            { tag: 'sec',  text: 'Device ID (AES-GCM ソルト) を IDB にもバックアップ。LS消去後もAI APIキーを復元可能に' },
+            { tag: 'db',   text: '起動時フォースバックアップ: データあり時も毎回 IDB + サーバーブリッジに書き込む' },
+            { tag: 'feat', text: '🗄 DB管理タブ追加: LS全キー一覧・絞り込み・IDBサマリー・ブリッジサマリー・各種復元ボタン' },
+            { tag: 'feat', text: '📁 仕様タブ追加: システム構成・API一覧・ディレクトリ構成・ファイル閲覧' },
+            { tag: 'feat', text: 'システムログ: WARN/ERROR行を色付き表示 + 既知エラーパターンの改善提案を自動表示' },
+          ],
+        },
+        {
+          version: 'v23', date: '2026-02-28',
+          title: 'サーバー接続修正 + iOS Safari深リンク + Web Share API',
+          items: [
+            { tag: 'fix',  text: 'サーバーURL解決: localhost→外部HTTPS→Tailscaleの優先順位で自動解決' },
+            { tag: 'fix',  text: 'iOS Safari: 深リンクURLから直接タブを開けるよう修正' },
+            { tag: 'feat', text: 'Web Share API: ネイティブ共有シートに対応' },
+          ],
+        },
+        {
+          version: 'v22', date: '2026-02-28',
+          title: 'サーバーサイドデータブリッジ + iPhone接続ガイド',
+          items: [
+            { tag: 'db',   text: 'data/kintai_store.json / kintai_tasks.json でサーバー側ファイルストア' },
+            { tag: 'feat', text: 'iPhone接続ガイド: 外部HTTPS URL設定 + Tailscale Serve セットアップ手順' },
+            { tag: 'feat', text: '改善ロードマップカード追加' },
+          ],
+        },
+        {
           version: 'v19', date: '2026-02-28',
           title: 'jinjer同期修正 + 報告書タブ改善 + ヘルスアドバイス',
           items: [
@@ -5723,25 +5880,55 @@
           </div>`).join('');
       }
 
+      const _LOG_PATTERNS = [
+        { re: /openpyxl/i,                  fix: '▶ pip install openpyxl を実行してください' },
+        { re: /Connection reset by peer/i,   fix: '▶ watchdog によるサーバー再起動の可能性あり。ThreadingMixIn が有効か確認してください' },
+        { re: /Address already in use/i,     fix: '▶ 既存プロセスが port 8899 を使用中。lsof -i:8899 で確認して kill してください' },
+        { re: /ModuleNotFoundError/i,        fix: '▶ 必要なモジュールがありません。pip install -r requirements.txt を実行してください' },
+        { re: /PermissionError/i,            fix: '▶ ファイルのアクセス権限エラー。chmod 644 対象ファイル で修正してください' },
+        { re: /Traceback/i,                  fix: '▶ Python 例外が発生しています。server_err.log を確認してください' },
+      ];
+
+      function _escLog(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+      function _formatLogLines(lines) {
+        return lines.map(line => {
+          const isError = /\bERROR\b|\bError\b|Traceback|Exception/i.test(line);
+          const isWarn  = /\bWARN(ING)?\b/i.test(line);
+          const cls = isError ? 'log-error' : isWarn ? 'log-warn' : 'log-info';
+          let fixHint = '';
+          if (isError || isWarn) {
+            const match = _LOG_PATTERNS.find(p => p.re.test(line));
+            if (match) fixHint = `<div class="log-fix">${_escLog(match.fix)}</div>`;
+          }
+          return `<div class="log-line ${cls}">${_escLog(line)}${fixHint}</div>`;
+        }).join('');
+      }
+
       async function loadLog(type) {
         const logEl = document.getElementById('cl-log-area');
         if (!logEl) return;
-        logEl.textContent = '読み込み中...';
+        logEl.innerHTML = '<div class="log-line log-info">読み込み中...</div>';
         try {
           const r = await fetch(`${window._srvBase || 'http://localhost:8899'}/api/system/logs?type=${type}&lines=150`, { signal: AbortSignal.timeout(5000) });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const d = await r.json();
-          logEl.textContent = (d.lines || []).join('\n') || '(ログなし)';
+          const lines = d.lines || [];
+          if (lines.length === 0) {
+            logEl.innerHTML = '<div class="log-line log-info">(ログなし)</div>';
+          } else {
+            logEl.innerHTML = _formatLogLines(lines);
+          }
           logEl.scrollTop = logEl.scrollHeight;
         } catch(e) {
-          logEl.textContent = `⚠️ サーバー未接続 (${e.message})\nサーバーが起動しているか確認してください。`;
+          logEl.innerHTML = `<div class="log-line log-warn">⚠️ サーバー未接続 (${_escLog(e.message)})</div><div class="log-line log-info">サーバーが起動しているか確認してください。</div>`;
         }
       }
 
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v21';
+        const swVer = 'kintai-v25';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -5827,6 +6014,311 @@
         const active = document.querySelector('.cl-log-server-btn-active') ? 'watchdog' : 'server';
         loadLog(active);
         renderSysinfo();
+      });
+    })();
+
+    /* =====================================================
+       DB管理タブ
+       ===================================================== */
+    (function initDbTab() {
+      const _getApi = () => window._srvBase || 'http://localhost:8899';
+
+      function _esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      function renderDbTable(filter) {
+        const area = document.getElementById('db-table-area');
+        if (!area) return;
+        const keys = Object.keys(localStorage).sort();
+        const q = (filter || '').toLowerCase();
+        const rows = keys.filter(k => {
+          if (!q) return true;
+          const v = localStorage.getItem(k) || '';
+          return k.toLowerCase().includes(q) || v.toLowerCase().includes(q);
+        }).map(k => {
+          const v = localStorage.getItem(k) || '';
+          const kb = (v.length / 1024).toFixed(1);
+          const preview = v.length > 80 ? _esc(v.slice(0,80)) + '…' : _esc(v);
+          return `<tr>
+            <td style="font-size:11px;font-family:monospace;color:var(--accent-blue);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(k)}</td>
+            <td style="font-size:11px;text-align:right;padding:0 8px;white-space:nowrap;">${kb}KB</td>
+            <td style="font-size:10px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview}</td>
+          </tr>`;
+        });
+        if (rows.length === 0) {
+          area.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">一致するキーがありません</div>';
+          return;
+        }
+        area.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="font-size:11px;color:var(--text-muted);border-bottom:1px solid var(--border-soft);">
+            <th style="text-align:left;padding:4px 0;">キー</th><th>サイズ</th><th style="text-align:left;">値プレビュー</th>
+          </tr></thead>
+          <tbody>${rows.join('')}</tbody>
+        </table>`;
+      }
+
+      async function renderIdbSummary() {
+        const el = document.getElementById('db-idb-summary');
+        if (!el) return;
+        try {
+          const [store, tasks, cfg] = await Promise.all([
+            idbLoad().catch(()=>null),
+            idbLoadTasksUnified().catch(()=>null),
+            idbLoadConfig().catch(()=>null),
+          ]);
+          const months = Object.keys(store?.months || {}).length;
+          const taskCnt = Array.isArray(tasks) ? tasks.length : 0;
+          const cfgCnt = cfg ? Object.keys(cfg).length : 0;
+          el.innerHTML = [
+            `📅 勤怠データ: ${months}ヶ月分`,
+            `✅ タスク: ${taskCnt}件`,
+            `⚙️ 設定項目: ${cfgCnt}件`,
+          ].map(s => `<div>${s}</div>`).join('');
+        } catch(e) {
+          el.textContent = `⚠️ IDB読み込みエラー: ${e.message}`;
+        }
+      }
+
+      async function renderBridgeSummary() {
+        const el = document.getElementById('db-bridge-summary');
+        if (!el) return;
+        const base = _getApi();
+        try {
+          const [kr, tr] = await Promise.all([
+            fetch(`${base}/api/kintai-data`, { signal: AbortSignal.timeout(3000) }).then(r=>r.ok?r.json():null).catch(()=>null),
+            fetch(`${base}/api/tasks-data`, { signal: AbortSignal.timeout(3000) }).then(r=>r.ok?r.json():null).catch(()=>null),
+          ]);
+          const mCount = Object.keys(kr?.months || {}).length;
+          const tCount = Array.isArray(tr?.tasks) ? tr.tasks.length : 0;
+          const saved = kr?._server_saved_at ? new Date(kr._server_saved_at).toLocaleString('ja-JP') : '-';
+          el.innerHTML = [
+            `📅 勤怠データ: ${mCount}ヶ月分 (最終: ${saved})`,
+            `✅ タスク: ${tCount}件`,
+          ].map(s => `<div>${s}</div>`).join('');
+        } catch(_) {
+          el.textContent = '⚠️ サーバー未接続';
+        }
+      }
+
+      window._initDbTab = function() {
+        renderDbTable('');
+        renderIdbSummary();
+        renderBridgeSummary();
+      };
+
+      document.getElementById('db-query-btn')?.addEventListener('click', () => {
+        renderDbTable(document.getElementById('db-query-input')?.value || '');
+      });
+      document.getElementById('db-query-input')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') renderDbTable(e.target.value);
+      });
+
+      document.getElementById('db-backup-now-btn')?.addEventListener('click', async () => {
+        try {
+          const store = loadStore();
+          idbSave(store);
+          _syncDataToServer('kintai', store);
+          const tasks = loadTasks();
+          idbSaveTasksUnified(tasks);
+          _syncDataToServer('tasks', { tasks });
+          toast('💾 バックアップ完了（IDB + サーバーブリッジ）');
+          renderIdbSummary();
+          renderBridgeSummary();
+        } catch(e) { toast(`❌ ${e.message}`); }
+      });
+
+      document.getElementById('db-restore-idb-btn')?.addEventListener('click', async () => {
+        try {
+          const restored = await restoreFromIDBIfNeeded();
+          toast(restored ? '✅ IDB→LS 復元完了' : '⚠️ 復元対象なし（LSにデータあり）');
+          renderDbTable('');
+        } catch(e) { toast(`❌ ${e.message}`); }
+      });
+
+      document.getElementById('db-idb-restore-kintai')?.addEventListener('click', async () => {
+        try {
+          const data = await idbLoad();
+          if (data && Object.keys(data.months || {}).length > 0) {
+            localStorage.setItem(STORE_KEY, JSON.stringify(data));
+            toast(`📅 勤怠データ復元: ${Object.keys(data.months).length}ヶ月分`);
+            renderDbTable('');
+          } else { toast('⚠️ IDBに勤怠データがありません'); }
+        } catch(e) { toast(`❌ ${e.message}`); }
+      });
+
+      document.getElementById('db-idb-restore-tasks')?.addEventListener('click', async () => {
+        try {
+          const tasks = await idbLoadTasksUnified();
+          if (Array.isArray(tasks) && tasks.length > 0) {
+            localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+            toast(`✅ タスク復元: ${tasks.length}件`);
+            renderDbTable('');
+          } else { toast('⚠️ IDBにタスクデータがありません'); }
+        } catch(e) { toast(`❌ ${e.message}`); }
+      });
+
+      document.getElementById('db-bridge-restore')?.addEventListener('click', async () => {
+        try {
+          const base = _getApi();
+          const [kr, tr] = await Promise.all([
+            fetch(`${base}/api/kintai-data`, { signal: AbortSignal.timeout(5000) }).then(r=>r.json()),
+            fetch(`${base}/api/tasks-data`, { signal: AbortSignal.timeout(5000) }).then(r=>r.json()),
+          ]);
+          if (kr?.months && Object.keys(kr.months).length > 0) {
+            const clean = { months: kr.months };
+            localStorage.setItem(STORE_KEY, JSON.stringify(clean));
+            idbSave(clean);
+          }
+          if (Array.isArray(tr?.tasks)) {
+            localStorage.setItem(TASKS_KEY, JSON.stringify(tr.tasks));
+            idbSaveTasksUnified(tr.tasks);
+          }
+          toast('☁️ ブリッジから復元完了');
+          renderDbTable('');
+        } catch(e) { toast(`❌ サーバー未接続: ${e.message}`); }
+      });
+    })();
+
+    /* =====================================================
+       仕様タブ
+       ===================================================== */
+    (function initSpecTab() {
+      const _getApi = () => window._srvBase || 'http://localhost:8899';
+
+      const ARCH_TEXT = [
+        { label: 'PWA 本体', desc: 'index.html — カレンダー/タスク/報告書/AI/案件など10タブ構成。Service Worker でオフライン対応。' },
+        { label: 'ローカルサーバー', desc: 'jinjer_server.py — Python HTTP サーバー (port 8899)。jinjer同期・Excel操作・ファイル配信を担当。' },
+        { label: 'launchd 自動化', desc: '5つのジョブで常時起動・watchdog監視・月次処理を自動実行。KeepAlive + kickstart で高可用性を実現。' },
+        { label: 'データ永続化', desc: 'localStorage → IndexedDB → サーバーブリッジの3層バックアップ。AI APIキーはAES-GCM+PBKDF2で暗号化。' },
+        { label: 'iPhone 接続', desc: 'Tailscale Serve または Cloudflare Tunnel で外部HTTPS URLを設定。PWA設定から自動検出可能。' },
+      ];
+
+      const API_ENDPOINTS = [
+        { method: 'GET',  path: '/api/health',            desc: 'ヘルスチェック' },
+        { method: 'GET',  path: '/api/jinjer?months=',    desc: 'jinjer 勤怠データ取得' },
+        { method: 'GET',  path: '/api/reports',           desc: '報告書 Excel 一覧' },
+        { method: 'GET',  path: '/api/reports/read',      desc: '指定月 Excel → JSON' },
+        { method: 'POST', path: '/api/reports/sync',      desc: 'kintai → Excel 書き込み' },
+        { method: 'POST', path: '/api/reports/generate',  desc: '翌月 Excel 自動生成' },
+        { method: 'GET',  path: '/api/structure',         desc: 'STRUCTURE.md 内容' },
+        { method: 'GET',  path: '/api/files',             desc: 'ファイル一覧' },
+        { method: 'GET',  path: '/api/files/read',        desc: 'ファイル内容取得' },
+        { method: 'GET',  path: '/api/jobs',              desc: '案件フィード (1h キャッシュ)' },
+        { method: 'GET',  path: '/api/kintai-data',       desc: 'サーバーブリッジ: 勤怠データ' },
+        { method: 'POST', path: '/api/kintai-data',       desc: 'サーバーブリッジ: 勤怠データ保存' },
+        { method: 'GET',  path: '/api/tasks-data',        desc: 'サーバーブリッジ: タスクデータ' },
+        { method: 'POST', path: '/api/tasks-data',        desc: 'サーバーブリッジ: タスクデータ保存' },
+        { method: 'GET',  path: '/api/tailscale-url',     desc: 'Tailscale Serve URL 自動検出' },
+        { method: 'GET',  path: '/api/system/logs',       desc: 'サーバー/watchdogログ取得' },
+        { method: 'POST', path: '/api/system/restart',    desc: 'サーバー再起動 (launchd)' },
+      ];
+
+      function renderArch() {
+        const el = document.getElementById('spec-arch');
+        if (!el) return;
+        el.innerHTML = ARCH_TEXT.map(({ label, desc }) =>
+          `<div style="margin-bottom:8px;"><strong>${label}</strong><br><span style="color:var(--text-muted);">${desc}</span></div>`
+        ).join('');
+      }
+
+      function renderApi() {
+        const el = document.getElementById('spec-api');
+        if (!el) return;
+        const METHOD_COLOR = { GET: '#1565c0', POST: '#2e7d32', PUT: '#e65100', DELETE: '#c62828' };
+        el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+          ${API_ENDPOINTS.map(ep => `<tr style="border-bottom:1px solid var(--border-soft);">
+            <td style="padding:4px 6px 4px 0;white-space:nowrap;">
+              <span style="background:${METHOD_COLOR[ep.method]||'#555'};color:#fff;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:bold;">${ep.method}</span>
+            </td>
+            <td style="padding:4px 6px;font-family:monospace;color:var(--accent-blue);">${ep.path}</td>
+            <td style="padding:4px 0;color:var(--text-muted);">${ep.desc}</td>
+          </tr>`).join('')}
+        </table>`;
+      }
+
+      async function renderStructure() {
+        const pre = document.getElementById('spec-structure');
+        if (!pre) return;
+        pre.textContent = '読み込み中…';
+        try {
+          const r = await fetch(`${_getApi()}/api/structure`, { signal: AbortSignal.timeout(5000) });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const d = await r.json();
+          pre.textContent = d.content || '(空)';
+        } catch(_) {
+          pre.textContent = '(サーバー未接続 — サーバー起動後に🔄を押してください)';
+        }
+      }
+
+      function _icon(path) {
+        const ext = (path.split('.').pop() || '').toLowerCase();
+        return { py:'🐍', html:'🌐', js:'⚡', md:'📝', json:'📊', log:'📋',
+                 sh:'🔧', yml:'⚙️', plist:'⚙️', txt:'📄', env:'🔐',
+                 css:'🎨' }[ext] || '📄';
+      }
+
+      async function loadSpecFiles() {
+        const sel = document.getElementById('spec-file-select');
+        if (!sel) return;
+        try {
+          const r = await fetch(`${_getApi()}/api/files`, { signal: AbortSignal.timeout(5000) });
+          if (!r.ok) throw new Error();
+          const d = await r.json();
+          const files = (d.files || []).filter(f => !f.is_dir);
+          const byDir = {};
+          files.forEach(f => {
+            const idx = f.path.lastIndexOf('/');
+            const dir = idx >= 0 ? f.path.slice(0, idx) : '';
+            (byDir[dir] = byDir[dir] || []).push(f);
+          });
+          sel.innerHTML = '';
+          Object.keys(byDir).sort().forEach(dir => {
+            const grp = document.createElement('optgroup');
+            grp.label = dir || '(root)';
+            byDir[dir].forEach(f => {
+              const opt = document.createElement('option');
+              opt.value = f.path;
+              const name = f.path.split('/').pop();
+              const kb = f.size > 0 ? ` ${(f.size/1024).toFixed(1)}KB` : '';
+              opt.textContent = `${_icon(f.path)} ${name}${kb}`;
+              grp.appendChild(opt);
+            });
+            sel.appendChild(grp);
+          });
+          if (files.length > 0) {
+            const pre = document.getElementById('spec-file-content');
+            if (pre) pre.textContent = '← ファイルを選択してください';
+          }
+        } catch(_) {
+          sel.innerHTML = '<option>サーバー接続後に利用可能</option>';
+        }
+      }
+
+      async function showSpecFile(path) {
+        const pre = document.getElementById('spec-file-content');
+        if (!pre) return;
+        pre.textContent = '読み込み中…';
+        try {
+          const r = await fetch(`${_getApi()}/api/files/read?path=${encodeURIComponent(path)}`,
+            { signal: AbortSignal.timeout(10000) });
+          const d = await r.json();
+          pre.textContent = d.error ? `⚠️ ${d.error}` : d.content + (d.truncated ? '\n…(先頭200KB)' : '');
+        } catch(e) {
+          pre.textContent = `❌ ${e.message}`;
+        }
+      }
+
+      window._initSpecTab = function() {
+        renderArch();
+        renderApi();
+        renderStructure();
+        loadSpecFiles();
+      };
+
+      document.getElementById('spec-refresh-btn')?.addEventListener('click', renderStructure);
+      document.getElementById('spec-file-select')?.addEventListener('change', e => {
+        if (e.target.value) showSpecFile(e.target.value);
       });
     })();
 
@@ -9249,6 +9741,8 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         { id: 'system',    icon: '🔧', label: 'システム',defaultVisible: true  },
         { id: 'employee',  icon: '👥', label: '従業員',  defaultVisible: false },
         { id: 'market',    icon: '📈', label: '市場価値',defaultVisible: false },
+        { id: 'db',        icon: '🗄', label: 'DB管理',  defaultVisible: true  },
+        { id: 'spec',      icon: '📁', label: '仕様',    defaultVisible: false },
       ];
 
       function loadTabConfig() {
@@ -9289,6 +9783,8 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         if (tabName === 'system')   { if (window._initSystemTab) window._initSystemTab(); }
         if (tabName === 'employee') { if (window._renderEmployeeList) window._renderEmployeeList(); }
         if (tabName === 'market')   { if (window._renderMarket) window._renderMarket(); }
+        if (tabName === 'db')       { if (window._initDbTab) window._initDbTab(); }
+        if (tabName === 'spec')     { if (window._initSpecTab) window._initSpecTab(); }
       }
       window._switchTab = switchTab;
 

@@ -185,6 +185,56 @@ async def _login(page) -> bool:
         return False
 
 
+LOGS_DIR = Path(__file__).parent / 'logs'
+
+# jinjerタイムカードURLの候補（jinjerのUIバージョンによって異なる場合がある）
+def _time_card_urls(year: str, month: str) -> list:
+    """試行するタイムカードURL一覧（優先順）"""
+    m_int = int(month)
+    return [
+        f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{m_int:02d}',
+        f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{m_int}',
+        f'https://kintai.jinjer.biz/staffs/attendances?month={year}-{m_int:02d}',
+    ]
+
+# 打刻修正申請ボタンを示す可能性のある文字列パターン
+_TIMECLOCK_BTN_PATTERNS = re.compile(
+    r'打刻修正|タイムカード|勤怠一覧|勤怠修正|出勤|time.?card|attendance', re.IGNORECASE
+)
+
+
+async def _goto_month(page, year: str, month: str, screenshot_prefix: str = '') -> bool:
+    """
+    指定月のタイムカードページに移動してテーブルを待つ。
+    成功したら True、失敗したら False を返す。
+    """
+    urls = _time_card_urls(year, month)
+    for url in urls:
+        try:
+            print(f'      URL試行: {url}')
+            await page.goto(url, wait_until='domcontentloaded', timeout=20000)
+            # テーブルの待機（複数パターン）
+            for selector in ('table tbody tr', 'table tr', '.time-card', '.attendance-table'):
+                try:
+                    await page.wait_for_selector(selector, timeout=10000)
+                    print(f'      ✅ テーブル検出: {selector}')
+                    return True
+                except Exception:
+                    continue
+        except Exception as ex:
+            print(f'      ⚠ {url} → {ex}')
+    # 全URL失敗 → スクリーンショット保存
+    if screenshot_prefix:
+        try:
+            LOGS_DIR.mkdir(exist_ok=True)
+            ss = LOGS_DIR / f'{screenshot_prefix}_{year}-{month}.png'
+            await page.screenshot(path=str(ss))
+            print(f'      📸 スクリーンショット保存: {ss}')
+        except Exception:
+            pass
+    return False
+
+
 async def scrape_months(target_months: list) -> dict:
     """複数月をまとめてスクレイプ（ログイン1回で節約）"""
     from playwright.async_api import async_playwright
@@ -192,46 +242,75 @@ async def scrape_months(target_months: list) -> dict:
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        ctx     = await browser.new_context()
+        ctx     = await browser.new_context(
+            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        )
         page    = await ctx.new_page()
+        page.set_default_timeout(30000)
 
         if not await _login(page):
+            # ログイン失敗時スクリーンショット
+            try:
+                LOGS_DIR.mkdir(exist_ok=True)
+                await page.screenshot(path=str(LOGS_DIR / 'jinjer_login_fail.png'))
+                print('      📸 ログイン失敗スクリーンショット → logs/jinjer_login_fail.png')
+            except Exception:
+                pass
             await browser.close()
             raise RuntimeError('jinjer へのログインに失敗しました。認証情報を .env で確認してください。')
 
-        # 今月のデータは 打刻修正申請 ページ経由で取得（UI経由で信頼性向上）
         today_ym = date.today().strftime('%Y-%m')
 
         for i, ym in enumerate(target_months):
             year, month = ym.split('-')
             print(f'[{i+1}/{len(target_months)}] {ym} を取得中...')
 
+            fetched = False
+
+            # ── 今月: staffs/top → 打刻修正申請ボタン経由（複数パターン対応）──
             if ym == today_ym:
-                # 今月は staffs/top → 打刻修正申請ボタン経由
                 try:
-                    await page.goto(JINJER_TOP, wait_until='domcontentloaded')
-                    # 「打刻修正申請」ボタンを探してクリック
-                    btn = page.locator('a, button').filter(has_text=re.compile(r'打刻修正|タイムカード|勤怠一覧'))
-                    if await btn.count() > 0:
+                    await page.goto(JINJER_TOP, wait_until='domcontentloaded', timeout=20000)
+                    btn = page.locator('a, button, [role="button"]').filter(
+                        has_text=_TIMECLOCK_BTN_PATTERNS
+                    )
+                    cnt = await btn.count()
+                    print(f'      打刻修正申請ボタン候補: {cnt}件')
+                    if cnt > 0:
                         await btn.first.click()
-                        await page.wait_for_selector('table tbody tr', timeout=15000)
-                    else:
-                        # ボタンが見つからなければ直接URL
-                        raise Exception('打刻修正申請ボタンが見つかりません')
+                        for sel in ('table tbody tr', 'table tr'):
+                            try:
+                                await page.wait_for_selector(sel, timeout=15000)
+                                fetched = True
+                                print(f'      ✅ UI経由でテーブル取得')
+                                break
+                            except Exception:
+                                continue
                 except Exception as ex:
-                    print(f'      ⚠ UI経由失敗 ({ex})、直接URLで再試行...')
-                    url = f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{int(month)}'
-                    await page.goto(url, wait_until='domcontentloaded')
-                    await page.wait_for_selector('table tbody tr', timeout=15000)
-            else:
-                # 過去月は直接URL
-                url = f'https://kintai.jinjer.biz/staffs/time_cards?month={year}-{int(month)}'
-                await page.goto(url, wait_until='domcontentloaded')
-                await page.wait_for_selector('table tbody tr', timeout=15000)
+                    print(f'      ⚠ UI経由失敗 ({ex})')
+
+            # ── 直接URLフォールバック ──
+            if not fetched:
+                fetched = await _goto_month(page, year, month, screenshot_prefix='jinjer_fail')
+
+            if not fetched:
+                print(f'      ❌ {ym}: テーブル取得に失敗しました。スキップします。')
+                all_rows[ym] = []
+                continue
 
             rows = await page.evaluate(JS_EXTRACT)
             all_rows[ym] = rows
             print(f'      → {len(rows)} 行取得')
+
+            # ── 生データをデバッグ保存（初回のみ） ──
+            if i == 0:
+                try:
+                    LOGS_DIR.mkdir(exist_ok=True)
+                    raw_file = LOGS_DIR / f'jinjer_raw_{ym}.json'
+                    raw_file.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+                    print(f'      📄 生データ保存: {raw_file}')
+                except Exception:
+                    pass
 
         await browser.close()
 
@@ -263,6 +342,36 @@ def convert_all(all_rows: dict) -> dict:
 ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
 
 
+def save_to_icloud_and_local(target_months: list, pwa_data: dict) -> str:
+    """
+    スクレイプ結果を iCloud Drive とローカルの両方に保存する。
+    保存したファイル名を返す。
+    """
+    if len(target_months) == 1:
+        filename = f'jinjer_sync_{target_months[0]}.json'
+    else:
+        filename = f'jinjer_sync_{target_months[0]}_to_{target_months[-1]}.json'
+
+    content = json.dumps(pwa_data, ensure_ascii=False, indent=2)
+
+    # ローカルに保存
+    local = Path(__file__).parent / filename
+    local.write_text(content, encoding='utf-8')
+    print(f'✅ ローカル保存 → {local}')
+
+    # iCloud Driveにもコピー
+    try:
+        ICLOUD_DIR.mkdir(parents=True, exist_ok=True)
+        icloud = ICLOUD_DIR / filename
+        icloud.write_text(content, encoding='utf-8')
+        print(f'☁️  iCloud Drive → {icloud}')
+        print(f'   iPhoneのファイルアプリ → iCloud Drive → kintai フォルダ で確認できます')
+    except Exception as e:
+        print(f'⚠️  iCloud Driveへのコピー失敗: {e}')
+
+    return filename
+
+
 def main():
     args = sys.argv[1:]
     today = date.today().strftime('%Y-%m')
@@ -283,31 +392,15 @@ def main():
     all_rows = asyncio.run(scrape_months(target_months))
     pwa_data = convert_all(all_rows)
 
-    # ファイル名
-    if len(target_months) == 1:
-        filename = f'jinjer_sync_{target_months[0]}.json'
-    else:
-        filename = f'jinjer_sync_{target_months[0]}_to_{target_months[-1]}.json'
+    filename = save_to_icloud_and_local(target_months, pwa_data)
 
-    content = json.dumps(pwa_data, ensure_ascii=False, indent=2)
-
-    # ローカルに保存
-    local = Path(__file__).parent / filename
-    local.write_text(content, encoding='utf-8')
-    print(f'\n✅ ローカル保存 → {local}')
-
-    # iCloud Driveにもコピー
-    try:
-        ICLOUD_DIR.mkdir(parents=True, exist_ok=True)
-        icloud = ICLOUD_DIR / filename
-        icloud.write_text(content, encoding='utf-8')
-        print(f'☁️  iCloud Drive → {icloud}')
-    except Exception as e:
-        print(f'⚠️  iCloud Driveへのコピー失敗: {e}')
-
-    print(f'\n   対象月: {", ".join(target_months)}')
-    print('   iPhoneのファイルアプリ → iCloud Drive → kintai フォルダ')
-    print('   → PWAの「🏢 jinjer同期」からインポートしてください。')
+    # サマリー表示
+    total_days = sum(len(v) for v in pwa_data.get('months', {}).values())
+    print(f'\n=== 同期完了 ===')
+    print(f'   対象月: {", ".join(target_months)}')
+    print(f'   合計  : {total_days}日分のデータ')
+    print(f'   ファイル: {filename}')
+    print('   PWAの「🏢 jinjer同期」→「📂 ファイルから同期」でインポートしてください。')
 
 
 if __name__ == '__main__':

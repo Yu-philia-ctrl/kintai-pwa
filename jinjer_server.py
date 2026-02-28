@@ -41,7 +41,7 @@ _HERE = Path(__file__).parent
 sys.path.insert(0, str(_HERE))
 
 try:
-    from sync_jinjer import scrape_months, convert_all
+    from sync_jinjer import scrape_months, convert_all, save_to_icloud_and_local
     _SCRAPER_OK = True
 except ImportError as e:
     print(f'[ERROR] sync_jinjer.py のインポートに失敗: {e}')
@@ -426,10 +426,15 @@ class JinjerHandler(BaseHTTPRequestHandler):
             all_rows = asyncio.run(scrape_months(target_months))
             pwa_data = convert_all(all_rows)
             _cache[cache_key] = {'ts': time.time(), 'data': pwa_data}
-            _save_to_icloud(target_months, pwa_data)
+            # iCloud + ローカル保存（改善版関数を使用）
+            try:
+                save_to_icloud_and_local(target_months, pwa_data)
+            except Exception as save_e:
+                print(f'[WARN] iCloud保存失敗: {save_e}')
             self._send_json(pwa_data)
         except Exception as e:
             print(f'[ERROR] スクレイプ失敗: {e}')
+            import traceback; traceback.print_exc()
             self._send_json({'error': str(e)}, 500)
 
     # ===== ファイル一覧 =====
@@ -748,6 +753,47 @@ if __name__ == '__main__':
             _kill_port(PORT)
 
     print(_BANNER.format(port=PORT))
+
+    # ─── ログローテーション ────────────────────────────────────────────────
+    _LOG_MAX_BYTES   = 2 * 1024 * 1024   # 2MB 超えたらローテーション
+    _LOG_KEEP        = 5                  # 世代数 (.1〜.5)
+    _LOG_ROTATE_INTERVAL = 3600          # 1時間ごとにチェック
+    _LOG_DIR         = _HERE / 'logs'
+
+    def _rotate_one(log_path: Path):
+        """1ファイルのローテーション: path.5 を削除 → .4→.5 … → path→.1"""
+        try:
+            if not log_path.exists() or log_path.stat().st_size < _LOG_MAX_BYTES:
+                return
+            # 最古世代を削除してからシフト
+            oldest = log_path.with_suffix(f'.log.{_LOG_KEEP}')
+            if oldest.exists():
+                oldest.unlink()
+            for i in range(_LOG_KEEP - 1, 0, -1):
+                src = log_path.with_suffix(f'.log.{i}')
+                dst = log_path.with_suffix(f'.log.{i+1}')
+                if src.exists():
+                    src.rename(dst)
+            # 現在のファイルを .1 に移動（launchd は新しいファイルに自動で書き続ける）
+            log_path.rename(log_path.with_suffix('.log.1'))
+            print(f'[INFO] ログローテーション: {log_path.name} → .1 ({log_path.stat().st_size if log_path.exists() else "新規"})', flush=True)
+        except Exception as ex:
+            print(f'[WARN] ログローテーション失敗 ({log_path.name}): {ex}', flush=True)
+
+    def _rotate_logs():
+        """全ログファイルをローテーション"""
+        for name in ('server.log', 'server_err.log', 'watchdog.log', 'watchdog_err.log',
+                     'jinjer_end.log', 'jinjer_end_err.log'):
+            _rotate_one(_LOG_DIR / name)
+
+    def _rotate_loop():
+        """起動時に1回 + 以降1時間ごとに実行"""
+        _rotate_logs()
+        while True:
+            time.sleep(_LOG_ROTATE_INTERVAL)
+            _rotate_logs()
+
+    threading.Thread(target=_rotate_loop, daemon=True, name='log-rotator').start()
 
     # ─── バックグラウンドで STRUCTURE.md を最新化 ───────────────────────────
     def _update_structure():

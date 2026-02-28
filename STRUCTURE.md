@@ -1,6 +1,6 @@
 # attendance-pwa ディレクトリ構成
 
-> 最終更新: 2026-02-28 01:57:35  
+> 最終更新: 2026-02-28 14:33:32  
 > このファイルは `generate_structure.py` により自動生成されます（毎朝 07:30）。
 
 ## ファイルツリー
@@ -13,6 +13,8 @@ attendance-pwa/
 ├── logs/
 │   ├── server.log
 │   ├── server_err.log
+│   ├── structure.log
+│   ├── structure_err.log
 │   ├── watchdog.log
 │   └── watchdog_err.log
 ├── .env
@@ -43,15 +45,15 @@ attendance-pwa/
 | ファイル | サイズ | 最終更新 | 説明 |
 |---|---|---|---|
 | `.env` | 165 B | 2026-02-24 20:53 | 認証情報（git 管理外）— jinjer ログイン情報 |
-| `.gitignore` | 334 B | 2026-02-24 20:53 | Git 除外設定 |
+| `.gitignore` | 403 B | 2026-02-28 13:17 | Git 除外設定 |
 | `create_monthly_report.py` | 2.1 KB | 2026-02-27 19:19 | 翌月作業報告書 Excel 自動生成スクリプト（月初実行） |
 | `generate_structure.py` | 8.8 KB | 2026-02-28 01:43 | このファイル — STRUCTURE.md 自動生成（毎朝実行） |
 | `icon-192.png` | 3.9 KB | 2026-02-22 15:27 | PWA アイコン 192×192px |
 | `icon-512.png` | 10.8 KB | 2026-02-22 15:27 | PWA アイコン 512×512px |
 | `icon-apple.png` | 3.7 KB | 2026-02-22 15:27 | iOS ホーム画面アイコン |
 | `import.html` | 124.4 KB | 2026-02-22 19:23 | データインポート補助ページ |
-| `index.html` | 335.9 KB | 2026-02-28 01:41 | 勤怠カレンダー PWA 本体（全 UI・ロジック） |
-| `jinjer_server.py` | 22.2 KB | 2026-02-28 01:56 | ローカル API サーバー (port 8899) — jinjer 同期・報告書 API |
+| `index.html` | 447.5 KB | 2026-02-28 14:32 | 勤怠カレンダー PWA 本体（全 UI・ロジック） |
+| `jinjer_server.py` | 29.2 KB | 2026-02-28 14:29 | ローカル API サーバー (port 8899) — jinjer 同期・報告書 API |
 | `jinjer_sync_2025-10_to_2026-02.json` | 18.3 KB | 2026-02-24 20:41 |  |
 | `jinjer_sync_2026-02.json` | 3.4 KB | 2026-02-24 19:18 |  |
 | `kintai_backup_2026-02-22.json` | 131.7 KB | 2026-02-22 14:59 |  |
@@ -59,13 +61,15 @@ attendance-pwa/
 | `migrate_data.py` | 1.4 KB | 2026-02-22 14:50 | データ移行スクリプト（旧フォーマット対応） |
 | `recover.html` | 19.5 KB | 2026-02-25 15:31 | 緊急復旧ページ（PWA クラッシュ時） |
 | `report_sync.py` | 17.9 KB | 2026-02-28 01:12 | 作業報告書 Excel ↔ kintai データ変換ライブラリ |
-| `STRUCTURE.md` | 5.6 KB | 2026-02-28 01:47 | このファイル — ディレクトリ構成図（自動生成） |
-| `sw.js` | 2.1 KB | 2026-02-28 01:41 | Service Worker — オフライン対応・キャッシュ戦略 |
+| `STRUCTURE.md` | 5.7 KB | 2026-02-28 14:15 | このファイル — ディレクトリ構成図（自動生成） |
+| `sw.js` | 2.1 KB | 2026-02-28 14:32 | Service Worker — オフライン対応・キャッシュ戦略 |
 | `sync_jinjer.py` | 11.7 KB | 2026-02-27 20:11 | jinjer 勤怠データ取得スクリプト（Playwright） |
 | `watchdog.py` | 2.2 KB | 2026-02-28 01:43 |  |
-| `logs/server.log` | 4.8 KB | 2026-02-28 01:57 |  |
+| `logs/server.log` | 117.2 KB | 2026-02-28 14:33 |  |
 | `logs/server_err.log` | 141 B | 2026-02-27 20:09 |  |
-| `logs/watchdog.log` | 4.8 KB | 2026-02-28 01:57 |  |
+| `logs/structure.log` | 107 B | 2026-02-28 13:06 |  |
+| `logs/structure_err.log` | 0 B | 2026-02-28 13:06 |  |
+| `logs/watchdog.log` | 51.2 KB | 2026-02-28 14:33 |  |
 | `logs/watchdog_err.log` | 0 B | 2026-02-28 01:41 |  |
 | `.github/workflows/ci.yml` | 1.6 KB | 2026-02-24 20:53 |  |
 
