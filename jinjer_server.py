@@ -717,14 +717,14 @@ class JinjerHandler(BaseHTTPRequestHandler):
     _MINISERVE_PORT = 9000
 
     def _handle_miniserve_url(self):
-        """miniserve の稼働状態とポートを返す。
-        LAN IP はクライアント側で _srvBase のホスト名から構築する。
-        Docker内ではlocalhost:9000に到達できないので host.docker.internal でも試みる。
+        """miniserve の稼働状態と LAN IP を返す。
+        優先順: 1) KINTAI_HOST_IP 環境変数
+                2) data/host_ip.txt（ネイティブ起動時にサーバー起動処理が書き込む）
+                3) UDP socket trick（ネイティブ環境のみ — Docker内では使えない）
         """
         import socket as _sock
         port = JinjerHandler._MINISERVE_PORT
         running = False
-        # Docker + Mac: host.docker.internal → Mac host、またはネイティブ起動時は localhost
         for host in ('127.0.0.1', 'host.docker.internal'):
             try:
                 cs = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
@@ -735,12 +735,31 @@ class JinjerHandler(BaseHTTPRequestHandler):
                 break
             except Exception:
                 pass
-        # KINTAI_HOST_IP 環境変数があれば使用（docker-compose.yml で設定可能）
-        env_ip = os.environ.get('KINTAI_HOST_IP', '').strip()
+
+        # LAN IP 解決: 環境変数 → ファイル → UDP trick（非Docker） の順
+        host_ip = os.environ.get('KINTAI_HOST_IP', '').strip()
+        if not host_ip:
+            host_ip_file = DATA_DIR / 'host_ip.txt'
+            if host_ip_file.exists():
+                try:
+                    host_ip = host_ip_file.read_text().strip()
+                except Exception:
+                    pass
+        if not host_ip and not os.path.exists('/.dockerenv'):
+            # ネイティブ Mac 環境: UDP connect trick で LAN IP を取得
+            try:
+                s = _sock.socket(_sock.AF_INET, _sock.SOCK_DGRAM)
+                s.settimeout(0)
+                s.connect(('8.8.8.8', 80))
+                host_ip = s.getsockname()[0]
+                s.close()
+            except Exception:
+                pass
+
         self._send_json({
             'port':    port,
             'running': running,
-            'host_ip': env_ip,  # クライアント側フォールバック用（空文字なら無視）
+            'host_ip': host_ip,
         })
 
     # ── フルバックアップ ────────────────────────────────────────────────────
@@ -1339,6 +1358,20 @@ if __name__ == '__main__':
             _kill_port(PORT)
 
     print(_BANNER.format(port=PORT))
+
+    # ─── LAN IP を data/host_ip.txt に書き込む（Docker からも参照可能）────────
+    if not os.path.exists('/.dockerenv'):
+        try:
+            import socket as _sock_startup
+            _s = _sock_startup.socket(_sock_startup.AF_INET, _sock_startup.SOCK_DGRAM)
+            _s.settimeout(0)
+            _s.connect(('8.8.8.8', 80))
+            _detected_lan_ip = _s.getsockname()[0]
+            _s.close()
+            (DATA_DIR / 'host_ip.txt').write_text(_detected_lan_ip)
+            print(f'[INFO] LAN IP 検出: {_detected_lan_ip} → data/host_ip.txt', flush=True)
+        except Exception as _e:
+            print(f'[WARN] LAN IP 検出失敗: {_e}', flush=True)
 
     # ─── ログローテーション & 日付アーカイブ ────────────────────────────────
     _LOG_MAX_BYTES        = 2 * 1024 * 1024   # 2MB 超えたらローテーション

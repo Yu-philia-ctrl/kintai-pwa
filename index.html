@@ -14,7 +14,7 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#7c5fe6">
   <link rel="manifest" href="manifest.json">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://api.github.com http:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.qrserver.com https://wttr.in; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://api.github.com http:;">
   <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -4624,7 +4624,7 @@
         '_kintai_snap_last', '_kintai_snaps',
         '_kintai_log', '_kintai_err_log',
       ];
-      const data = { exported_at: new Date().toISOString(), version: 'kintai-v38', keys: {} };
+      const data = { exported_at: new Date().toISOString(), version: 'kintai-v40', keys: {} };
       for (const k of keys) {
         const v = localStorage.getItem(k);
         if (v) data.keys[k] = v; // raw string (re-setItem できる)
@@ -6932,6 +6932,17 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v40', date: '2026-03-01',
+          title: '🔒 セキュリティ強化 + Docker可視化改善 + QRコード修正',
+          items: [
+            { tag: 'fix',  text: 'CSP img-src に api.qrserver.com を追加。Safari がQRコード画像をブロックしていた問題を解消' },
+            { tag: 'fix',  text: 'miniserveカードのIP表示をマスク（192.168.●●●.●●● 形式）。実際のURLはボタンで使用可能、UIには表示しない' },
+            { tag: 'feat', text: 'LAN IP自動検出: ネイティブ起動時にUDP socketでLAN IPを取得→data/host_ip.txtに書き込み。iPhoneからのQRスキャンで正しいURLが取得できる' },
+            { tag: 'fix',  text: 'Dockerタブをデフォルト表示に変更。v40マイグレーションで既存ユーザーのタブ設定も自動更新' },
+            { tag: 'fix',  text: 'docker-compose.yml: stop_grace_period=30sでcode 137(SIGKILL)を抑制。deploy.resourcesで512MB上限設定' },
+          ],
+        },
+        {
           version: 'v39', date: '2026-03-01',
           title: '📂 miniserve ファイルサーバー統合 — 同一Wi-FiからLAN公開',
           items: [
@@ -7275,7 +7286,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v39';
+        const swVer = 'kintai-v40';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -9733,7 +9744,7 @@
           if (!r.ok) throw new Error();
           const d = await r.json();
 
-          // host_ip が設定されていれば優先（docker-compose.yml の KINTAI_HOST_IP）
+          // host_ip が設定されていれば優先（サーバー側で検出したLAN IP）
           if (d.host_ip) _miniserveUrl = `http://${d.host_ip}:${d.port}`;
 
           // ステータスドット
@@ -9743,19 +9754,25 @@
             dotEl.innerHTML = '<span style="color:#e57373;">● 停止中</span>';
           }
 
-          // URL表示
-          if (urlEl) urlEl.textContent = _miniserveUrl;
+          // URL表示: IPをマスクして表示（実際のURLは _miniserveUrl に保持）
+          if (urlEl) {
+            const masked = _miniserveUrl.replace(
+              /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/,
+              (_, a, b) => `${a}.${b}.●●●.●●●`
+            );
+            urlEl.textContent = masked + ' 🔒';
+          }
 
-          // QRコード (外部API — インターネット必要)
+          // QRコード (api.qrserver.com — CSP の img-src に追加済み)
           if (qrEl && d.running) {
             const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&format=png&data=${encodeURIComponent(_miniserveUrl)}`;
-            qrEl.innerHTML = `<img src="${qrSrc}" alt="QR" style="width:100px;height:100px;border-radius:6px;" onerror="this.parentElement.innerHTML='<span style=\\'font-size:10px;color:var(--text-muted);padding:4px;text-align:center;\\'>QR生成にはインターネット接続が必要です</span>'">`;
+            qrEl.innerHTML = `<img src="${qrSrc}" alt="QR" style="width:100px;height:100px;border-radius:6px;" loading="lazy" onerror="this.parentElement.innerHTML='<span style=\\'font-size:10px;color:var(--text-muted);padding:4px;text-align:center;\\'>QR生成にはインターネット接続が必要です</span>'">`;
           } else if (qrEl) {
             qrEl.innerHTML = '<span style="font-size:10px;color:var(--text-muted);padding:4px;text-align:center;line-height:1.4;">停止中<br>launchd確認してください</span>';
           }
         } catch {
           if (dotEl) dotEl.innerHTML = '<span style="color:var(--text-muted);">— サーバー未接続</span>';
-          if (urlEl) urlEl.textContent = _miniserveUrl + ' (サーバー確認中)';
+          if (urlEl) urlEl.textContent = '🔒 — (サーバー確認中)';
           if (qrEl)  qrEl.innerHTML = '<span style="font-size:10px;color:var(--text-muted);">—</span>';
         }
       }
@@ -13016,7 +13033,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         { id: 'logs',      icon: '📋', label: 'ログ',    defaultVisible: false },
         { id: 'perf',      icon: '⚡', label: 'パフォーマンス', defaultVisible: false },
         { id: 'bizai',     icon: '🗂', label: '業務AI',      defaultVisible: true  },
-        { id: 'docker',    icon: '🐳', label: 'Docker',      defaultVisible: false },
+        { id: 'docker',    icon: '🐳', label: 'Docker',      defaultVisible: true  },
       ];
 
       // ── カスタムタブ CRUD ──────────────────────────────────────────────────
@@ -13055,6 +13072,25 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
 
       // 起動時: 既存カスタムタブのページを生成
       loadCustomTabs().forEach(_ensureCustomTabPage);
+
+      // v40 マイグレーション: Docker タブを強制表示（旧設定でfalseだった場合を修正）
+      (() => {
+        const TAB_MIG_KEY = '_kintai_tab_mig_v40';
+        if (!localStorage.getItem(TAB_MIG_KEY)) {
+          try {
+            const saved = localStorage.getItem(TAB_CFG_KEY);
+            if (saved) {
+              const cfg = JSON.parse(saved);
+              const dockerEntry = cfg.find(t => t.id === 'docker');
+              if (dockerEntry && !dockerEntry.visible) {
+                dockerEntry.visible = true;
+                localStorage.setItem(TAB_CFG_KEY, JSON.stringify(cfg));
+              }
+            }
+          } catch(_) {}
+          localStorage.setItem(TAB_MIG_KEY, '1');
+        }
+      })();
 
       function loadTabConfig() {
         try { const r = localStorage.getItem(TAB_CFG_KEY); if (r) return JSON.parse(r); } catch(_) {}

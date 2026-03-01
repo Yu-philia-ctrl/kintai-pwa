@@ -37,6 +37,16 @@ services:
       - PYTHONUNBUFFERED=1
       - KINTAI_MANAGED=1
       - PORT=8899
+      # ホストのLAN IPを注入（miniserveカードのQRコード生成に使用）
+      # Mac のLAN IPに合わせて変更: ipconfig getifaddr en0 で確認
+      # - KINTAI_HOST_IP=192.168.x.x
+    stop_grace_period: 30s              # SIGTERM → 30秒待ってから SIGKILL (code 137 防止)
+    deploy:
+      resources:
+        limits:
+          memory: 512M                  # OOM kill 防止: 512MB 上限
+        reservations:
+          memory: 128M
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8899/api/health"]
       interval: 30s
