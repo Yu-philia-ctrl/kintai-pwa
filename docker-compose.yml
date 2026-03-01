@@ -26,6 +26,15 @@ services:
       - ./data:/app/data
       # ログ永続化
       - ./logs:/app/logs
+      # フロントエンドファイルをホストからマウント
+      # → index.html / sw.js を編集したらコンテナ再ビルド不要で即反映
+      - ./index.html:/app/index.html:ro
+      - ./sw.js:/app/sw.js:ro
+      - ./manifest.json:/app/manifest.json:ro
+      - ./recover.html:/app/recover.html:ro
+      - ./icon-192.png:/app/icon-192.png:ro
+      - ./icon-512.png:/app/icon-512.png:ro
+      - ./icon-apple.png:/app/icon-apple.png:ro
       # 環境変数 (.env が存在する場合)
       # - ./.env:/app/.env:ro
       # iCloud バックアップフォルダ (Mac のみ)
