@@ -390,6 +390,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/docker/stats':
             self._handle_docker_stats()
 
+        # ===== /api/miniserve-url — miniserve の LAN URL を返す =====
+        elif path == '/api/miniserve-url':
+            self._handle_miniserve_url()
+
         # ===== /api/backup/full — フルバックアップ取得 =====
         elif path == '/api/backup/full':
             self._handle_full_backup_get()
@@ -709,12 +713,42 @@ class JinjerHandler(BaseHTTPRequestHandler):
             self._send_json({'error': str(e)}, 500)
 
     # ===== データブリッジ: ファイル読み書き =====
+    # ── miniserve URL ──────────────────────────────────────────────────────
+    _MINISERVE_PORT = 9000
+
+    def _handle_miniserve_url(self):
+        """miniserve の稼働状態とポートを返す。
+        LAN IP はクライアント側で _srvBase のホスト名から構築する。
+        Docker内ではlocalhost:9000に到達できないので host.docker.internal でも試みる。
+        """
+        import socket as _sock
+        port = JinjerHandler._MINISERVE_PORT
+        running = False
+        # Docker + Mac: host.docker.internal → Mac host、またはネイティブ起動時は localhost
+        for host in ('127.0.0.1', 'host.docker.internal'):
+            try:
+                cs = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+                cs.settimeout(0.5)
+                cs.connect((host, port))
+                cs.close()
+                running = True
+                break
+            except Exception:
+                pass
+        # KINTAI_HOST_IP 環境変数があれば使用（docker-compose.yml で設定可能）
+        env_ip = os.environ.get('KINTAI_HOST_IP', '').strip()
+        self._send_json({
+            'port':    port,
+            'running': running,
+            'host_ip': env_ip,  # クライアント側フォールバック用（空文字なら無視）
+        })
+
     # ── フルバックアップ ────────────────────────────────────────────────────
     FULL_BACKUP_FILE = DATA_DIR / 'kintai_full_backup.json'
 
     def _handle_full_backup_get(self):
         """最新フルバックアップを返す。ファイルがなければ 404。"""
-        f = KintaiHandler.FULL_BACKUP_FILE
+        f = JinjerHandler.FULL_BACKUP_FILE
         if not f.exists():
             self._send_json({'error': 'フルバックアップが見つかりません'}, 404)
             return
@@ -732,7 +766,7 @@ class JinjerHandler(BaseHTTPRequestHandler):
             return
         try:
             body['_server_saved_at'] = _dt.now().isoformat()
-            f = KintaiHandler.FULL_BACKUP_FILE
+            f = JinjerHandler.FULL_BACKUP_FILE
             f.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding='utf-8')
             # iCloud にもコピー
             icloud_ok = False

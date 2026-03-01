@@ -2328,6 +2328,36 @@
       </details>
     </div>
 
+    <!-- ===== miniserve ファイルサーバーカード ===== -->
+    <div class="card" id="miniserve-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div class="card-title" style="margin-bottom:0;">📂 ファイルサーバー <span style="font-size:10px;font-weight:400;opacity:0.7;">(miniserve)</span></div>
+        <span id="miniserve-status-dot" style="font-size:11px;color:var(--text-muted);">— 確認中</span>
+      </div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.7;">
+        同一Wi-Fiのすべてのデバイスから<strong>プロジェクトのコード・ログ・仕様書</strong>をブラウザで直接閲覧・ZIPダウンロードできます。
+      </p>
+      <!-- URL 表示 + コピー -->
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
+        <code id="miniserve-url-text" style="flex:1;font-size:12px;background:var(--bg-glass);padding:6px 10px;border-radius:8px;border:1px solid var(--border-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— 未接続</code>
+        <button id="miniserve-copy-btn" class="btn-secondary" style="font-size:12px;padding:6px 10px;flex-shrink:0;" title="URLをコピー">📋</button>
+      </div>
+      <!-- QRコード + 操作ボタン -->
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div id="miniserve-qr" style="flex-shrink:0;width:100px;height:100px;background:var(--bg-glass);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+          <span style="font-size:11px;color:var(--text-muted);">QR</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+          <button id="miniserve-open-btn" class="btn-primary" style="font-size:12px;padding:8px;">🌐 ブラウザで開く</button>
+          <button id="miniserve-refresh-btn" class="btn-secondary" style="font-size:12px;padding:6px;">🔄 状態を更新</button>
+          <div style="font-size:10px;color:var(--text-muted);line-height:1.6;">
+            📁 公開フォルダ: <code>~/root</code><br>
+            🔒 LAN内のみ（読み取り専用）
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 株価画像分析カード -->
     <div class="card" id="stock-analysis-card">
       <div class="card-title">📈 株価画像分析 (AI)</div>
@@ -6902,6 +6932,17 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v39', date: '2026-03-01',
+          title: '📂 miniserve ファイルサーバー統合 — 同一Wi-FiからLAN公開',
+          items: [
+            { tag: 'feat', text: 'miniserve をlaunchdで自動起動 (com.kintai.miniserve, port 9000)。MacのRESTARTで自動起動、クラッシュ時も10秒で自動復旧' },
+            { tag: 'feat', text: 'ハブタブに「📂 ファイルサーバー」カードを追加。稼働状態・LAN URL・QRコードをリアルタイム表示。「🌐 ブラウザで開く」「📋 URLをコピー」ボタン付き' },
+            { tag: 'feat', text: 'GET /api/miniserve-url エンドポイント追加。LAN IPを自動検出しminiserveのURL・稼働状態を返す' },
+            { tag: 'feat', text: '~/root/ (attendance-pwa/ + attendance/) を同一Wi-Fi内のすべてのデバイスにZIP DL対応で公開。コード・ログ・仕様書をiPhone/PCブラウザで直接閲覧可能' },
+            { tag: 'feat', text: 'ハブタブ切り替え時にminiserveカードを自動更新。QRコードはiPhoneのカメラアプリでスキャンするだけでアクセス可能' },
+          ],
+        },
+        {
           version: 'v38', date: '2026-03-01',
           title: '🛡 Safari「Webサイトデータ消去」耐性 — フルバックアップ + 即時復旧',
           items: [
@@ -7234,7 +7275,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v38';
+        const swVer = 'kintai-v39';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -9461,6 +9502,7 @@
         { id: 'hub-launcher-card',  label: '🚀 クイックランチャー' },
         { id: 'sysinfo-card',       label: '📁 システム情報' },
         { id: 'db-status-card',     label: '🗄 データストア状態' },
+        { id: 'miniserve-card',     label: '📂 ファイルサーバー' },
         { id: 'ts-card-wrap',       label: '🔒 Tailscale VPN' },
         { id: 'iphone-guide-card',  label: '📱 iPhone接続ガイド' },
         { id: 'improvement-card',   label: '🚀 システム改善ロードマップ' },
@@ -9662,6 +9704,89 @@
         if (_memoEl) _memoEl.value = '';
         try { localStorage.removeItem(BOLT_MEMO_KEY); } catch(_) {}
       });
+    })();
+
+    /* =====================================================
+       MINISERVE ファイルサーバーカード
+       同一Wi-Fiから ~/root を LAN に公開する miniserve との連携
+       ===================================================== */
+    (function initMiniserveCard() {
+      let _miniserveUrl = 'http://localhost:9000';
+
+      async function refreshMiniserveStatus() {
+        const dotEl  = document.getElementById('miniserve-status-dot');
+        const urlEl  = document.getElementById('miniserve-url-text');
+        const qrEl   = document.getElementById('miniserve-qr');
+        if (!dotEl) return;
+
+        const base = window._srvBase || 'http://localhost:8899';
+        // LAN IP: _srvBase のホスト名から取得（Docker/GitHub Pages どちらでも正確）
+        const baseMatch = base.match(/^https?:\/\/([^:/]+)/);
+        const lanHost   = baseMatch ? baseMatch[1] : 'localhost';
+        const port      = 9000;
+        _miniserveUrl   = `http://${lanHost}:${port}`;
+
+        try {
+          const r = await fetch(`${base}/api/miniserve-url`, {
+            signal: AbortSignal.timeout(4000),
+          });
+          if (!r.ok) throw new Error();
+          const d = await r.json();
+
+          // host_ip が設定されていれば優先（docker-compose.yml の KINTAI_HOST_IP）
+          if (d.host_ip) _miniserveUrl = `http://${d.host_ip}:${d.port}`;
+
+          // ステータスドット
+          if (d.running) {
+            dotEl.innerHTML = '<span style="color:var(--accent-green);">● 稼働中</span>';
+          } else {
+            dotEl.innerHTML = '<span style="color:#e57373;">● 停止中</span>';
+          }
+
+          // URL表示
+          if (urlEl) urlEl.textContent = _miniserveUrl;
+
+          // QRコード (外部API — インターネット必要)
+          if (qrEl && d.running) {
+            const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&format=png&data=${encodeURIComponent(_miniserveUrl)}`;
+            qrEl.innerHTML = `<img src="${qrSrc}" alt="QR" style="width:100px;height:100px;border-radius:6px;" onerror="this.parentElement.innerHTML='<span style=\\'font-size:10px;color:var(--text-muted);padding:4px;text-align:center;\\'>QR生成にはインターネット接続が必要です</span>'">`;
+          } else if (qrEl) {
+            qrEl.innerHTML = '<span style="font-size:10px;color:var(--text-muted);padding:4px;text-align:center;line-height:1.4;">停止中<br>launchd確認してください</span>';
+          }
+        } catch {
+          if (dotEl) dotEl.innerHTML = '<span style="color:var(--text-muted);">— サーバー未接続</span>';
+          if (urlEl) urlEl.textContent = _miniserveUrl + ' (サーバー確認中)';
+          if (qrEl)  qrEl.innerHTML = '<span style="font-size:10px;color:var(--text-muted);">—</span>';
+        }
+      }
+
+      document.getElementById('miniserve-open-btn')?.addEventListener('click', () => {
+        window.open(_miniserveUrl, '_blank', 'noopener');
+      });
+
+      document.getElementById('miniserve-copy-btn')?.addEventListener('click', () => {
+        navigator.clipboard.writeText(_miniserveUrl).then(() => {
+          toast('📋 URLをコピーしました');
+        }).catch(() => {
+          // iOS fallback
+          const el = document.getElementById('miniserve-url-text');
+          if (el) {
+            const range = document.createRange();
+            range.selectNode(el);
+            window.getSelection()?.removeAllRanges();
+            window.getSelection()?.addRange(range);
+          }
+          toast('URLを選択しました — 長押しでコピーしてください');
+        });
+      });
+
+      document.getElementById('miniserve-refresh-btn')?.addEventListener('click', () => {
+        refreshMiniserveStatus();
+      });
+
+      // ハブタブ表示時に自動更新
+      window._miniserveCardRefresh = refreshMiniserveStatus;
+      refreshMiniserveStatus();
     })();
 
     /* =====================================================
@@ -12961,7 +13086,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         });
         document.getElementById('fab-group')?.classList.toggle('hidden', tabName !== 'calendar');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); if (window._refreshDockerSysinfo) window._refreshDockerSysinfo(); }
+        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); if (window._refreshDockerSysinfo) window._refreshDockerSysinfo(); if (window._miniserveCardRefresh) window._miniserveCardRefresh(); }
         if (tabName === 'study')    renderStudy();
         if (tabName === 'project')  renderProjects();
         if (tabName === 'report')   { initReportTab(); }
