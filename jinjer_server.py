@@ -62,6 +62,10 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8899
 _START_TIME = time.time()           # uptime 計算用
 _cache = {}   # cache_key → { ts, data }
 CACHE_TTL = 300  # 5分
+
+# Cloudflare Quick Tunnel — 現在のURL を保持するグローバル変数
+_CF_TUNNEL_URL: str = ''
+_CF_TUNNEL_PROC = None
 # ===== iCloud Drive パス定義 =====
 # `:root` フォルダ = iCloud Drive のルート（Mac/iPhone 両方からアクセス可能）
 _ICLOUD_ROOT = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/:root'
@@ -356,6 +360,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         # ===== /api/tailscale-url — Tailscale Serve の HTTPS URL を返す =====
         elif path == '/api/tailscale-url':
             self._handle_tailscale_url()
+
+        # ===== /api/tunnel-url — Cloudflare Quick Tunnel の現在 URL を返す =====
+        elif path == '/api/tunnel-url':
+            self._handle_tunnel_url()
 
         # ===== /api/backup/list — iCloud バックアップ一覧 =====
         elif path == '/api/backup/list':
@@ -752,6 +760,15 @@ class JinjerHandler(BaseHTTPRequestHandler):
                 'note': 'Tailscale がインストールされていないか、起動していません',
             })
 
+    def _handle_tunnel_url(self):
+        """Cloudflare Quick Tunnel の現在 URL を返す。"""
+        global _CF_TUNNEL_URL
+        if _CF_TUNNEL_URL:
+            self._send_json({'url': _CF_TUNNEL_URL, 'active': True})
+        else:
+            self._send_json({'url': None, 'active': False,
+                             'note': 'Cloudflare Tunnel は未起動です'})
+
     # ===== iCloud バックアップ管理 =============================================
 
     def _handle_backup_list(self):
@@ -1071,7 +1088,54 @@ if __name__ == '__main__':
 
     threading.Thread(target=_update_structure, daemon=True, name='structure-updater').start()
 
+    # ─── Cloudflare Quick Tunnel 自動起動 ────────────────────────────────────
+    def _start_cloudflare_tunnel():
+        """cloudflared quick tunnel を起動して URL をグローバルに保存する。
+        tunnel URL は trycloudflare.com の一時 URL（Mac 再起動ごとに変わる）。
+        """
+        global _CF_TUNNEL_URL, _CF_TUNNEL_PROC
+        import shutil as _shutil
+        cloudflared = _shutil.which('cloudflared')
+        if not cloudflared:
+            print('[INFO] cloudflared が見つかりません。Cloudflare Tunnel はスキップします。', flush=True)
+            return
+
+        # 既存プロセスが動いていれば停止
+        if _CF_TUNNEL_PROC and _CF_TUNNEL_PROC.poll() is None:
+            _CF_TUNNEL_PROC.terminate()
+
+        print('[INFO] Cloudflare Quick Tunnel を起動中...', flush=True)
+        try:
+            proc = subprocess.Popen(
+                [cloudflared, 'tunnel', '--url', f'http://localhost:{PORT}',
+                 '--no-autoupdate'],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1
+            )
+            _CF_TUNNEL_PROC = proc
+
+            # ログを読んで URL を抽出
+            url_pattern = re.compile(r'https://[a-z0-9\-]+\.trycloudflare\.com')
+            for line in proc.stdout:
+                line = line.rstrip()
+                m = url_pattern.search(line)
+                if m:
+                    _CF_TUNNEL_URL = m.group(0)
+                    print(f'[INFO] Cloudflare Tunnel URL: {_CF_TUNNEL_URL}', flush=True)
+                    break  # URL 取得後はバックグラウンドで動かし続ける
+
+            # stdout を引き続き読み続ける（プロセスを生かすため）
+            for _ in proc.stdout:
+                pass
+
+        except Exception as ex:
+            print(f'[WARN] Cloudflare Tunnel 起動失敗: {ex}', flush=True)
+
+    threading.Thread(target=_start_cloudflare_tunnel, daemon=True, name='cf-tunnel').start()
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print('\nサーバーを停止しました')
+        if _CF_TUNNEL_PROC and _CF_TUNNEL_PROC.poll() is None:
+            _CF_TUNNEL_PROC.terminate()

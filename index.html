@@ -18,6 +18,8 @@
   <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
+  <!-- QR コード生成（設定画面でCloudflare TunnelのURLをQR表示するため） -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 
   <style>
     :root {
@@ -2693,11 +2695,27 @@
           </div>
           <div class="settings-hint" style="margin-top:4px;">
             iPhoneから jinjer同期・報告書 に接続するためのHTTPS URL。<br>
-            <strong>Tailscale Serve</strong>（推奨）: Mac で
+            <strong>Tailscale Serve</strong>: Mac で
             <code style="background:var(--bg-page);padding:1px 5px;border-radius:4px;font-size:11px;">tailscale serve --bg 8899</code>
             を実行 → 自動検出ボタンで取得。iPhone に Tailscale アプリが必要。<br>
-            <strong>Cloudflare Tunnel</strong>: <code style="background:var(--bg-page);padding:1px 5px;border-radius:4px;font-size:11px;">cloudflared tunnel --url http://localhost:8899</code>
-            で取得した URL を貼り付け（iPhone に何も不要）。
+            <strong>Cloudflare Tunnel</strong>（推奨・iPhone何も不要）: サーバー起動時に自動でトンネルを開始します。
+          </div>
+        </div>
+
+        <!-- Cloudflare Tunnel 状態カード -->
+        <div class="settings-row" id="cf-tunnel-status-row">
+          <div class="settings-label">☁️ Cloudflare Tunnel（自動）</div>
+          <div id="cf-tunnel-status" style="font-size:12px;padding:8px;background:var(--bg-page);border-radius:10px;border:1px solid var(--border-soft);">
+            <div id="cf-tunnel-url-text" style="color:var(--text-muted);">確認中...</div>
+            <div id="cf-tunnel-qr-wrap" style="display:none;margin-top:8px;text-align:center;">
+              <canvas id="cf-tunnel-qr" width="160" height="160" style="border-radius:8px;background:#fff;padding:6px;"></canvas>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">iPhoneのカメラでスキャン → URLが開く</div>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <button id="cf-tunnel-copy-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;display:none;">📋 URLコピー</button>
+              <button id="cf-tunnel-use-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;display:none;">✓ 外部URLに設定</button>
+              <button id="cf-tunnel-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄 更新</button>
+            </div>
           </div>
         </div>
         <div class="settings-row">
@@ -4781,10 +4799,11 @@
 
     // サーバーURL解決 (優先順位):
     //   1. http://localhost:PORT  — Mac 上で直接開いている場合 (同一オリジン)
-    //   2. 設定の externalHttpsUrl — Tailscale Serve / Cloudflare Tunnel (iPhone等から接続)
-    //   3. http://TailscaleIP:PORT — 旧フォールバック (Chrome on Mac only)
+    //   2. 設定の externalHttpsUrl — Tailscale Serve / Cloudflare Tunnel 固定URL
+    //   3. localStorage の _cf_tunnel_url — Cloudflare Quick Tunnel (動的URL)
+    //   4. http://TailscaleIP:PORT — 旧フォールバック (Chrome on Mac only)
     async function _resolveServerUrl(port) {
-      // ── 1. localhost (Mac 直接アクセス / http://localhost:8899/ から開いた場合) ──
+      // ── 1. localhost ──────────────────────────────────────────────────────────
       try {
         const ctrl = new AbortController();
         setTimeout(() => ctrl.abort(), 2000);
@@ -4792,7 +4811,7 @@
         if (r.ok) return `http://localhost:${port}`;
       } catch(_) {}
 
-      // ── 2. 設定済み HTTPS URL (Tailscale Serve / Cloudflare Tunnel) ──────────
+      // ── 2. 設定済み固定 HTTPS URL (Tailscale Serve / Cloudflare Tunnel) ──────
       const cfg = loadConfig();
       const extUrl = cfg.externalHttpsUrl;
       if (extUrl && extUrl.startsWith('https://')) {
@@ -4804,7 +4823,20 @@
         } catch(_) {}
       }
 
-      // ── 3. Tailscale IP (HTTP) — Chrome のみ localhost 例外なし環境で動作 ────
+      // ── 3. Cloudflare Quick Tunnel — LS にキャッシュされた動的URL ────────────
+      const cachedCfUrl = localStorage.getItem('_cf_tunnel_url');
+      if (cachedCfUrl && cachedCfUrl.startsWith('https://')) {
+        try {
+          const ctrl4 = new AbortController();
+          setTimeout(() => ctrl4.abort(), 5000);
+          const r4 = await fetch(`${cachedCfUrl}/api/health`, { signal: ctrl4.signal });
+          if (r4.ok) return cachedCfUrl;
+        } catch(_) {}
+        // 接続失敗 → キャッシュを削除
+        localStorage.removeItem('_cf_tunnel_url');
+      }
+
+      // ── 4. Tailscale IP (HTTP) ────────────────────────────────────────────────
       const sens = await loadSensitiveData();
       if (sens.tsMac) {
         try {
@@ -4816,6 +4848,23 @@
       }
       return null;
     }
+
+    // Cloudflare Quick Tunnel URL をサーバーから取得してキャッシュ
+    async function _fetchAndCacheTunnelUrl() {
+      try {
+        const ctrl = new AbortController();
+        setTimeout(() => ctrl.abort(), 3000);
+        const r = await fetch('http://localhost:8899/api/tunnel-url', { signal: ctrl.signal });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (data.url && data.active) {
+          localStorage.setItem('_cf_tunnel_url', data.url);
+          _appLog('info', 'cloudflare', `Tunnel URL 取得: ${data.url}`);
+        }
+      } catch(_) {}
+    }
+    // 起動時にトンネルURL取得（30秒後 — サーバー側のトンネル起動を待つ）
+    setTimeout(_fetchAndCacheTunnelUrl, 30000);
 
     // 全期間一括同期（開始月 ～ 今月）
     async function _doJinjerFullSync() {
@@ -5162,6 +5211,88 @@
         btn.disabled = false;
       }
     });
+
+    // ── Cloudflare Tunnel 状態UI ──────────────────────────────────────────────
+    async function _loadCfTunnelStatus() {
+      const urlText = document.getElementById('cf-tunnel-url-text');
+      const qrWrap  = document.getElementById('cf-tunnel-qr-wrap');
+      const copyBtn = document.getElementById('cf-tunnel-copy-btn');
+      const useBtn  = document.getElementById('cf-tunnel-use-btn');
+      if (!urlText) return;
+
+      // まずサーバーから最新 URL を取得
+      let tunnelUrl = '';
+      try {
+        const r = await fetch('http://localhost:8899/api/tunnel-url',
+                              { signal: AbortSignal.timeout(3000) });
+        if (r.ok) {
+          const d = await r.json();
+          if (d.url && d.active) {
+            tunnelUrl = d.url;
+            localStorage.setItem('_cf_tunnel_url', tunnelUrl);
+          }
+        }
+      } catch(_) {}
+
+      // サーバーから取れなければ LS キャッシュを使用
+      if (!tunnelUrl) tunnelUrl = localStorage.getItem('_cf_tunnel_url') || '';
+
+      if (tunnelUrl) {
+        urlText.innerHTML = `<span style="color:var(--accent-blue);font-weight:700;">✅ アクティブ</span><br>
+          <span style="font-size:11px;word-break:break-all;">${_esc(tunnelUrl)}</span>`;
+        qrWrap.style.display = '';
+        copyBtn.style.display = '';
+        useBtn.style.display  = '';
+
+        // QR コード描画（シンプル実装 — qrcode-generator ライブラリ不要）
+        _drawQR(document.getElementById('cf-tunnel-qr'), tunnelUrl);
+
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(tunnelUrl).then(() => toast('📋 URLコピーしました'));
+        };
+        useBtn.onclick = () => {
+          document.getElementById('settings-ext-url').value = tunnelUrl;
+          toast('✓ 外部HTTPS URLに設定しました。保存してください。');
+        };
+      } else {
+        urlText.innerHTML = '<span style="color:var(--text-muted);">⏳ サーバー起動後30秒でトンネルが開始されます。<br>それ以降に「🔄 更新」を押してください。</span>';
+        qrWrap.style.display = 'none';
+        copyBtn.style.display = 'none';
+        useBtn.style.display  = 'none';
+      }
+    }
+
+    // QR コード描画（qrcodejs ライブラリ使用）
+    function _drawQR(canvas, text) {
+      if (!canvas) return;
+      const wrap = canvas.parentElement;
+      // canvas を div に差し替えて QRCode ライブラリに渡す
+      const div = document.createElement('div');
+      div.id = 'cf-tunnel-qr-div';
+      div.style.cssText = 'display:inline-block;background:#fff;padding:6px;border-radius:8px;';
+      wrap.replaceChild(div, canvas);
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(div, { text, width: 148, height: 148, correctLevel: QRCode.CorrectLevel.M });
+      } else {
+        div.textContent = 'QRコードを読み込み中...';
+        // ライブラリロード後に再試行
+        setTimeout(() => {
+          if (typeof QRCode !== 'undefined') {
+            div.textContent = '';
+            new QRCode(div, { text, width: 148, height: 148, correctLevel: QRCode.CorrectLevel.M });
+          }
+        }, 2000);
+      }
+    }
+
+    document.getElementById('cf-tunnel-refresh-btn')?.addEventListener('click', _loadCfTunnelStatus);
+
+    // 設定モーダルが開くたびに Tunnel 状態を更新
+    const _origOpenSettings = window.openSettings;
+    window.openSettings = function(...args) {
+      if (_origOpenSettings) _origOpenSettings(...args);
+      setTimeout(_loadCfTunnelStatus, 100);
+    };
 
     // 外部HTTPS URL 自動検出ボタン
     document.getElementById('settings-ext-url-detect')?.addEventListener('click', async () => {
@@ -6174,6 +6305,16 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v32', date: '2026-03-01',
+          title: '☁️ Cloudflare Tunnel 自動化 — iPhone常時接続を実現',
+          items: [
+            { tag: 'feat', text: 'jinjer_server.py 起動時に cloudflared quick tunnel を自動起動。trycloudflare.com の HTTPS URL を取得して /api/tunnel-url で公開' },
+            { tag: 'feat', text: '_resolveServerUrl() にCF Tunnel URL自動検出を追加（localhost→固定URL→CF Tunnel→Tailscale の優先順位）。LS(_cf_tunnel_url)にキャッシュ' },
+            { tag: 'feat', text: '設定画面に「☁️ Cloudflare Tunnel」カード追加。現在のURL・QRコード・「外部URLに設定」ボタンを表示。iPhoneでQRスキャンするだけで接続設定完了' },
+            { tag: 'feat', text: '起動30秒後に自動でトンネルURLを取得してPWAのLSにキャッシュ。次回起動時から即座に接続可能' },
+          ],
+        },
+        {
           version: 'v31', date: '2026-03-01',
           title: '📱 iPhoneレイアウト修正 + PC対応 + 業務AIタブ追加',
           items: [
@@ -6428,7 +6569,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v31';
+        const swVer = 'kintai-v32';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
