@@ -1095,7 +1095,15 @@ if __name__ == '__main__':
         """
         global _CF_TUNNEL_URL, _CF_TUNNEL_PROC
         import shutil as _shutil
-        cloudflared = _shutil.which('cloudflared')
+        # launchd は /usr/local/bin を PATH に含まないためフルパスを探す
+        _CF_CANDIDATES = [
+            '/usr/local/bin/cloudflared',
+            '/opt/homebrew/bin/cloudflared',
+            '/usr/bin/cloudflared',
+        ]
+        cloudflared = _shutil.which('cloudflared') or next(
+            (p for p in _CF_CANDIDATES if Path(p).exists()), None
+        )
         if not cloudflared:
             print('[INFO] cloudflared が見つかりません。Cloudflare Tunnel はスキップします。', flush=True)
             return
