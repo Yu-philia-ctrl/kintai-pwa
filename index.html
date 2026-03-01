@@ -2948,16 +2948,35 @@
         <div class="modal-close" id="emergency-modal-close">×</div>
       </div>
       <div class="emergency-modal-body">
-        <div class="emergency-section-title">クイック復旧</div>
+        <!-- Safari データ消去後の復旧ガイド -->
+        <div id="em-data-lost-banner" style="display:none;background:rgba(229,115,115,0.12);border:1px solid #e57373;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.7;">
+          ⚠️ <strong>ストレージが空になっています</strong><br>
+          Safari「Webサイトデータを削除」後の場合は下の復旧ボタンでデータを取り戻せます。
+        </div>
+
+        <div class="emergency-section-title">🔄 データ復旧（Safari消去後）</div>
+        <button class="emergency-btn emergency-btn-safe" id="em-full-restore">📦 サーバー＋iCloudから完全復元（推奨）</button>
+        <button class="emergency-btn emergency-btn-safe" id="em-bridge-restore">☁️ サーバーブリッジから復元（勤怠＋タスク）</button>
+
+        <div class="emergency-section-title">💾 JSONバックアップ（オフライン対応）</div>
+        <div style="display:flex;gap:8px;margin-bottom:4px;">
+          <button class="emergency-btn emergency-btn-safe" id="em-export-full" style="flex:1;margin:0;">📥 フルJSONをダウンロード</button>
+          <label class="emergency-btn emergency-btn-safe" id="em-import-label" style="flex:1;margin:0;text-align:center;cursor:pointer;">
+            📤 JSONから復元
+            <input type="file" id="em-import-file" accept=".json" style="display:none;">
+          </label>
+        </div>
+        <div id="em-backup-status" style="font-size:11px;color:var(--text-muted);padding:0 4px 6px;"></div>
+
+        <div class="emergency-section-title">⚙️ その他</div>
         <button class="emergency-btn emergency-btn-safe" id="em-sw-reload">🔄 Service Worker を強制更新</button>
         <button class="emergency-btn emergency-btn-warn" id="em-cache-clear">🗂 キャッシュ・SWをクリア（データ保持）</button>
         <button class="emergency-btn emergency-btn-warn" id="em-snap-restore">📦 自動スナップショットから復元</button>
-        <button class="emergency-btn emergency-btn-safe" id="em-bridge-restore">☁️ サーバーブリッジから復元（別端末/別URL移行）</button>
 
         <!-- iOS のみ: Safari ウェブサイトデータへのショートカット -->
         <button class="emergency-btn emergency-btn-safe" id="em-safari-settings" style="display:none;">📱 Safari ウェブサイトデータを開く</button>
 
-        <div class="emergency-section-title">完全リセット</div>
+        <div class="emergency-section-title">⚠️ 完全リセット</div>
         <button class="emergency-btn emergency-btn-danger" id="em-full-reset">🗑 全データ消去してリセット</button>
         <a href="./recover.html" class="emergency-btn emergency-btn-link" style="text-decoration:none;display:block;">🔗 recover.html を開く（詳細）</a>
 
@@ -4507,6 +4526,7 @@
       }
       idbSave(store); // 非同期ミラー（fire-and-forget）
       _syncDataToServer('kintai', store); // サーバーブリッジ (非同期)
+      _syncFullBackupToServer(); // フルバックアップ (60秒スロットル、非同期)
       // スナップショット: 30分に1回だけ保存（頻繁な書き込みを抑制）
       try {
         const lastSnap = localStorage.getItem('_kintai_snap_last') || '0';
@@ -4555,6 +4575,90 @@
         const data = await r.json();
         return data;
       } catch(_) { return null; }
+    }
+
+    /* =====================================================
+       FULL BACKUP / RESTORE — Safari「Webサイトデータ消去」耐性
+       全kintaiデータをサーバー+iCloudに完全バックアップし、
+       消去後に一発復旧できる仕組み。
+       ===================================================== */
+    const _FULL_BACKUP_THROTTLE = { last: 0, timer: null };
+
+    /** 全kintaiデータをひとつのオブジェクトに集める */
+    function _collectAllData() {
+      const keys = [
+        STORE_KEY, TASKS_KEY,
+        '_kintai_cfg_v1', '_kintai_tab_config_v1', '_kintai_hub_card_order_v1',
+        '_kintai_fab_config_v1', '_kintai_bolt_memo_v1',
+        '_kintai_market_v1', '_kintai_employees_v1',
+        '_kintai_snap_last', '_kintai_snaps',
+        '_kintai_log', '_kintai_err_log',
+      ];
+      const data = { exported_at: new Date().toISOString(), version: 'kintai-v38', keys: {} };
+      for (const k of keys) {
+        const v = localStorage.getItem(k);
+        if (v) data.keys[k] = v; // raw string (re-setItem できる)
+      }
+      return data;
+    }
+
+    /** 全データを localStorage に一括復元 */
+    function _applyAllData(backup) {
+      if (!backup?.keys) return 0;
+      let count = 0;
+      for (const [k, v] of Object.entries(backup.keys)) {
+        try { localStorage.setItem(k, v); count++; } catch(_) {}
+      }
+      return count;
+    }
+
+    /** サーバーへ完全バックアップを送信 (60秒スロットル) */
+    async function _syncFullBackupToServer() {
+      const now = Date.now();
+      if (now - _FULL_BACKUP_THROTTLE.last < 60000) return;
+      _FULL_BACKUP_THROTTLE.last = now;
+      const base = await _resolveServerUrl(8899);
+      if (!base) return;
+      try {
+        const payload = _collectAllData();
+        await fetch(`${base}/api/backup/full`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(8000),
+        });
+        localStorage.setItem('_kintai_full_backup_ts', String(now));
+        _appLog('info', 'backup', 'フルバックアップ完了 → サーバー+iCloud');
+      } catch(_) {}
+    }
+
+    /** サーバーからフルバックアップを取得 */
+    async function _fetchFullBackupFromServer() {
+      const base = await _resolveServerUrl(8899);
+      if (!base) return null;
+      try {
+        const r = await fetch(`${base}/api/backup/full`, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch(_) { return null; }
+    }
+
+    /** 起動時: LS が空なら回復バナーを表示 */
+    function _checkEmptyStorageOnBoot() {
+      const storeOk  = !!localStorage.getItem(STORE_KEY);
+      const tasksOk  = !!localStorage.getItem(TASKS_KEY);
+      if (!storeOk && !tasksOk) {
+        const banner = document.getElementById('em-data-lost-banner');
+        if (banner) banner.style.display = '';
+        // 3秒後にモーダルを自動表示（データが完全に消えている場合のみ）
+        setTimeout(() => {
+          const anyOpen = document.querySelector('.modal-backdrop.show');
+          if (!anyOpen) {
+            document.getElementById('emergency-modal')?.classList.add('show');
+            toast('⚠️ データが見つかりません。緊急復旧ダイアログを開きました');
+          }
+        }, 3000);
+      }
     }
 
     // 起動時: localStorage が空なら IDB → サーバー の順で復元
@@ -6025,6 +6129,8 @@
             }).catch(()=>{});
           }
         } catch(_) {}
+        // 空ストレージ検出（Safari「Webサイトデータ消去」後）
+        try { _checkEmptyStorageOnBoot(); } catch(_) {}
         // IDB復元（失敗しても続行）
         let restored = false;
         try { restored = await restoreFromIDBIfNeeded(); } catch(e) { console.warn('[init] IDB復元スキップ:', e); }
@@ -6347,6 +6453,7 @@
       localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
       window._taskIdbBackup?.(tasks); // 非同期 IDB バックアップ
       _syncDataToServer('tasks', { tasks }); // サーバーブリッジ (非同期)
+      _syncFullBackupToServer(); // フルバックアップ (60秒スロットル、非同期)
     }
 
     function _esc(s) {
@@ -6795,6 +6902,18 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v38', date: '2026-03-01',
+          title: '🛡 Safari「Webサイトデータ消去」耐性 — フルバックアップ + 即時復旧',
+          items: [
+            { tag: 'feat', text: 'フルバックアップ機能: 全kintaiデータ（勤怠/タスク/設定/タブ設定など）をサーバー+iCloudに60秒スロットルで自動保存。POST /api/backup/full エンドポイント追加' },
+            { tag: 'feat', text: '緊急復旧モーダル刷新: 「📦 サーバー＋iCloudから完全復元（推奨）」ボタン追加。フルバックアップがある場合はすべての設定を含めて一発復旧' },
+            { tag: 'feat', text: '📥 フルJSONダウンロード: 全kintaiデータをひとつのJSONファイルに書き出し。iOSでは共有シートでFilesアプリに保存可能' },
+            { tag: 'feat', text: '📤 JSONから完全復元: ダウンロードしたJSONファイルをアップロードするだけで全データを即時復元。完全オフライン対応' },
+            { tag: 'feat', text: '空ストレージ検出: 起動時にlocalStorageが空の場合、自動的に緊急復旧ダイアログを表示。3秒後に自動オープン' },
+            { tag: 'feat', text: '最終バックアップ日時を緊急復旧モーダルに表示。バックアップ未作成時は警告を表示' },
+          ],
+        },
+        {
           version: 'v37', date: '2026-03-01',
           title: '📋 タスク管理強化: 担当者・期日・編集・ソフトデリート・ゴミ箱',
           items: [
@@ -7115,7 +7234,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v37';
+        const swVer = 'kintai-v38';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -8845,6 +8964,23 @@
 
       function openEmergencyModal() {
         modal.classList.add('show');
+        // 空ストレージバナー表示制御
+        const storeOk  = !!localStorage.getItem(STORE_KEY);
+        const tasksOk  = !!localStorage.getItem(TASKS_KEY);
+        const lostBanner = document.getElementById('em-data-lost-banner');
+        if (lostBanner) lostBanner.style.display = (!storeOk && !tasksOk) ? '' : 'none';
+        // バックアップ状態
+        const bsEl = document.getElementById('em-backup-status');
+        if (bsEl) {
+          const ts = localStorage.getItem('_kintai_full_backup_ts');
+          if (ts) {
+            const d = new Date(Number(ts));
+            const ago = Math.round((Date.now() - Number(ts)) / 60000);
+            bsEl.textContent = `最終フルバックアップ: ${d.toLocaleDateString('ja')} ${d.toLocaleTimeString('ja')} (${ago}分前)`;
+          } else {
+            bsEl.textContent = '⚠ フルバックアップ未作成 — 勤怠またはタスクを保存すると自動バックアップされます';
+          }
+        }
         // 診断情報を更新
         (async () => {
           try {
@@ -8852,7 +8988,7 @@
             // localStorage サイズ
             let lsSize = 0;
             for (const k of Object.keys(localStorage)) lsSize += (localStorage.getItem(k) || '').length;
-            lines.push(`LS使用量: ${Math.round(lsSize/1024)}KB`);
+            lines.push(`LS使用量: ${Math.round(lsSize/1024)}KB (${Object.keys(localStorage).length}キー)`);
             // IDB確認
             const idbData = await idbLoad();
             const idbMonths = Object.keys(idbData?.months || {}).length;
@@ -8949,6 +9085,56 @@
         } catch(e) { toast('リセット失敗: ' + e.message); }
       });
 
+      // ===== 新: フルバックアップから完全復元（推奨）=====
+      document.getElementById('em-full-restore')?.addEventListener('click', async () => {
+        const btn = document.getElementById('em-full-restore');
+        btn.textContent = '⏳ 復元中...';
+        btn.disabled = true;
+        let restoredAny = false;
+        try {
+          // 1st: フルバックアップ（サーバー+iCloud）
+          const full = await _fetchFullBackupFromServer();
+          if (full?.keys && Object.keys(full.keys).length > 0) {
+            const n = _applyAllData(full);
+            // IDB にも書き戻す
+            try { await idbSave(loadStore()); } catch(_) {}
+            try { await idbSaveTasksUnified(loadTasks()); } catch(_) {}
+            restoredAny = true;
+            toast(`✅ フルバックアップから ${n} 項目を復元しました — 再読込します`);
+            closeEmergencyModal();
+            setTimeout(() => location.reload(), 1500);
+            return;
+          }
+          // 2nd: サーバーブリッジ（フォールバック）
+          const serverKintai = await _restoreFromServer('kintai');
+          if (serverKintai && Object.keys(serverKintai.months || {}).length > 0) {
+            const clean = { months: serverKintai.months };
+            localStorage.setItem(STORE_KEY, JSON.stringify(clean));
+            await idbSave(clean);
+            restoredAny = true;
+          }
+          const serverTasks = await _restoreFromServer('tasks');
+          const tasks = serverTasks?.tasks;
+          if (Array.isArray(tasks) && tasks.length > 0) {
+            localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+            await idbSaveTasksUnified(tasks);
+            restoredAny = true;
+          }
+          if (restoredAny) {
+            toast('✅ サーバーから復元しました — 再読込します');
+            closeEmergencyModal();
+            setTimeout(() => location.reload(), 1500);
+          } else {
+            toast('⚠️ サーバーにデータなし。JSONファイルからの復元を試してください');
+          }
+        } catch(e) {
+          toast('❌ 復元失敗: ' + e.message);
+        } finally {
+          btn.textContent = '📦 サーバー＋iCloudから完全復元（推奨）';
+          btn.disabled = false;
+        }
+      });
+
       // サーバーブリッジから復元（別端末 / 別URL から引き継ぎ）
       document.getElementById('em-bridge-restore')?.addEventListener('click', async () => {
         const btn = document.getElementById('em-bridge-restore');
@@ -8980,9 +9166,51 @@
         } catch(e) {
           toast('❌ 復元失敗: ' + e.message);
         } finally {
-          btn.textContent = '☁️ サーバーブリッジから復元（別端末/別URL移行）';
+          btn.textContent = '☁️ サーバーブリッジから復元（勤怠＋タスク）';
           btn.disabled = false;
         }
+      });
+
+      // ===== 新: フルJSONダウンロード =====
+      document.getElementById('em-export-full')?.addEventListener('click', () => {
+        try {
+          const data = _collectAllData();
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement('a');
+          const dt   = new Date().toISOString().slice(0,10);
+          a.href     = url;
+          a.download = `kintai_full_backup_${dt}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          // Web Share API (iOS: Filesアプリに保存)
+          if (navigator.share && navigator.canShare?.({ files: [new File([blob], a.download)] })) {
+            navigator.share({ files: [new File([blob], a.download)], title: 'kintai フルバックアップ' })
+              .catch(() => {});
+          }
+          toast(`✅ フルバックアップをダウンロードしました (${Object.keys(data.keys).length}項目)`);
+        } catch(e) { toast('❌ エクスポート失敗: ' + e.message); }
+      });
+
+      // ===== 新: JSONファイルから完全復元 =====
+      document.getElementById('em-import-file')?.addEventListener('change', async e => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          const text   = await file.text();
+          const backup = JSON.parse(text);
+          if (!backup?.keys) { toast('⚠️ 有効なkintaiバックアップファイルではありません'); return; }
+          if (!confirm(`「${file.name}」からデータを復元しますか？\n現在のデータは上書きされます。\n(${Object.keys(backup.keys).length}項目, ${backup.exported_at?.slice(0,10) || '?'} 作成)`)) return;
+          const n = _applyAllData(backup);
+          try { await idbSave(loadStore()); } catch(_) {}
+          try { await idbSaveTasksUnified(loadTasks()); } catch(_) {}
+          toast(`✅ ${n}項目を復元しました — 再読込します`);
+          closeEmergencyModal();
+          setTimeout(() => location.reload(), 1500);
+        } catch(err) { toast('❌ 復元失敗: ' + err.message); }
+        e.target.value = '';
       });
 
       // iOS Safari ウェブサイトデータへのショートカット（iOS のみ表示）

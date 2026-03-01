@@ -390,6 +390,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/docker/stats':
             self._handle_docker_stats()
 
+        # ===== /api/backup/full — フルバックアップ取得 =====
+        elif path == '/api/backup/full':
+            self._handle_full_backup_get()
+
         # ===== /api/backup/list — iCloud バックアップ一覧 =====
         elif path == '/api/backup/list':
             self._handle_backup_list()
@@ -421,6 +425,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         # ===== /api/tasks-data — タスクデータ保存 =====
         elif path == '/api/tasks-data':
             self._handle_data_post(TASKS_DATA_FILE)
+
+        # ===== /api/backup/full — フルバックアップ保存 =====
+        elif path == '/api/backup/full':
+            self._handle_full_backup_post()
 
         # ===== /api/reports/sync =====
         elif path == '/api/reports/sync':
@@ -701,6 +709,44 @@ class JinjerHandler(BaseHTTPRequestHandler):
             self._send_json({'error': str(e)}, 500)
 
     # ===== データブリッジ: ファイル読み書き =====
+    # ── フルバックアップ ────────────────────────────────────────────────────
+    FULL_BACKUP_FILE = DATA_DIR / 'kintai_full_backup.json'
+
+    def _handle_full_backup_get(self):
+        """最新フルバックアップを返す。ファイルがなければ 404。"""
+        f = KintaiHandler.FULL_BACKUP_FILE
+        if not f.exists():
+            self._send_json({'error': 'フルバックアップが見つかりません'}, 404)
+            return
+        try:
+            data = json.loads(f.read_text(encoding='utf-8'))
+            self._send_json(data)
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    def _handle_full_backup_post(self):
+        """全kintaiデータをファイル + iCloud に保存する。"""
+        body = self._read_body()
+        if not body or not body.get('keys'):
+            self._send_json({'error': 'keys が空です'}, 400)
+            return
+        try:
+            body['_server_saved_at'] = _dt.now().isoformat()
+            f = KintaiHandler.FULL_BACKUP_FILE
+            f.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding='utf-8')
+            # iCloud にもコピー
+            icloud_ok = False
+            try:
+                icloud_f = ICLOUD_ATT_DIR / 'kintai_full_backup.json'
+                ICLOUD_ATT_DIR.mkdir(parents=True, exist_ok=True)
+                icloud_f.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding='utf-8')
+                icloud_ok = True
+            except Exception:
+                pass
+            self._send_json({'ok': True, 'saved_at': body['_server_saved_at'], 'icloud': icloud_ok})
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
     def _handle_data_get(self, data_file: Path):
         """ファイルストアからデータを返す。ファイルが存在しなければ空を返す。"""
         if data_file.exists():
