@@ -792,6 +792,20 @@
     /* AI ページを active 時に flex レイアウトにする */
     #page-ai.active { display: flex !important; }
 
+    /* ======= Docker タブ ======= */
+    .docker-stat-bar-wrap {
+      background: var(--bg-glass, rgba(0,0,0,0.05));
+      border-radius: 6px; height: 8px; overflow: hidden; flex: 1;
+    }
+    .docker-stat-bar {
+      height: 100%; border-radius: 6px;
+      transition: width 0.4s ease;
+    }
+    .docker-stat-bar.cpu  { background: linear-gradient(90deg, #4f8dfd, #58a6ff); }
+    .docker-stat-bar.mem  { background: linear-gradient(90deg, #2da44e, #39d353); }
+    .docker-stat-bar.warn { background: linear-gradient(90deg, #e3b341, #f0a030); }
+    .docker-stat-bar.danger { background: linear-gradient(90deg, #e05252, #ff5f57); }
+
     /* ======= 業務AI タブ ======= */
     .bizai-tpl-btn {
       padding: 6px 12px; border-radius: 20px; border: 1.5px solid var(--border-soft);
@@ -2103,7 +2117,11 @@
     <!-- システム情報カード -->
     <div class="card" id="sysinfo-card">
       <div class="card-title">📁 システム情報</div>
-      <div id="sysinfo-summary" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">読み込み中…</div>
+      <div id="sysinfo-summary" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">読み込み中…</div>
+      <div id="sysinfo-docker-row" style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+        <span id="sysinfo-docker-status">🐳 Docker: 確認中…</span>
+        <button class="btn-secondary" id="sysinfo-docker-tab-btn" style="font-size:11px;padding:2px 8px;">管理 ↗</button>
+      </div>
       <button class="btn-secondary" id="sysinfo-open-btn" style="width:100%;margin-bottom:6px;">📂 ファイルブラウザを開く</button>
       <button class="btn-secondary" id="sysinfo-structure-btn" style="width:100%;">📋 STRUCTURE.md を見る</button>
     </div>
@@ -3196,22 +3214,29 @@
   <!-- ===== TAB: Docker ===== -->
   <div id="page-docker" class="tab-page">
     <!-- コントロール行 -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;">
       <div style="font-size:15px;font-weight:700;">🐳 Docker 管理</div>
-      <button id="docker-refresh-btn" class="btn-secondary" style="font-size:12px;padding:4px 10px;">🔄 更新</button>
+      <div style="display:flex;gap:6px;">
+        <button id="docker-create-btn" class="btn-primary" style="font-size:12px;padding:4px 10px;">⊕ 作成</button>
+        <button id="docker-refresh-btn" class="btn-secondary" style="font-size:12px;padding:4px 10px;">🔄</button>
+      </div>
     </div>
 
     <!-- ステータスバー -->
     <div id="docker-status-bar" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;"></div>
 
-    <!-- タブ切り替え: containers / images -->
-    <div style="display:flex;gap:6px;margin-bottom:10px;">
+    <!-- ビュー切り替え: containers / stats / images -->
+    <div style="display:flex;gap:5px;margin-bottom:10px;">
       <button class="docker-view-btn active" data-view="containers"
-        style="flex:1;padding:7px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-card-solid);font-size:13px;cursor:pointer;">
+        style="flex:1;padding:6px 4px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-card-solid);font-size:12px;cursor:pointer;font-weight:700;">
         📦 コンテナ
       </button>
+      <button class="docker-view-btn" data-view="stats"
+        style="flex:1;padding:6px 4px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-card);font-size:12px;cursor:pointer;">
+        📊 統計
+      </button>
       <button class="docker-view-btn" data-view="images"
-        style="flex:1;padding:7px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-card);font-size:13px;cursor:pointer;">
+        style="flex:1;padding:6px 4px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-card);font-size:12px;cursor:pointer;">
         🖼 イメージ
       </button>
     </div>
@@ -3221,6 +3246,11 @@
       <div id="docker-container-list" style="display:flex;flex-direction:column;gap:8px;"></div>
     </div>
 
+    <!-- 統計ビュー -->
+    <div id="docker-stats-view" style="display:none;">
+      <div id="docker-stats-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
     <!-- イメージリスト -->
     <div id="docker-images-view" style="display:none;">
       <div id="docker-image-list" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -3228,14 +3258,75 @@
 
     <!-- ログモーダル -->
     <div class="modal-backdrop" id="docker-log-modal">
-      <div class="modal-sheet" style="height:80dvh;">
+      <div class="modal-sheet" style="height:80dvh;display:flex;flex-direction:column;">
         <div class="modal-handle"></div>
         <div class="modal-header">
           <div class="modal-title" id="docker-log-title">📄 コンテナログ</div>
-          <button class="modal-close" id="docker-log-close">✕</button>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;cursor:pointer;">
+              <input type="checkbox" id="docker-log-autorefresh" checked> 自動更新
+            </label>
+            <button class="modal-close" id="docker-log-close">✕</button>
+          </div>
         </div>
         <pre id="docker-log-content"
           style="flex:1;overflow-y:auto;padding:12px 14px;font-size:11px;font-family:'Menlo','Consolas',monospace;background:#0d1117;color:#c9d1d9;margin:0;white-space:pre-wrap;word-break:break-all;line-height:1.6;"></pre>
+      </div>
+    </div>
+
+    <!-- コンテナ作成モーダル -->
+    <div class="modal-backdrop" id="docker-create-modal">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+          <div class="modal-title">⊕ コンテナ作成</div>
+          <button class="modal-close" id="docker-create-close">✕</button>
+        </div>
+        <div style="padding:0 14px;overflow-y:auto;max-height:60dvh;">
+          <!-- イメージ行 -->
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">イメージ名 *</div>
+            <div style="display:flex;gap:6px;">
+              <input id="docker-new-image" placeholder="nginx:latest" list="docker-image-datalist"
+                style="flex:1;padding:8px 10px;border:1px solid var(--border-soft);border-radius:10px;font-size:13px;background:var(--bg-card);color:var(--text-primary);">
+              <button id="docker-pull-btn" class="btn-secondary" style="font-size:12px;padding:6px 10px;white-space:nowrap;">📥 Pull</button>
+            </div>
+            <datalist id="docker-image-datalist"></datalist>
+            <div id="docker-pull-status" style="font-size:11px;color:var(--accent-blue);margin-top:4px;display:none;"></div>
+          </div>
+          <!-- コンテナ名 -->
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">コンテナ名（省略可）</div>
+            <input id="docker-new-name" placeholder="myapp"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border-soft);border-radius:10px;font-size:13px;background:var(--bg-card);color:var(--text-primary);">
+          </div>
+          <!-- ポートマッピング -->
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">ポートマッピング（例: 8080:80, 443:443）</div>
+            <input id="docker-new-ports" placeholder="8080:80"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border-soft);border-radius:10px;font-size:13px;background:var(--bg-card);color:var(--text-primary);">
+          </div>
+          <!-- 再起動ポリシー -->
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">再起動ポリシー（HA推奨: always）</div>
+            <select id="docker-new-restart"
+              style="width:100%;padding:8px 10px;border:1px solid var(--border-soft);border-radius:10px;font-size:13px;background:var(--bg-card);color:var(--text-primary);">
+              <option value="no">no — 自動再起動しない</option>
+              <option value="always" selected>always — 常に再起動（HA推奨）</option>
+              <option value="unless-stopped">unless-stopped — 手動停止以外は再起動</option>
+              <option value="on-failure">on-failure — 異常終了時のみ再起動</option>
+            </select>
+          </div>
+          <!-- 環境変数 -->
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">環境変数（KEY=VALUE を改行区切り）</div>
+            <textarea id="docker-new-env" rows="3" placeholder="PORT=3000&#10;NODE_ENV=production"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border-soft);border-radius:10px;font-size:12px;font-family:monospace;background:var(--bg-card);color:var(--text-primary);resize:vertical;"></textarea>
+          </div>
+        </div>
+        <div style="padding:12px 14px;">
+          <button id="docker-run-btn" class="btn-primary" style="width:100%;">▶ 起動</button>
+        </div>
       </div>
     </div>
   </div>
@@ -6348,6 +6439,19 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v34', date: '2026-03-01',
+          title: '🐳 Docker HA深統合 — 統計・コンテナ作成・自動更新ログ・Compose',
+          items: [
+            { tag: 'feat', text: 'Docker統計ビュー追加（📊）: 実行中コンテナのCPU/MEM使用率をリアルタイムバーで表示。/api/docker/stats エンドポイント追加' },
+            { tag: 'feat', text: 'コンテナ作成モーダル（⊕ 作成）: イメージ名・コンテナ名・ポートマッピング・再起動ポリシー・環境変数を入力して起動。HA推奨のrestart:alwaysがデフォルト' },
+            { tag: 'feat', text: 'イメージPull機能: 作成モーダルから直接 docker pull を実行。イメージビューに「▶ 起動」ボタン追加' },
+            { tag: 'feat', text: 'ログ自動更新: ログモーダルを開くと3秒ごとに自動更新（チェックボックスで制御可）。最下部に自動スクロール' },
+            { tag: 'feat', text: 'Hubタブ sysinfo カードにDocker状態行追加（稼働台数を常時表示。「管理↗」クリックでDockerタブに遷移）' },
+            { tag: 'feat', text: 'Dockerfile + docker-compose.yml 追加: kintai-serverとcloudflaredをDockerスタックとして運用可能。health check・restart:alwaysで二重HA' },
+            { tag: 'feat', text: '/api/health にDockerデーモン稼働情報とトンネル状態を追加（docker: "3/7", tunnel: true）' },
+          ],
+        },
+        {
           version: 'v33', date: '2026-03-01',
           title: '🐳 Docker管理タブ + CF Tunnel UI修正',
           items: [
@@ -6621,7 +6725,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v33';
+        const swVer = 'kintai-v34';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -11712,7 +11816,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         });
         document.getElementById('fab-group')?.classList.toggle('hidden', tabName !== 'calendar');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); }
+        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); if (window._refreshDockerSysinfo) window._refreshDockerSysinfo(); }
         if (tabName === 'study')    renderStudy();
         if (tabName === 'project')  renderProjects();
         if (tabName === 'report')   { initReportTab(); }
@@ -12584,8 +12688,10 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
     (() => {
       const _SRV = () => window._srvBase || 'http://localhost:8899';
 
-      let _dockerView = 'containers'; // 'containers' | 'images'
+      let _dockerView = 'containers'; // 'containers' | 'stats' | 'images'
       let _dockerLogModal = null;
+      let _logAutoRefreshTimer = null;
+      let _logCurrentCid = null;
 
       // ── ビュー切り替え ─────────────────────────────────────────────────────
       document.querySelectorAll('.docker-view-btn').forEach(btn => {
@@ -12599,6 +12705,8 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           });
           document.getElementById('docker-containers-view').style.display =
             _dockerView === 'containers' ? '' : 'none';
+          document.getElementById('docker-stats-view').style.display =
+            _dockerView === 'stats' ? '' : 'none';
           document.getElementById('docker-images-view').style.display =
             _dockerView === 'images' ? '' : 'none';
           _loadDockerView();
@@ -12611,6 +12719,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       // ── ログモーダル ──────────────────────────────────────────────────────
       _dockerLogModal = document.getElementById('docker-log-modal');
       document.getElementById('docker-log-close')?.addEventListener('click', () => {
+        _stopLogAutoRefresh();
         _dockerLogModal.classList.remove('show');
       });
 
@@ -12618,12 +12727,22 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       function _stateBadge(state) {
         const colors = { running: '#2da44e', exited: '#8b949e', paused: '#e3b341', created: '#58a6ff' };
         const c = colors[state?.toLowerCase()] || '#8b949e';
-        return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:5px;"></span>${state || '-'}`;
+        return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:5px;flex-shrink:0;"></span>${state || '-'}`;
+      }
+
+      // ── リソースバー描画 ───────────────────────────────────────────────────
+      function _usageBar(pct, type) {
+        const cls = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : type;
+        return `
+          <div class="docker-stat-bar-wrap">
+            <div class="docker-stat-bar ${cls}" style="width:${Math.min(pct,100)}%;"></div>
+          </div>`;
       }
 
       // ── コンテナ一覧 ─────────────────────────────────────────────────────
       async function _loadContainers() {
         const listEl = document.getElementById('docker-container-list');
+        if (!listEl) return;
         listEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">読み込み中...</div>';
         try {
           const r = await fetch(`${_SRV()}/api/docker/containers`, { signal: AbortSignal.timeout(8000) });
@@ -12631,23 +12750,28 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           const data = await r.json();
           if (data.error) throw new Error(data.error);
           const containers = data.containers || [];
+          const running = containers.filter(c => c.state === 'running').length;
           document.getElementById('docker-status-bar').textContent =
-            `コンテナ: ${containers.length} 件 (実行中: ${containers.filter(c => c.state === 'running').length})`;
+            `🐳 ${running}台稼働 / 全${containers.length}台`;
           if (!containers.length) {
             listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px;text-align:center;">コンテナはありません</div>';
             return;
           }
-          listEl.innerHTML = containers.map(c => `
+          listEl.innerHTML = containers.map(c => {
+            const isRunning = c.state === 'running';
+            const restartBadge = c.status?.includes('Restarting')
+              ? `<span style="color:#e3b341;font-size:10px;margin-left:4px;">🔄 再起動中</span>` : '';
+            return `
             <div class="card" style="margin:0;padding:12px;" data-cid="${_esc(c.id)}" data-cname="${_esc(c.name)}">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                <div style="font-size:13px;font-weight:700;word-break:break-all;">${_esc(c.name)}</div>
-                <div style="font-size:11px;">${_stateBadge(c.state)}</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:6px;">
+                <div style="font-size:13px;font-weight:700;word-break:break-all;flex:1;">${_esc(c.name)}${restartBadge}</div>
+                <div style="font-size:11px;display:flex;align-items:center;white-space:nowrap;">${_stateBadge(c.state)}</div>
               </div>
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">${_esc(c.image)}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">${_esc(c.status)}</div>
-              ${c.ports ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">🔌 ${_esc(c.ports)}</div>` : ''}
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">🖼 ${_esc(c.image)}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:${c.ports ? 3 : 8}px;">${_esc(c.status)}</div>
+              ${c.ports ? `<div style="font-size:11px;color:var(--accent-blue);margin-bottom:8px;">🔌 ${_esc(c.ports)}</div>` : ''}
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                ${c.state === 'running'
+                ${isRunning
                   ? `<button class="docker-action-btn btn-secondary" data-action="stop" style="font-size:11px;padding:4px 10px;">⏹ 停止</button>
                      <button class="docker-action-btn btn-secondary" data-action="restart" style="font-size:11px;padding:4px 10px;">🔄 再起動</button>`
                   : `<button class="docker-action-btn btn-secondary" data-action="start" style="font-size:11px;padding:4px 10px;">▶ 起動</button>
@@ -12655,7 +12779,8 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
                 }
                 <button class="docker-log-btn btn-secondary" style="font-size:11px;padding:4px 10px;">📄 ログ</button>
               </div>
-            </div>`).join('');
+            </div>`;
+          }).join('');
 
           // アクションボタン
           listEl.querySelectorAll('.docker-action-btn').forEach(btn => {
@@ -12666,7 +12791,8 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
               const action = btn.dataset.action;
               if (action === 'rm' && !confirm(`「${cname}」を削除しますか？`)) return;
               btn.disabled = true;
-              btn.textContent = '...';
+              const orig = btn.textContent;
+              btn.textContent = '…';
               try {
                 const r2 = await fetch(`${_SRV()}/api/docker/action`, {
                   method: 'POST',
@@ -12675,48 +12801,122 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
                   signal: AbortSignal.timeout(35000)
                 });
                 const d2 = await r2.json();
-                if (d2.error) { toast(`❌ ${d2.error}`); }
-                else { toast(`✓ ${action}: ${cname}`); _loadContainers(); }
+                if (d2.error) toast(`❌ ${d2.error}`);
+                else { toast(`✓ ${action}: ${cname}`); setTimeout(_loadContainers, 800); }
               } catch(e) {
                 toast(`❌ ${e.message}`);
               } finally {
                 btn.disabled = false;
+                btn.textContent = orig;
               }
             });
           });
 
-          // ログボタン
+          // ログボタン → 自動更新ログ
           listEl.querySelectorAll('.docker-log-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
+            btn.addEventListener('click', () => {
               const card = btn.closest('[data-cid]');
-              const cid = card.dataset.cid;
-              const cname = card.dataset.cname;
-              document.getElementById('docker-log-title').textContent = `📄 ${cname}`;
-              document.getElementById('docker-log-content').textContent = '読み込み中...';
-              _dockerLogModal.classList.add('show');
-              try {
-                const r3 = await fetch(`${_SRV()}/api/docker/logs?id=${encodeURIComponent(cid)}&lines=200`,
-                  { signal: AbortSignal.timeout(15000) });
-                const d3 = await r3.json();
-                document.getElementById('docker-log-content').textContent =
-                  d3.logs || d3.error || '(ログなし)';
-              } catch(e) {
-                document.getElementById('docker-log-content').textContent = `エラー: ${e.message}`;
-              }
+              _openLogModal(card.dataset.cid, card.dataset.cname);
             });
           });
+
+          // Hub sysinfo Docker 行も更新
+          _updateSysinfoDockerRow(running, containers.length);
         } catch(e) {
-          listEl.innerHTML = `<div class="card" style="margin:0;color:#e05252;font-size:12px;">
+          listEl.innerHTML = `<div class="card" style="margin:0;padding:12px;color:#e05252;font-size:12px;">
             ❌ Docker に接続できません: ${_esc(e.message)}<br>
             <span style="color:var(--text-muted);">Docker Desktop が起動しているか確認してください</span>
           </div>`;
-          document.getElementById('docker-status-bar').textContent = '';
+          document.getElementById('docker-status-bar').textContent = '⚠️ Docker 未接続';
+          _updateSysinfoDockerRow(-1, 0);
+        }
+      }
+
+      // ── ログモーダル（自動更新つき）────────────────────────────────────────
+      async function _openLogModal(cid, cname) {
+        _logCurrentCid = cid;
+        document.getElementById('docker-log-title').textContent = `📄 ${cname}`;
+        document.getElementById('docker-log-content').textContent = '読み込み中...';
+        _dockerLogModal.classList.add('show');
+        await _fetchLog(cid);
+        _startLogAutoRefresh(cid);
+      }
+
+      async function _fetchLog(cid) {
+        try {
+          const r = await fetch(`${_SRV()}/api/docker/logs?id=${encodeURIComponent(cid)}&lines=300`,
+            { signal: AbortSignal.timeout(15000) });
+          const d = await r.json();
+          const el = document.getElementById('docker-log-content');
+          el.textContent = d.logs || d.error || '(ログなし)';
+          el.scrollTop = el.scrollHeight; // 最下部にスクロール
+        } catch(e) {
+          document.getElementById('docker-log-content').textContent = `エラー: ${e.message}`;
+        }
+      }
+
+      function _startLogAutoRefresh(cid) {
+        _stopLogAutoRefresh();
+        _logAutoRefreshTimer = setInterval(() => {
+          const autoRefresh = document.getElementById('docker-log-autorefresh');
+          if (autoRefresh?.checked && _dockerLogModal.classList.contains('show')) {
+            _fetchLog(cid);
+          }
+        }, 3000);
+      }
+
+      function _stopLogAutoRefresh() {
+        if (_logAutoRefreshTimer) { clearInterval(_logAutoRefreshTimer); _logAutoRefreshTimer = null; }
+        _logCurrentCid = null;
+      }
+
+      // ── 統計ビュー（CPU/MEM バー）─────────────────────────────────────────
+      async function _loadStats() {
+        const listEl = document.getElementById('docker-stats-list');
+        if (!listEl) return;
+        listEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">読み込み中（数秒かかります）...</div>';
+        try {
+          const r = await fetch(`${_SRV()}/api/docker/stats`, { signal: AbortSignal.timeout(20000) });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const data = await r.json();
+          if (data.error) throw new Error(data.error);
+          const stats = data.stats || [];
+          if (!stats.length) {
+            listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px;text-align:center;">実行中のコンテナがありません</div>';
+            return;
+          }
+          listEl.innerHTML = stats.map(s => {
+            const cpuPct  = parseFloat(s.CPUPerc  || '0');
+            const memPct  = parseFloat(s.MemPerc  || '0');
+            return `
+              <div class="card" style="margin:0;padding:12px;">
+                <div style="font-size:13px;font-weight:700;margin-bottom:10px;">${_esc(s.Name || s.Container)}</div>
+                <div style="margin-bottom:8px;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <span style="font-size:11px;color:var(--text-muted);width:32px;">CPU</span>
+                    ${_usageBar(cpuPct, 'cpu')}
+                    <span style="font-size:11px;font-weight:700;width:40px;text-align:right;">${s.CPUPerc || '-'}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:11px;color:var(--text-muted);width:32px;">MEM</span>
+                    ${_usageBar(memPct, 'mem')}
+                    <span style="font-size:11px;font-weight:700;width:40px;text-align:right;">${s.MemPerc || '-'}</span>
+                  </div>
+                </div>
+                <div style="font-size:10px;color:var(--text-muted);">
+                  💾 ${_esc(s.MemUsage || '-')} &nbsp;|&nbsp; 🌐 ${_esc(s.NetIO || '-')} &nbsp;|&nbsp; 💿 ${_esc(s.BlockIO || '-')}
+                </div>
+              </div>`;
+          }).join('');
+        } catch(e) {
+          listEl.innerHTML = `<div class="card" style="margin:0;color:#e05252;font-size:12px;">❌ ${_esc(e.message)}</div>`;
         }
       }
 
       // ── イメージ一覧 ─────────────────────────────────────────────────────
       async function _loadImages() {
         const listEl = document.getElementById('docker-image-list');
+        if (!listEl) return;
         listEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">読み込み中...</div>';
         try {
           const r = await fetch(`${_SRV()}/api/docker/images`, { signal: AbortSignal.timeout(8000) });
@@ -12724,25 +12924,165 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           const data = await r.json();
           if (data.error) throw new Error(data.error);
           const images = data.images || [];
+          // datalist にイメージ候補を追加
+          const dl = document.getElementById('docker-image-datalist');
+          if (dl) dl.innerHTML = images.map(i => `<option value="${_esc(i.repo + ':' + i.tag)}">`).join('');
           if (!images.length) {
             listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px;text-align:center;">イメージはありません</div>';
             return;
           }
           listEl.innerHTML = images.map(img => `
             <div class="card" style="margin:0;padding:12px;">
-              <div style="font-size:13px;font-weight:700;">${_esc(img.repo)}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
-                タグ: ${_esc(img.tag)} &nbsp;|&nbsp; サイズ: ${_esc(img.size)} &nbsp;|&nbsp; ${_esc(img.created)}
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <div>
+                  <div style="font-size:13px;font-weight:700;">${_esc(img.repo)}<span style="color:var(--text-muted);font-weight:400;">:${_esc(img.tag)}</span></div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">${_esc(img.size)} &nbsp;|&nbsp; ${_esc(img.created)}</div>
+                  <div style="font-size:10px;color:var(--text-muted);font-family:monospace;">${_esc(img.id)}</div>
+                </div>
+                <button class="docker-image-run-btn btn-secondary" data-image="${_esc(img.repo + ':' + img.tag)}"
+                  style="font-size:11px;padding:4px 8px;white-space:nowrap;flex-shrink:0;">▶ 起動</button>
               </div>
-              <div style="font-size:10px;color:var(--text-muted);margin-top:2px;font-family:monospace;">${_esc(img.id)}</div>
             </div>`).join('');
+
+          // イメージから即起動
+          listEl.querySelectorAll('.docker-image-run-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              document.getElementById('docker-new-image').value = btn.dataset.image;
+              _openCreateModal();
+            });
+          });
         } catch(e) {
           listEl.innerHTML = `<div class="card" style="margin:0;color:#e05252;font-size:12px;">❌ ${_esc(e.message)}</div>`;
         }
       }
 
+      // ── コンテナ作成モーダル ──────────────────────────────────────────────
+      function _openCreateModal() {
+        document.getElementById('docker-create-modal').classList.add('show');
+      }
+      function _closeCreateModal() {
+        document.getElementById('docker-create-modal').classList.remove('show');
+        document.getElementById('docker-pull-status').style.display = 'none';
+      }
+      document.getElementById('docker-create-btn')?.addEventListener('click', _openCreateModal);
+      document.getElementById('docker-create-close')?.addEventListener('click', _closeCreateModal);
+
+      // Pull ボタン
+      document.getElementById('docker-pull-btn')?.addEventListener('click', async () => {
+        const image = document.getElementById('docker-new-image').value.trim();
+        if (!image) { toast('イメージ名を入力してください'); return; }
+        const statusEl = document.getElementById('docker-pull-status');
+        const btn = document.getElementById('docker-pull-btn');
+        statusEl.style.display = '';
+        statusEl.textContent = `📥 Pull 中: ${image} ...`;
+        btn.disabled = true;
+        try {
+          const r = await fetch(`${_SRV()}/api/docker/pull`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image }),
+            signal: AbortSignal.timeout(125000)
+          });
+          const d = await r.json();
+          if (d.error) { statusEl.textContent = `❌ ${d.error}`; statusEl.style.color = '#e05252'; }
+          else {
+            statusEl.textContent = `✓ Pull 完了: ${image}`;
+            statusEl.style.color = '#2da44e';
+            if (_dockerView === 'images') _loadImages(); // イメージ一覧を更新
+          }
+        } catch(e) {
+          statusEl.textContent = `❌ ${e.message}`;
+          statusEl.style.color = '#e05252';
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      // Run ボタン
+      document.getElementById('docker-run-btn')?.addEventListener('click', async () => {
+        const image   = document.getElementById('docker-new-image').value.trim();
+        const name    = document.getElementById('docker-new-name').value.trim();
+        const ports   = document.getElementById('docker-new-ports').value.trim();
+        const restart = document.getElementById('docker-new-restart').value;
+        const env     = document.getElementById('docker-new-env').value.trim();
+        if (!image) { toast('イメージ名を入力してください'); return; }
+        const btn = document.getElementById('docker-run-btn');
+        btn.disabled = true;
+        btn.textContent = '起動中...';
+        try {
+          const r = await fetch(`${_SRV()}/api/docker/run`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image, name, ports, restart, env }),
+            signal: AbortSignal.timeout(65000)
+          });
+          const d = await r.json();
+          if (d.error) { toast(`❌ ${d.error}`); }
+          else {
+            toast(`✓ 起動完了: ${name || image} (${d.id})`);
+            _closeCreateModal();
+            // フォームをリセット
+            ['docker-new-image','docker-new-name','docker-new-ports','docker-new-env'].forEach(id => {
+              const el = document.getElementById(id); if (el) el.value = '';
+            });
+            document.getElementById('docker-new-restart').value = 'always';
+            // コンテナ一覧を更新
+            _dockerView = 'containers';
+            document.querySelectorAll('.docker-view-btn').forEach(b => {
+              const active = b.dataset.view === 'containers';
+              b.classList.toggle('active', active);
+              b.style.background = active ? 'var(--bg-card-solid)' : 'var(--bg-card)';
+              b.style.fontWeight = active ? '700' : '400';
+            });
+            document.getElementById('docker-containers-view').style.display = '';
+            document.getElementById('docker-stats-view').style.display = 'none';
+            document.getElementById('docker-images-view').style.display = 'none';
+            setTimeout(_loadContainers, 800);
+          }
+        } catch(e) {
+          toast(`❌ ${e.message}`);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '▶ 起動';
+        }
+      });
+
+      // ── Hub sysinfo カード — Docker 行更新 ──────────────────────────────
+      function _updateSysinfoDockerRow(running, total) {
+        const el = document.getElementById('sysinfo-docker-status');
+        if (!el) return;
+        if (running < 0) {
+          el.textContent = '🐳 Docker: 未接続';
+          el.style.color = '#e05252';
+        } else if (running === 0) {
+          el.textContent = `🐳 Docker: 停止中 (全${total}台)`;
+          el.style.color = 'var(--text-muted)';
+        } else {
+          el.textContent = `🐳 Docker: ${running}台稼働 / 全${total}台`;
+          el.style.color = '#2da44e';
+        }
+      }
+
+      // sysinfo-docker-tab-btn → Docker タブに遷移
+      document.getElementById('sysinfo-docker-tab-btn')?.addEventListener('click', () => {
+        if (window._switchTab) window._switchTab('docker');
+      });
+
+      // Hub タブ切り替え時に Docker 状態だけ軽くチェック（statsは叩かない）
+      window._refreshDockerSysinfo = async () => {
+        try {
+          const r = await fetch(`${_SRV()}/api/docker/containers`, { signal: AbortSignal.timeout(4000) });
+          if (!r.ok) throw new Error('ng');
+          const d = await r.json();
+          const cs = d.containers || [];
+          _updateSysinfoDockerRow(cs.filter(c => c.state === 'running').length, cs.length);
+        } catch { _updateSysinfoDockerRow(-1, 0); }
+      };
+
+      // ── メインロード ─────────────────────────────────────────────────────
       function _loadDockerView() {
         if (_dockerView === 'containers') _loadContainers();
+        else if (_dockerView === 'stats')  _loadStats();
         else _loadImages();
       }
 

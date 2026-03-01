@@ -1,0 +1,52 @@
+# ========================================================
+# kintai スタック — Docker Compose 設定
+#
+# 使い方:
+#   docker compose up -d          # バックグラウンド起動
+#   docker compose down           # 停止
+#   docker compose logs -f        # ログ追跡
+#   docker compose pull && docker compose up -d  # アップデート
+#
+# 注意:
+#   - launchd の com.kintai.server を先に停止してからこちらを起動する
+#   - launchctl unload ~/Library/LaunchAgents/com.kintai.server.plist
+# ========================================================
+
+services:
+  kintai-server:
+    build: .
+    image: kintai-server:latest
+    container_name: kintai-server
+    restart: always                   # Docker 再起動時も自動起動 (HA)
+    ports:
+      - "8899:8899"
+    volumes:
+      # データ永続化 (勤怠JSON・タスクJSON)
+      - ./data:/app/data
+      # ログ永続化
+      - ./logs:/app/logs
+      # 環境変数 (.env が存在する場合)
+      # - ./.env:/app/.env:ro
+      # iCloud バックアップフォルダ (Mac のみ)
+      - ~/Library/Mobile Documents/com~apple~CloudDocs/kintai:/app/icloud_kintai:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - KINTAI_MANAGED=1
+      - PORT=8899
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8899/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: kintai-cloudflared
+    restart: always                   # トンネルも自動復旧
+    command: tunnel --url http://kintai-server:8899 --no-autoupdate
+    depends_on:
+      kintai-server:
+        condition: service_healthy    # サーバー起動後にトンネル開始
+    environment:
+      - NO_AUTOUPDATE=true

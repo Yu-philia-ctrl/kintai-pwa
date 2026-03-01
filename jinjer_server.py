@@ -288,11 +288,20 @@ class JinjerHandler(BaseHTTPRequestHandler):
 
         # ===== /api/health =====
         if path == '/api/health':
+            # Docker デーモン稼働チェック（タイムアウト2秒）
+            try:
+                dr, dout, _ = self._run_docker(
+                    ['info', '--format', '{{.ContainersRunning}}/{{.Containers}}'], timeout=2)
+                docker_info = dout.strip() if dr == 0 else None
+            except Exception:
+                docker_info = None
             self._send_json({
                 'status':          'ok',
                 'uptime_seconds':  int(time.time() - _START_TIME),
                 'report':          _REPORT_OK,
                 'scraper':         _SCRAPER_OK,
+                'docker':          docker_info,   # "3/7" or null
+                'tunnel':          bool(_CF_TUNNEL_URL),
             })
 
         # ===== /api/jinjer =====
@@ -377,6 +386,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/docker/logs':
             self._handle_docker_logs(params)
 
+        # ===== /api/docker/stats — 実行中コンテナのリソース使用量 =====
+        elif path == '/api/docker/stats':
+            self._handle_docker_stats()
+
         # ===== /api/backup/list — iCloud バックアップ一覧 =====
         elif path == '/api/backup/list':
             self._handle_backup_list()
@@ -443,6 +456,14 @@ class JinjerHandler(BaseHTTPRequestHandler):
         # ===== /api/docker/action — コンテナ操作 (start/stop/restart/rm) =====
         elif path == '/api/docker/action':
             self._handle_docker_action()
+
+        # ===== /api/docker/pull — イメージプル =====
+        elif path == '/api/docker/pull':
+            self._handle_docker_pull()
+
+        # ===== /api/docker/run — コンテナ作成・起動 =====
+        elif path == '/api/docker/run':
+            self._handle_docker_run()
 
         # ===== /api/system/restart =====
         elif path == '/api/system/restart':
@@ -880,7 +901,7 @@ class JinjerHandler(BaseHTTPRequestHandler):
             return
         action = data.get('action', '')
         cid    = data.get('id', '').strip()
-        if not cid or not cid.replace('-', '').isalnum():
+        if not cid or not cid.replace('-', '').replace('_', '').isalnum():
             self._send_json({'error': 'invalid id'}, 400)
             return
         if action not in ('start', 'stop', 'restart', 'rm'):
@@ -895,6 +916,87 @@ class JinjerHandler(BaseHTTPRequestHandler):
             self._send_json({'error': err or f'docker {action} failed'}, 500)
         else:
             self._send_json({'ok': True, 'action': action, 'id': cid})
+
+    def _handle_docker_stats(self):
+        """実行中コンテナの CPU/メモリ使用量を返す。"""
+        rc, out, err = self._run_docker(
+            ['stats', '--no-stream', '--format', '{{json .}}'], timeout=15)
+        if rc != 0:
+            self._send_json({'error': err or 'docker stats failed'}, 500)
+            return
+        stats = []
+        for line in out.strip().splitlines():
+            try:
+                stats.append(json.loads(line))
+            except Exception:
+                pass
+        self._send_json({'stats': stats})
+
+    def _handle_docker_pull(self):
+        """Docker Hub からイメージをプルする。"""
+        body = self._read_body()
+        try:
+            data = json.loads(body)
+        except Exception:
+            self._send_json({'error': 'invalid JSON'}, 400)
+            return
+        image = data.get('image', '').strip()
+        # 安全チェック: シェルメタキャラクタを禁止
+        import re as _re2
+        if not image or not _re2.match(r'^[a-zA-Z0-9_./:@-]+$', image):
+            self._send_json({'error': 'invalid image name'}, 400)
+            return
+        rc, out, err = self._run_docker(['pull', image], timeout=120)
+        combined = (out + '\n' + err).strip()[-2000:]
+        if rc != 0:
+            self._send_json({'error': err.strip()[-500:] or 'docker pull failed'}, 500)
+        else:
+            self._send_json({'ok': True, 'image': image, 'output': combined})
+
+    def _handle_docker_run(self):
+        """コンテナを作成して起動する。"""
+        body = self._read_body()
+        try:
+            data = json.loads(body)
+        except Exception:
+            self._send_json({'error': 'invalid JSON'}, 400)
+            return
+        import re as _re3
+        image   = data.get('image',   '').strip()
+        name    = data.get('name',    '').strip()
+        ports   = data.get('ports',   '').strip()   # "8080:80,9090:9090"
+        restart = data.get('restart', 'no').strip()
+        env_str = data.get('env',     '').strip()   # "KEY=VALUE\nKEY2=VALUE2"
+
+        if not image or not _re3.match(r'^[a-zA-Z0-9_./:@-]+$', image):
+            self._send_json({'error': 'invalid image name'}, 400)
+            return
+        if restart not in ('no', 'always', 'unless-stopped', 'on-failure'):
+            restart = 'no'
+
+        args = ['run', '-d']
+        if name:
+            if not _re3.match(r'^[a-zA-Z0-9_.-]+$', name):
+                self._send_json({'error': 'invalid container name'}, 400)
+                return
+            args += ['--name', name]
+        if restart != 'no':
+            args += ['--restart', restart]
+        for port_pair in ports.split(','):
+            pp = port_pair.strip()
+            if pp and _re3.match(r'^\d+:\d+(/tcp|/udp)?$', pp):
+                args += ['-p', pp]
+        for env_line in env_str.splitlines():
+            el = env_line.strip()
+            if el and '=' in el and _re3.match(r'^[A-Za-z_][A-Za-z0-9_]*=', el):
+                args += ['-e', el]
+        args.append(image)
+
+        rc, out, err = self._run_docker(args, timeout=60)
+        if rc != 0:
+            self._send_json({'error': err.strip()[-500:] or 'docker run failed'}, 500)
+        else:
+            self._send_json({'ok': True, 'id': out.strip()[:12]})
 
     # ===== iCloud バックアップ管理 =============================================
 
