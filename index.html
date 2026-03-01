@@ -14,12 +14,15 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#7c5fe6">
   <link rel="manifest" href="manifest.json">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com http:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com http:;">
   <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <!-- xlsx は Excel出力ボタン押下時に遅延ロード（iOS OOM対策） -->
   <!-- QR コード生成（設定画面でCloudflare TunnelのURLをQR表示するため） -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <!-- Mermaid — 構成図・ER図・シーケンス図を仕様タブで描画 -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" defer></script>
 
   <style>
     :root {
@@ -791,6 +794,41 @@
     .fab-custom:active { transform: scale(0.93); }
     /* AI ページを active 時に flex レイアウトにする */
     #page-ai.active { display: flex !important; }
+
+    /* ======= 仕様タブ サブナビ + 設計書 ======= */
+    .spec-subnav {
+      display: flex; overflow-x: auto; gap: 6px;
+      padding: 0 0 10px; margin-bottom: 10px;
+      scrollbar-width: none;
+    }
+    .spec-subnav::-webkit-scrollbar { display: none; }
+    .spec-sub-btn {
+      flex-shrink: 0; padding: 5px 13px; border-radius: 999px;
+      border: 1px solid var(--border-soft); background: var(--bg-card);
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      white-space: nowrap; color: var(--text-muted);
+      transition: all 0.15s; font-family: inherit;
+    }
+    .spec-sub-btn.active {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      color: #fff; border-color: transparent;
+      box-shadow: 0 2px 8px rgba(79,141,253,0.35);
+    }
+    .spec-pane { animation: tabFadeIn 0.18s ease forwards; }
+    /* Mermaid SVG レスポンシブ */
+    .mermaid-wrap { overflow-x: auto; text-align: center; padding: 4px 0; }
+    .mermaid-wrap svg { max-width: 100%; height: auto; }
+    /* 設計書ドキュメント */
+    .doc-h1 { font-size:14px;font-weight:800;color:var(--text-primary);margin:18px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--border-soft); }
+    .doc-h2 { font-size:12px;font-weight:700;color:var(--accent-blue);margin:12px 0 4px; }
+    .doc-p  { font-size:12px;line-height:1.85;color:var(--text-primary);margin:4px 0; }
+    .doc-ul { font-size:12px;line-height:1.85;color:var(--text-primary);margin:4px 0;padding-left:18px; }
+    .doc-ul li { margin:2px 0; }
+    .doc-table { width:100%;border-collapse:collapse;font-size:11px;margin:8px 0; }
+    .doc-table th { background:rgba(79,141,253,0.08);padding:5px 8px;text-align:left;border-bottom:2px solid var(--border-soft);font-weight:700; }
+    .doc-table td { padding:5px 8px;border-bottom:1px solid var(--border-soft);vertical-align:top; }
+    .badge-get    { background:#1565c0;color:#fff;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:800; }
+    .badge-post   { background:#2e7d32;color:#fff;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:800; }
 
     /* ======= Docker タブ ======= */
     .docker-stat-bar-wrap {
@@ -1780,6 +1818,27 @@
       flex-shrink: 0; align-self: flex-end;
     }
     .ai-send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .ai-prompts-wrap {
+      display: flex; overflow-x: auto; gap: 6px;
+      padding: 6px 10px 2px; scrollbar-width: none; flex-shrink: 0;
+    }
+    .ai-prompts-wrap::-webkit-scrollbar { display: none; }
+    .ai-prompt-chip {
+      flex-shrink: 0; padding: 4px 11px; border-radius: 999px;
+      border: 1px solid var(--border-soft); background: var(--bg-card);
+      font-size: 11px; color: var(--text-muted); cursor: pointer;
+      white-space: nowrap; transition: all 0.15s; font-family: inherit;
+    }
+    .ai-prompt-chip:hover {
+      background: var(--bg-glass); color: var(--text-primary);
+      border-color: var(--accent-blue);
+    }
+    .bolt-prompt-input {
+      width: 100%; padding: 8px 10px; border-radius: 10px;
+      border: 1px solid var(--border-soft); background: var(--bg-glass);
+      font-size: 12px; font-family: inherit; resize: none;
+      color: var(--text-main); margin-bottom: 8px; box-sizing: border-box;
+    }
     .ai-key-input {
       flex: 1; padding: 8px 10px; border-radius: 10px;
       border: 1px solid var(--border-color); font-size: 12px;
@@ -2209,6 +2268,23 @@
       <div id="improvement-list" style="font-size:12px;line-height:2;"></div>
     </div>
 
+    <!-- Bolt.new 統合カード -->
+    <div class="card" id="bolt-card">
+      <div class="card-title">⚡ Bolt.new — AI コーディング環境</div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+        AIがコードを自動生成するブラウザ開発環境。新機能プロトタイプや新規プロジェクトを即作成できます。
+      </p>
+      <textarea id="bolt-prompt" class="bolt-prompt-input" rows="2"
+        placeholder="作りたいものを説明（例: ダークモード対応の家計簿アプリ）"></textarea>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button id="bolt-new-btn" class="btn-primary" style="flex:1;font-size:12px;">⚡ 新規プロジェクト</button>
+        <button id="bolt-kintai-btn" class="btn-secondary" style="flex:1;font-size:12px;">📦 kintai を開く</button>
+      </div>
+      <p style="font-size:10px;color:var(--text-muted);margin:0;">
+        💡 「kintai を開く」は GitHub リポジトリを Bolt.new にインポートします
+      </p>
+    </div>
+
     <!-- 株価画像分析カード -->
     <div class="card" id="stock-analysis-card">
       <div class="card-title">📈 株価画像分析 (AI)</div>
@@ -2401,6 +2477,7 @@
       <button class="ai-icon-btn" id="ai-clear-btn" title="履歴クリア">🗑️</button>
     </div>
     <div class="ai-messages" id="ai-messages"></div>
+    <div class="ai-prompts-wrap" id="ai-prompts-wrap"></div>
     <div class="ai-input-row">
       <textarea class="ai-input" id="ai-input" placeholder="AIに質問… (Enter で送信、Shift+Enter で改行)" rows="1"></textarea>
       <button class="ai-send-btn" id="ai-send-btn">↑</button>
@@ -2979,33 +3056,113 @@
     </div>
   </div>
 
-  <!-- ===== TAB: 仕様 ===== -->
+  <!-- ===== TAB: 仕様 / 設計書 ===== -->
   <div id="page-spec" class="tab-page">
-    <div class="card" style="margin-bottom:10px;">
-      <div class="card-title">🏗 システム構成</div>
-      <div id="spec-arch" style="font-size:12px;line-height:1.7;color:var(--text-sub);"></div>
+    <!-- サブナビゲーション (横スクロール) -->
+    <div class="spec-subnav" id="spec-subnav">
+      <button class="spec-sub-btn active" data-pane="arch">🏗 構成図</button>
+      <button class="spec-sub-btn" data-pane="er">🗃 ER図</button>
+      <button class="spec-sub-btn" data-pane="seq">🔄 フロー</button>
+      <button class="spec-sub-btn" data-pane="ha">🔒 HA設計</button>
+      <button class="spec-sub-btn" data-pane="basic">📋 基本設計</button>
+      <button class="spec-sub-btn" data-pane="detail">📐 詳細設計</button>
+      <button class="spec-sub-btn" data-pane="api">🔌 API仕様</button>
+      <button class="spec-sub-btn" data-pane="struct">📂 構成ツリー</button>
+      <button class="spec-sub-btn" data-pane="files">📄 ファイル</button>
     </div>
-    <div class="card" style="margin-bottom:10px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <div class="card-title" style="margin-bottom:0;flex:1;">📂 ディレクトリ構成</div>
-        <button id="spec-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄</button>
+
+    <!-- 🏗 構成図 -->
+    <div class="spec-pane" id="spec-pane-arch">
+      <div class="card">
+        <div class="card-title">🏗 システム構成図</div>
+        <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px;">kintai PWA の全体コンポーネントと通信経路</p>
+        <div class="mermaid-wrap" id="spec-diagram-arch">
+          <div style="color:var(--text-muted);font-size:12px;padding:20px;">⏳ 描画中...</div>
+        </div>
       </div>
-      <pre id="spec-structure" style="font-size:10px;overflow:auto;max-height:350px;background:#111827;color:#a3e635;border-radius:8px;padding:10px;margin-top:8px;line-height:1.5;"></pre>
     </div>
-    <div class="card" style="margin-bottom:10px;">
-      <div class="card-title">🔌 API エンドポイント</div>
-      <div id="spec-api" style="font-size:12px;"></div>
-    </div>
-    <div class="card" id="spec-file-card">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div class="card-title" style="margin-bottom:0;flex:1;">📄 ファイル閲覧</div>
-        <button id="spec-file-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄</button>
+
+    <!-- 🗃 ER図 -->
+    <div class="spec-pane" id="spec-pane-er" style="display:none;">
+      <div class="card">
+        <div class="card-title">🗃 ER図（データ構造）</div>
+        <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px;">IndexedDB / localStorage の主要エンティティと関連</p>
+        <div class="mermaid-wrap" id="spec-diagram-er">
+          <div style="color:var(--text-muted);font-size:12px;padding:20px;">⏳ 描画中...</div>
+        </div>
       </div>
-      <select id="spec-file-select" style="width:100%;padding:6px 8px;border:1px solid var(--border-soft);border-radius:8px;font-size:12px;margin-bottom:8px;background:var(--bg-card);font-family:inherit;">
-        <option value="">── ファイルを選択 ──</option>
-      </select>
-      <div id="spec-file-status" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;display:none;"></div>
-      <pre id="spec-file-content" style="font-size:10px;overflow:auto;max-height:340px;background:#111827;color:#a3e635;border-radius:8px;padding:10px;line-height:1.5;white-space:pre-wrap;word-break:break-all;">ファイルを選択すると内容が表示されます</pre>
+    </div>
+
+    <!-- 🔄 シーケンス図 -->
+    <div class="spec-pane" id="spec-pane-seq" style="display:none;">
+      <div class="card">
+        <div class="card-title">🔄 データフロー図（シーケンス）</div>
+        <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px;">起動・jinjer同期・報告書出力の処理フロー</p>
+        <div class="mermaid-wrap" id="spec-diagram-seq">
+          <div style="color:var(--text-muted);font-size:12px;padding:20px;">⏳ 描画中...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔒 HA設計 -->
+    <div class="spec-pane" id="spec-pane-ha" style="display:none;">
+      <div class="card">
+        <div class="card-title">🔒 HA設計（高可用性アーキテクチャ）</div>
+        <p style="font-size:11px;color:var(--text-muted);margin:0 0 10px;">冗長化・障害検知・自動復旧の仕組み</p>
+        <div class="mermaid-wrap" id="spec-diagram-ha">
+          <div style="color:var(--text-muted);font-size:12px;padding:20px;">⏳ 描画中...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 📋 基本設計書 -->
+    <div class="spec-pane" id="spec-pane-basic" style="display:none;">
+      <div class="card">
+        <div class="card-title">📋 基本設計書</div>
+        <div id="spec-basic-content"></div>
+      </div>
+    </div>
+
+    <!-- 📐 詳細設計書 -->
+    <div class="spec-pane" id="spec-pane-detail" style="display:none;">
+      <div class="card">
+        <div class="card-title">📐 詳細設計書</div>
+        <div id="spec-detail-content"></div>
+      </div>
+    </div>
+
+    <!-- 🔌 API仕様 -->
+    <div class="spec-pane" id="spec-pane-api" style="display:none;">
+      <div class="card">
+        <div class="card-title">🔌 外部仕様書 — API エンドポイント</div>
+        <div id="spec-api"></div>
+      </div>
+    </div>
+
+    <!-- 📂 構成ツリー -->
+    <div class="spec-pane" id="spec-pane-struct" style="display:none;">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div class="card-title" style="margin-bottom:0;flex:1;">📂 ディレクトリ構成</div>
+          <button id="spec-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄</button>
+        </div>
+        <pre id="spec-structure" style="font-size:10px;overflow:auto;max-height:55vh;background:#111827;color:#a3e635;border-radius:8px;padding:10px;margin:0;line-height:1.5;"></pre>
+      </div>
+    </div>
+
+    <!-- 📄 ファイル閲覧 -->
+    <div class="spec-pane" id="spec-pane-files" style="display:none;">
+      <div class="card" id="spec-file-card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div class="card-title" style="margin-bottom:0;flex:1;">📄 ファイル閲覧</div>
+          <button id="spec-file-refresh-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">🔄</button>
+        </div>
+        <select id="spec-file-select" style="width:100%;padding:6px 8px;border:1px solid var(--border-soft);border-radius:8px;font-size:12px;margin-bottom:8px;background:var(--bg-card);font-family:inherit;">
+          <option value="">── ファイルを選択 ──</option>
+        </select>
+        <div id="spec-file-status" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;display:none;"></div>
+        <pre id="spec-file-content" style="font-size:10px;overflow:auto;max-height:55vh;background:#111827;color:#a3e635;border-radius:8px;padding:10px;margin:0;line-height:1.5;white-space:pre-wrap;word-break:break-all;">ファイルを選択すると内容が表示されます</pre>
+      </div>
     </div>
   </div>
 
@@ -6439,6 +6596,16 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v35', date: '2026-03-01',
+          title: '📐 設計書ビューワー + AIプロンプト例 + Bolt.new統合',
+          items: [
+            { tag: 'feat', text: '仕様タブを9サブタブの設計書ビューワーに刷新: 🏗構成図・🗃ER図・🔄フロー図・🔒HA設計をMermaid.jsでレンダリング。📋基本設計書・📐詳細設計書・🔌API仕様をHTML文書として表示' },
+            { tag: 'feat', text: 'AIタブ入力バー上部にプロンプト例チップを追加: IT技術・ビジネス・キャリア・分析・生産性・健康など22カテゴリのプロンプトをタップで即入力' },
+            { tag: 'feat', text: 'Bolt.new統合: ハブタブにAIコーディング環境カードを追加。「⚡ 新規プロジェクト」でBolt.newを開き、「📦 kintai を開く」でGitHubリポジトリをBolt.newにインポート' },
+            { tag: 'feat', text: '仕様タブAPIエンドポイント一覧をv34 Docker API対応に拡充（25エンドポイント）。badge-get/badge-post CSS クラスで色分け表示' },
+          ],
+        },
+        {
           version: 'v34', date: '2026-03-01',
           title: '🐳 Docker HA深統合 — 統計・コンテナ作成・自動更新ログ・Compose',
           items: [
@@ -6725,7 +6892,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v34';
+        const swVer = 'kintai-v35';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -7052,60 +7219,469 @@
     })();
 
     /* =====================================================
-       仕様タブ
+       仕様タブ / 設計書ビューワー
        ===================================================== */
     (function initSpecTab() {
       const _getApi = () => window._srvBase || 'http://localhost:8899';
 
-      const ARCH_TEXT = [
-        { label: 'PWA 本体', desc: 'index.html — カレンダー/タスク/報告書/AI/案件など10タブ構成。Service Worker でオフライン対応。' },
-        { label: 'ローカルサーバー', desc: 'jinjer_server.py — Python HTTP サーバー (port 8899)。jinjer同期・Excel操作・ファイル配信を担当。' },
-        { label: 'launchd 自動化', desc: '5つのジョブで常時起動・watchdog監視・月次処理を自動実行。KeepAlive + kickstart で高可用性を実現。' },
-        { label: 'データ永続化', desc: 'localStorage → IndexedDB → サーバーブリッジの3層バックアップ。AI APIキーはAES-GCM+PBKDF2で暗号化。' },
-        { label: 'iPhone 接続', desc: 'Tailscale Serve または Cloudflare Tunnel で外部HTTPS URLを設定。PWA設定から自動検出可能。' },
-      ];
-
       const API_ENDPOINTS = [
-        { method: 'GET',  path: '/api/health',            desc: 'ヘルスチェック' },
-        { method: 'GET',  path: '/api/jinjer?months=',    desc: 'jinjer 勤怠データ取得' },
-        { method: 'GET',  path: '/api/reports',           desc: '報告書 Excel 一覧' },
-        { method: 'GET',  path: '/api/reports/read',      desc: '指定月 Excel → JSON' },
-        { method: 'POST', path: '/api/reports/sync',      desc: 'kintai → Excel 書き込み' },
-        { method: 'POST', path: '/api/reports/generate',  desc: '翌月 Excel 自動生成' },
-        { method: 'GET',  path: '/api/structure',         desc: 'STRUCTURE.md 内容' },
-        { method: 'GET',  path: '/api/files',             desc: 'ファイル一覧' },
-        { method: 'GET',  path: '/api/files/read',        desc: 'ファイル内容取得' },
-        { method: 'GET',  path: '/api/jobs',              desc: '案件フィード (1h キャッシュ)' },
-        { method: 'GET',  path: '/api/kintai-data',       desc: 'サーバーブリッジ: 勤怠データ' },
-        { method: 'POST', path: '/api/kintai-data',       desc: 'サーバーブリッジ: 勤怠データ保存' },
-        { method: 'GET',  path: '/api/tasks-data',        desc: 'サーバーブリッジ: タスクデータ' },
-        { method: 'POST', path: '/api/tasks-data',        desc: 'サーバーブリッジ: タスクデータ保存' },
-        { method: 'GET',  path: '/api/tailscale-url',     desc: 'Tailscale Serve URL 自動検出' },
-        { method: 'GET',  path: '/api/system/logs',       desc: 'サーバー/watchdogログ取得' },
-        { method: 'POST', path: '/api/system/restart',    desc: 'サーバー再起動 (launchd)' },
+        { method: 'GET',  path: '/api/health',                     desc: 'ヘルスチェック (docker/tunnel状態含む)' },
+        { method: 'GET',  path: '/api/jinjer?months=YYYY-MM',      desc: 'jinjer 勤怠データ取得' },
+        { method: 'GET',  path: '/api/reports',                    desc: '報告書 Excel 一覧' },
+        { method: 'GET',  path: '/api/reports/read?year=&month=',  desc: '指定月 Excel → JSON' },
+        { method: 'POST', path: '/api/reports/sync',               desc: 'kintai → Excel 書き込み' },
+        { method: 'POST', path: '/api/reports/generate',           desc: '翌月 Excel 自動生成' },
+        { method: 'GET',  path: '/api/structure',                  desc: 'STRUCTURE.md 内容' },
+        { method: 'GET',  path: '/api/files',                      desc: 'ファイル一覧' },
+        { method: 'GET',  path: '/api/files/read?path=',           desc: 'ファイル内容取得' },
+        { method: 'GET',  path: '/api/jobs?categories=&keywords=', desc: '案件フィード (1h キャッシュ)' },
+        { method: 'GET',  path: '/api/kintai-data',                desc: 'サーバーブリッジ: 勤怠データ' },
+        { method: 'POST', path: '/api/kintai-data',                desc: 'サーバーブリッジ: 勤怠データ保存' },
+        { method: 'GET',  path: '/api/tasks-data',                 desc: 'サーバーブリッジ: タスクデータ' },
+        { method: 'POST', path: '/api/tasks-data',                 desc: 'サーバーブリッジ: タスクデータ保存' },
+        { method: 'GET',  path: '/api/tailscale-url',              desc: 'Tailscale Serve URL 自動検出' },
+        { method: 'GET',  path: '/api/tunnel-url',                 desc: 'Cloudflare Tunnel URL 取得' },
+        { method: 'GET',  path: '/api/system/logs',                desc: 'サーバー/watchdog ログ取得' },
+        { method: 'POST', path: '/api/system/restart',             desc: 'サーバー再起動 (launchd)' },
+        { method: 'GET',  path: '/api/docker/containers',          desc: 'コンテナ一覧' },
+        { method: 'GET',  path: '/api/docker/images',              desc: 'イメージ一覧' },
+        { method: 'GET',  path: '/api/docker/logs?id=&tail=',      desc: 'コンテナログ取得' },
+        { method: 'GET',  path: '/api/docker/stats',               desc: 'コンテナリソース統計' },
+        { method: 'POST', path: '/api/docker/action',              desc: 'コンテナ操作 (start/stop/restart/rm)' },
+        { method: 'POST', path: '/api/docker/pull',                desc: 'イメージ pull' },
+        { method: 'POST', path: '/api/docker/run',                 desc: '新規コンテナ作成・起動' },
       ];
 
-      function renderArch() {
-        const el = document.getElementById('spec-arch');
+      // ── サブタブ管理 ─────────────────────────────────────────────
+      let _specTabInit = false;
+      let _mermaidInit = false;
+      const _renderedPanes = new Set();
+
+      async function _ensureMermaid() {
+        if (window.mermaid) {
+          if (!_mermaidInit) {
+            window.mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+            _mermaidInit = true;
+          }
+          return true;
+        }
+        for (let i = 0; i < 50; i++) {
+          await new Promise(r => setTimeout(r, 100));
+          if (window.mermaid) {
+            window.mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+            _mermaidInit = true;
+            return true;
+          }
+        }
+        return false;
+      }
+
+      async function _renderDiagram(containerId, definition) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const ok = await _ensureMermaid();
+        if (!ok) {
+          container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:20px;text-align:center;">⚠️ Mermaid が読み込まれませんでした (CDN 未接続)</div>';
+          return;
+        }
+        try {
+          const uid = 'mg-' + containerId + '-' + Date.now();
+          const { svg } = await window.mermaid.render(uid, definition);
+          container.innerHTML = svg;
+        } catch (e) {
+          container.innerHTML = '<div style="color:#e05252;font-size:11px;padding:10px;">描画エラー: ' + e.message + '</div>';
+        }
+      }
+
+      // ── Mermaid 図定義 ────────────────────────────────────────────
+      const DIAGRAMS = {
+        arch: `flowchart TD
+  subgraph CL["📱 クライアント"]
+    B["ブラウザ/Safari"]
+    SW["Service Worker"]
+    IDB[("IndexedDB")]
+    LS[("localStorage")]
+  end
+  subgraph SV["🖥 Server :8899"]
+    PY["jinjer_server.py"]
+    DATA[("data/")]
+    LOG[("logs/")]
+  end
+  subgraph HA["🔒 HA 層"]
+    LD["launchd KeepAlive"]
+    WD["watchdog 60s"]
+  end
+  subgraph EX["🌐 外部"]
+    GH["GitHub Pages"]
+    CF["CF Tunnel"]
+    JJ["jinjer.biz"]
+    IC["iCloud"]
+  end
+  B -->|"HTTP"| PY
+  B -->|"HTTPS"| GH
+  CF --> PY
+  PY -->|"Playwright"| JJ
+  PY --- IC
+  PY --- DATA
+  PY --- LOG
+  LD -->|"restart"| PY
+  WD -->|"kickstart"| PY
+  B --- IDB
+  B --- SW`,
+
+        er: `erDiagram
+  ATTENDANCE {
+    string year_month PK
+    json days
+    string updated_at
+  }
+  TASKS {
+    string id PK
+    string title
+    string status
+    string due
+    string priority
+  }
+  CONFIG_BACKUP {
+    string id PK
+    json config
+    string saved_at
+  }
+  LOGS_ARCHIVE {
+    string date PK
+    json entries
+    string updated_at
+  }
+  ATTENDANCE ||--o{ TASKS : "月別管理"
+  CONFIG_BACKUP }|--|{ ATTENDANCE : "バックアップ"`,
+
+        seq: `sequenceDiagram
+  actor U as User
+  participant P as PWA
+  participant I as IndexedDB
+  participant S as Server
+  participant J as jinjer
+  Note over U,J: 起動フロー
+  U->>P: アプリ起動
+  P->>I: restoreFromIDB
+  I-->>P: データ復元
+  P->>S: GET /api/health
+  S-->>P: status ok
+  Note over U,J: jinjer 同期フロー
+  U->>P: jinjer同期ボタン
+  P->>S: GET /api/jinjer
+  S->>J: Playwright login
+  J-->>S: 打刻データ
+  S-->>P: 同期完了
+  P->>I: idbSave
+  Note over U,J: 報告書フロー
+  U->>P: 報告書タブ
+  P->>S: GET /api/reports/read
+  S-->>P: Excel to JSON
+  U->>P: Excel同期
+  P->>S: POST /api/reports/sync
+  S-->>P: 更新完了`,
+
+        ha: `flowchart LR
+  subgraph F["💣 障害"]
+    C1["クラッシュ"]
+    C2["フリーズ"]
+    C3["ビジー"]
+  end
+  subgraph M["👁 監視"]
+    D1["heartbeat 30s"]
+    D2["watchdog 60s"]
+  end
+  subgraph R["✅ 復旧"]
+    R1["launchd 10s"]
+    R2["kickstart 60s"]
+    R3["kill port"]
+  end
+  C1 --> R1
+  C2 --> R2
+  C3 --> R3
+  D1 -.->|"断検知"| D2
+  D2 --> R2`
+      };
+
+      function _switchSpecPane(paneName) {
+        document.querySelectorAll('.spec-sub-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.pane === paneName));
+        document.querySelectorAll('.spec-pane').forEach(p => {
+          p.style.display = p.id === 'spec-pane-' + paneName ? '' : 'none';
+        });
+        if (!_renderedPanes.has(paneName)) {
+          _renderedPanes.add(paneName);
+          if      (paneName === 'arch')   _renderDiagram('spec-diagram-arch', DIAGRAMS.arch);
+          else if (paneName === 'er')     _renderDiagram('spec-diagram-er',   DIAGRAMS.er);
+          else if (paneName === 'seq')    _renderDiagram('spec-diagram-seq',  DIAGRAMS.seq);
+          else if (paneName === 'ha')     _renderDiagram('spec-diagram-ha',   DIAGRAMS.ha);
+          else if (paneName === 'basic')  _renderBasicDesign();
+          else if (paneName === 'detail') _renderDetailDesign();
+          else if (paneName === 'api')    renderApi();
+          else if (paneName === 'struct') renderStructure();
+          else if (paneName === 'files')  loadSpecFiles();
+        }
+      }
+
+      // ── 基本設計書 ────────────────────────────────────────────────
+      function _renderBasicDesign() {
+        const el = document.getElementById('spec-basic-content');
         if (!el) return;
-        el.innerHTML = ARCH_TEXT.map(({ label, desc }) =>
-          `<div style="margin-bottom:8px;"><strong>${label}</strong><br><span style="color:var(--text-muted);">${desc}</span></div>`
-        ).join('');
+        el.innerHTML = `
+          <div class="doc-h1">kintai PWA — 基本設計書 v35</div>
+          <div class="doc-h2">1. システム概要</div>
+          <p class="doc-p">kintai は個人向け勤怠管理 PWA です。Safari/Chrome からオフラインでも動作し、
+          ローカル Python サーバーと連携することで jinjer 勤怠システムとの自動同期・
+          Excel 報告書生成・AI チャット・Docker 管理を提供します。</p>
+          <div class="doc-h2">2. 目的・スコープ</div>
+          <ul class="doc-ul">
+            <li>jinjer 打刻データの自動取得・月間カレンダー表示</li>
+            <li>月次作業報告書 (Excel) の自動生成・サーバー同期</li>
+            <li>AI (Claude / GPT-4o / Gemini) によるシステム操作・チャット</li>
+            <li>高可用性 (HA) サーバーによる常時稼働 (99%+)</li>
+            <li>Docker コンテナ管理・統計・イメージ操作 (v34+)</li>
+            <li>Cloudflare Tunnel による外部 HTTPS アクセス (v32+)</li>
+          </ul>
+          <div class="doc-h2">3. システム構成サマリー</div>
+          <table class="doc-table">
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <th style="padding:5px 8px;text-align:left;font-size:11px;">レイヤー</th>
+              <th style="padding:5px 8px;text-align:left;font-size:11px;">コンポーネント</th>
+              <th style="padding:5px 8px;text-align:left;font-size:11px;">技術スタック</th>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">フロントエンド</td>
+              <td style="padding:5px 8px;font-size:11px;">index.html / sw.js</td>
+              <td style="padding:5px 8px;font-size:11px;">Vanilla JS, PWA, IndexedDB, Service Worker</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">バックエンド</td>
+              <td style="padding:5px 8px;font-size:11px;">jinjer_server.py</td>
+              <td style="padding:5px 8px;font-size:11px;">Python 3.11, ThreadingHTTPServer</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">スクレイパー</td>
+              <td style="padding:5px 8px;font-size:11px;">sync_jinjer.py</td>
+              <td style="padding:5px 8px;font-size:11px;">Playwright (headless Chromium)</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">Excel 処理</td>
+              <td style="padding:5px 8px;font-size:11px;">report_sync.py</td>
+              <td style="padding:5px 8px;font-size:11px;">openpyxl 3.1+</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">HA</td>
+              <td style="padding:5px 8px;font-size:11px;">launchd + watchdog (5ジョブ)</td>
+              <td style="padding:5px 8px;font-size:11px;">macOS launchd, Shell Script</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">コンテナ</td>
+              <td style="padding:5px 8px;font-size:11px;">Docker Compose</td>
+              <td style="padding:5px 8px;font-size:11px;">Docker, cloudflared (代替構成)</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 8px;font-size:11px;">外部トンネル</td>
+              <td style="padding:5px 8px;font-size:11px;">Cloudflare Tunnel (自動起動)</td>
+              <td style="padding:5px 8px;font-size:11px;">cloudflared, Tailscale Serve</td>
+            </tr>
+          </table>
+          <div class="doc-h2">4. 非機能要件</div>
+          <table class="doc-table">
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <th style="padding:5px 8px;text-align:left;font-size:11px;">要件</th>
+              <th style="padding:5px 8px;text-align:left;font-size:11px;">目標値</th>
+              <th style="padding:5px 8px;text-align:left;font-size:11px;">実装方式</th>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">可用性</td>
+              <td style="padding:5px 8px;font-size:11px;">99% 以上</td>
+              <td style="padding:5px 8px;font-size:11px;">launchd KeepAlive + watchdog 二重監視</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">復旧時間 (MTTR)</td>
+              <td style="padding:5px 8px;font-size:11px;">&lt; 60 秒</td>
+              <td style="padding:5px 8px;font-size:11px;">watchdog 60 秒ポーリング</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">オフライン動作</td>
+              <td style="padding:5px 8px;font-size:11px;">完全動作</td>
+              <td style="padding:5px 8px;font-size:11px;">Service Worker + IndexedDB</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:5px 8px;font-size:11px;">セキュリティ</td>
+              <td style="padding:5px 8px;font-size:11px;">AES-GCM 256bit</td>
+              <td style="padding:5px 8px;font-size:11px;">PBKDF2 (100K iterations) + AES-GCM</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 8px;font-size:11px;">レスポンス</td>
+              <td style="padding:5px 8px;font-size:11px;">&lt; 500ms</td>
+              <td style="padding:5px 8px;font-size:11px;">Network-First SW + IDB キャッシュ</td>
+            </tr>
+          </table>
+          <div class="doc-h2">5. タブ構成 (12 タブ)</div>
+          <ul class="doc-ul">
+            <li>📅 勤怠 — 月間カレンダー・jinjer 同期・打刻修正</li>
+            <li>🚀 ハブ — 天気・クイックランチャー・DB ステータス・Docker 状態</li>
+            <li>📚 学習 — 学習記録・目標・ロードマップ</li>
+            <li>📊 進捗 — プロジェクト・タスク管理</li>
+            <li>📋 報告書 — Excel 月次報告書・オフライン表示</li>
+            <li>💼 案件 — フリーランス案件フィード (CW / Lancers)</li>
+            <li>🤖 AI — Claude / GPT-4o / Gemini チャット・ツール呼び出し</li>
+            <li>🔧 システム — サーバーログ・更新履歴</li>
+            <li>🗄 DB 管理 — IDB / LS 操作・バックアップ・復元</li>
+            <li>🐳 Docker — コンテナ管理・CPU/MEM 統計・イメージ操作</li>
+            <li>📁 仕様 — 設計書ビューワー（本ページ）</li>
+            <li>⚡ パフォーマンス — スコア計測・AI 速度ベンチ</li>
+          </ul>`;
+      }
+
+      // ── 詳細設計書 ────────────────────────────────────────────────
+      function _renderDetailDesign() {
+        const el = document.getElementById('spec-detail-content');
+        if (!el) return;
+        el.innerHTML = `
+          <div class="doc-h1">kintai PWA — 詳細設計書 v35</div>
+          <div class="doc-h2">1. データ設計 — IndexedDB (kintai_idb v3)</div>
+          <table class="doc-table">
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <th style="padding:5px 8px;font-size:11px;">ストア名</th>
+              <th style="padding:5px 8px;font-size:11px;">キー</th>
+              <th style="padding:5px 8px;font-size:11px;">用途</th>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:11px;font-family:monospace;">attendance</td>
+              <td style="padding:4px 8px;font-size:11px;font-family:monospace;">YYYY-MM</td>
+              <td style="padding:4px 8px;font-size:11px;">月別勤怠データ</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:11px;font-family:monospace;">config_backup</td>
+              <td style="padding:4px 8px;font-size:11px;font-family:monospace;">"backup"</td>
+              <td style="padding:4px 8px;font-size:11px;">設定バックアップ</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:11px;font-family:monospace;">tasks_backup</td>
+              <td style="padding:4px 8px;font-size:11px;font-family:monospace;">"tasks"</td>
+              <td style="padding:4px 8px;font-size:11px;">タスク統合バックアップ</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 8px;font-size:11px;font-family:monospace;">logs_archive</td>
+              <td style="padding:4px 8px;font-size:11px;font-family:monospace;">YYYY-MM-DD</td>
+              <td style="padding:4px 8px;font-size:11px;">日別ログアーカイブ (365日保持)</td>
+            </tr>
+          </table>
+          <div class="doc-h2">2. localStorage 主要キー</div>
+          <table class="doc-table">
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <th style="padding:5px 8px;font-size:11px;">キー</th>
+              <th style="padding:5px 8px;font-size:11px;">内容</th>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">_kintai_cfg_v1</td>
+              <td style="padding:4px 8px;font-size:11px;">アプリ全設定 (JSON)</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">_kintai_sens_v1</td>
+              <td style="padding:4px 8px;font-size:11px;">AES-GCM 暗号化済センシティブデータ</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">_kintai_tab_config_v1</td>
+              <td style="padding:4px 8px;font-size:11px;">タブ表示順・表示/非表示設定</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">_kintai_log</td>
+              <td style="padding:4px 8px;font-size:11px;">アプリログ (200件リングバッファ)</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">_kintai_file_cache_v1</td>
+              <td style="padding:4px 8px;font-size:11px;">ファイルビューワーキャッシュ (200KB/file)</td>
+            </tr>
+          </table>
+          <div class="doc-h2">3. セキュリティ設計</div>
+          <ul class="doc-ul">
+            <li><strong>暗号化:</strong> AES-GCM 256bit + PBKDF2-SHA256 (100,000 回)</li>
+            <li><strong>対象:</strong> Claude/GPT/Gemini APIキー / jinjer パスワード / Tailscale IP</li>
+            <li><strong>CSP:</strong> script-src は self + 許可済み CDN のみ</li>
+            <li><strong>pre-commit hook:</strong> Anthropic/OpenAI/Google/AWS APIキーパターン検出</li>
+            <li><strong>ログマスク:</strong> IP を maskIp() で 100.●●.●●●.●● 表示</li>
+            <li><strong>Docker:</strong> コンテナ名・イメージ名を正規表現でバリデーション</li>
+          </ul>
+          <div class="doc-h2">4. HA 設計 — 多層冗長化</div>
+          <table class="doc-table">
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <th style="padding:5px 8px;font-size:11px;">レイヤー</th>
+              <th style="padding:5px 8px;font-size:11px;">実装</th>
+              <th style="padding:5px 8px;font-size:11px;">MTTR</th>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:11px;">L0: PWA</td>
+              <td style="padding:4px 8px;font-size:11px;">Service Worker + IndexedDB (完全オフライン)</td>
+              <td style="padding:4px 8px;font-size:11px;">0秒</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:11px;">L1: launchd</td>
+              <td style="padding:4px 8px;font-size:11px;">KeepAlive=true, ThrottleInterval=10</td>
+              <td style="padding:4px 8px;font-size:11px;">10秒</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:11px;">L2: watchdog</td>
+              <td style="padding:4px 8px;font-size:11px;">60秒ポーリング → kickstart</td>
+              <td style="padding:4px 8px;font-size:11px;">60秒以内</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 8px;font-size:11px;">L3: Docker</td>
+              <td style="padding:4px 8px;font-size:11px;">restart:always + HEALTHCHECK</td>
+              <td style="padding:4px 8px;font-size:11px;">30秒以内</td>
+            </tr>
+          </table>
+          <div class="doc-h2">5. Service Worker キャッシュ戦略</div>
+          <ul class="doc-ul">
+            <li><strong>静的アセット (.png/.jpg/.woff2):</strong> Stale-While-Revalidate</li>
+            <li><strong>HTML / JS / JSON:</strong> Network-First (失敗時キャッシュ)</li>
+            <li><strong>バージョン:</strong> CACHE = 'kintai-v35'</li>
+          </ul>
+          <div class="doc-h2">6. launchd ジョブ一覧 (5ジョブ)</div>
+          <table class="doc-table">
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <th style="padding:5px 8px;font-size:11px;">ジョブ名</th>
+              <th style="padding:5px 8px;font-size:11px;">スケジュール</th>
+              <th style="padding:5px 8px;font-size:11px;">処理</th>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">com.kintai.server</td>
+              <td style="padding:4px 8px;font-size:11px;">常時 (KeepAlive)</td>
+              <td style="padding:4px 8px;font-size:11px;">jinjer_server.py 常駐</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">com.kintai.watchdog</td>
+              <td style="padding:4px 8px;font-size:11px;">60秒ごと</td>
+              <td style="padding:4px 8px;font-size:11px;">port 8899 死活監視・自動再起動</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">com.kintai.structure</td>
+              <td style="padding:4px 8px;font-size:11px;">毎朝 07:30</td>
+              <td style="padding:4px 8px;font-size:11px;">STRUCTURE.md 自動更新</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-soft);">
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">com.kintai.monthly</td>
+              <td style="padding:4px 8px;font-size:11px;">毎月1日 08:00</td>
+              <td style="padding:4px 8px;font-size:11px;">翌月 Excel 自動生成</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 8px;font-size:10px;font-family:monospace;">com.kintai.jinjer-end</td>
+              <td style="padding:4px 8px;font-size:11px;">毎月28日 19:00</td>
+              <td style="padding:4px 8px;font-size:11px;">jinjer 月末同期</td>
+            </tr>
+          </table>`;
       }
 
       function renderApi() {
         const el = document.getElementById('spec-api');
         if (!el) return;
-        const METHOD_COLOR = { GET: '#1565c0', POST: '#2e7d32', PUT: '#e65100', DELETE: '#c62828' };
-        el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
-          ${API_ENDPOINTS.map(ep => `<tr style="border-bottom:1px solid var(--border-soft);">
-            <td style="padding:4px 6px 4px 0;white-space:nowrap;">
-              <span style="background:${METHOD_COLOR[ep.method]||'#555'};color:#fff;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:bold;">${ep.method}</span>
-            </td>
-            <td style="padding:4px 6px;font-family:monospace;color:var(--accent-blue);">${ep.path}</td>
-            <td style="padding:4px 0;color:var(--text-muted);">${ep.desc}</td>
-          </tr>`).join('')}
-        </table>`;
+        el.innerHTML = '<table class="doc-table"><tr style="border-bottom:1px solid var(--border-soft);"><th style="padding:5px 8px;text-align:left;font-size:11px;">M</th><th style="padding:5px 8px;text-align:left;font-size:11px;">エンドポイント</th><th style="padding:5px 8px;text-align:left;font-size:11px;">説明</th></tr>' +
+          API_ENDPOINTS.map(ep =>
+            '<tr style="border-bottom:1px solid var(--border-soft);"><td style="padding:4px 8px;white-space:nowrap;"><span class="' + (ep.method === 'GET' ? 'badge-get' : 'badge-post') + '">' + ep.method + '</span></td><td style="padding:4px 8px;font-family:monospace;font-size:10px;color:var(--accent-blue);">' + ep.path + '</td><td style="padding:4px 8px;font-size:11px;color:var(--text-muted);">' + ep.desc + '</td></tr>'
+          ).join('') + '</table>';
       }
 
       async function renderStructure() {
@@ -7272,17 +7848,23 @@
       }
 
       window._initSpecTab = function() {
-        renderArch();
-        renderApi();
-        renderStructure();
-        loadSpecFiles();
+        if (!_specTabInit) {
+          _specTabInit = true;
+          document.querySelectorAll('.spec-sub-btn').forEach(btn => {
+            btn.addEventListener('click', () => _switchSpecPane(btn.dataset.pane));
+          });
+          document.getElementById('spec-refresh-btn')?.addEventListener('click', () => {
+            _renderedPanes.delete('struct');
+            _switchSpecPane('struct');
+          });
+          document.getElementById('spec-file-refresh-btn')?.addEventListener('click', loadSpecFiles);
+          document.getElementById('spec-file-select')?.addEventListener('change', e => {
+            if (e.target.value) showSpecFile(e.target.value);
+          });
+        }
+        const active = document.querySelector('.spec-sub-btn.active')?.dataset.pane || 'arch';
+        if (!_renderedPanes.has(active)) _switchSpecPane(active);
       };
-
-      document.getElementById('spec-refresh-btn')?.addEventListener('click', renderStructure);
-      document.getElementById('spec-file-refresh-btn')?.addEventListener('click', loadSpecFiles);
-      document.getElementById('spec-file-select')?.addEventListener('change', e => {
-        if (e.target.value) showSpecFile(e.target.value);
-      });
     })();
 
     /* =====================================================
@@ -8432,6 +9014,7 @@
         { id: 'iphone-guide-card',  label: '📱 iPhone接続ガイド' },
         { id: 'improvement-card',   label: '🚀 システム改善ロードマップ' },
         { id: 'stock-analysis-card',label: '📈 株価画像分析' },
+        { id: 'bolt-card',          label: '⚡ Bolt.new' },
       ];
 
       function loadHubOrder() {
@@ -8564,6 +9147,25 @@
         applyHubCardOrder();
         modal?.classList.remove('show');
         toast('✓ カード順を保存しました');
+      });
+    })();
+
+    /* =====================================================
+       BOLT.NEW 統合
+       ===================================================== */
+    (function initBoltIntegration() {
+      const KINTAI_GITHUB = 'yu-philia-ctrl/kintai-pwa';
+
+      document.getElementById('bolt-new-btn')?.addEventListener('click', () => {
+        const prompt = document.getElementById('bolt-prompt')?.value.trim();
+        const url = prompt
+          ? 'https://bolt.new/?prompt=' + encodeURIComponent(prompt)
+          : 'https://bolt.new/';
+        window.open(url, '_blank', 'noopener');
+      });
+
+      document.getElementById('bolt-kintai-btn')?.addEventListener('click', () => {
+        window.open('https://bolt.new/github/' + KINTAI_GITHUB, '_blank', 'noopener');
       });
     })();
 
@@ -11677,6 +12279,54 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           _initialized = false;
           window.initAiTab();
         });
+        // ── AI プロンプト例チップ ─────────────────────────────────
+        const _PROMPT_CHIPS = [
+          // 🔧 IT・技術
+          { icon: '🔧', text: 'このコードの問題点を分析して改善案を提案して' },
+          { icon: '🐍', text: 'PythonでCSVを集計してグラフ化するスクリプトを書いて' },
+          { icon: '🐳', text: 'Dockerfileを最適化するベストプラクティスを教えて' },
+          { icon: '🗄', text: 'SQLクエリのパフォーマンスを改善する方法を教えて' },
+          { icon: '⚙️', text: 'CI/CDパイプラインをGitHub Actionsで構築する方法を教えて' },
+          // 💼 ビジネス・仕事
+          { icon: '📝', text: 'この文章を簡潔でわかりやすいビジネス文書に書き直して' },
+          { icon: '📊', text: 'プレゼン資料の構成案を3パターン提案して' },
+          { icon: '📧', text: 'クライアントへの丁寧なお詫びメールの文面を作成して' },
+          { icon: '📋', text: '議事録を要約して次回のアクションアイテムを整理して' },
+          { icon: '💰', text: '以下のデータから経営判断に使えるインサイトを抽出して' },
+          // 🚀 キャリア・副業
+          { icon: '🚀', text: 'フリーランスエンジニアで年収1000万を目指す具体的な戦略を教えて' },
+          { icon: '📈', text: '2026年に需要が高いITスキルトップ10とその学習ロードマップを教えて' },
+          { icon: '💡', text: '副業・フリーランスを始めるための最初のステップを教えて' },
+          { icon: '🎯', text: 'ポートフォリオに載せるべきプロジェクト選定の基準を教えて' },
+          // 🧠 分析・思考
+          { icon: '🧠', text: 'このアイデアのメリット・デメリットを多角的に分析して' },
+          { icon: '🔍', text: '問題を解決するためのロジカルシンキングフレームワークを適用して' },
+          { icon: '⚖️', text: '意思決定に迷っているので判断軸を整理して決断を助けて' },
+          { icon: '💬', text: '複雑な技術概念を非エンジニアに伝わるように説明して' },
+          // ⚡ 生産性・日常
+          { icon: '📅', text: '効率的な週次レビューのテンプレートと実施手順を作成して' },
+          { icon: '⏱', text: '集中力を高めるための科学的に証明されたテクニックを教えて' },
+          { icon: '🏥', text: 'デスクワーク中心の生活で健康を維持する具体的な方法を教えて' },
+          { icon: '💪', text: '睡眠の質を改善するための実践的なアドバイスをください' },
+        ];
+        (function _renderPromptChips() {
+          const wrap = document.getElementById('ai-prompts-wrap');
+          if (!wrap) return;
+          wrap.innerHTML = _PROMPT_CHIPS.map(c =>
+            `<button class="ai-prompt-chip" data-prompt="${c.text.replace(/"/g,'&quot;')}">${c.icon} ${c.text.slice(0,18)}…</button>`
+          ).join('');
+          wrap.querySelectorAll('.ai-prompt-chip').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const inp = document.getElementById('ai-input');
+              if (inp) {
+                inp.value = btn.dataset.prompt;
+                inp.focus();
+                inp.dispatchEvent(new Event('input'));
+              }
+            });
+          });
+        })();
+
         document.getElementById('ai-settings-btn')?.addEventListener('click', async () => {
           await _loadKeys();
           document.getElementById('ai-settings-modal').style.display = 'flex';
