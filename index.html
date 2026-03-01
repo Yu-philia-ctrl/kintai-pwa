@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>勤怠カレンダー</title>
 
   <!-- iOS PWA -->
@@ -40,6 +40,7 @@
 
     * { box-sizing: border-box; }
 
+    html { overflow-x: hidden; }
     body {
       margin: 0;
       padding: calc(max(var(--safe-top), 12px)) 12px calc(max(var(--safe-bottom), 0px) + var(--tab-bar-h) + 16px);
@@ -47,6 +48,72 @@
       background: linear-gradient(145deg, #d8e8ff 0%, #e8ddff 45%, #ffd8f0 100%) fixed;
       color: var(--text-main);
       min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    /* ======= PC レスポンシブ (768px+) ======= */
+    @media (min-width: 768px) {
+      :root { --tab-bar-h: 0px; }
+      body {
+        padding: 16px 24px 24px 244px; /* 左220px + 余白 */
+      }
+      /* タブバーをサイドバーに変換 */
+      .bottom-tabs {
+        position: fixed;
+        top: 0; left: 0; right: auto; bottom: 0;
+        width: 220px;
+        height: 100dvh;
+        flex-direction: column;
+        overflow-y: auto;
+        overflow-x: hidden;
+        border-right: 1px solid var(--border-soft);
+        border-top: none;
+        padding: 16px 0 80px;
+        gap: 2px;
+        scrollbar-width: none;
+      }
+      .bottom-tabs::-webkit-scrollbar { display: none; }
+      .tab-btn {
+        border-radius: 12px;
+        margin: 0 8px;
+        padding: 10px 14px;
+        text-align: left;
+        font-size: 14px;
+        min-width: unset;
+        width: calc(100% - 16px);
+        flex-shrink: 0;
+        flex-direction: row;
+        gap: 8px;
+        justify-content: flex-start;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tab-btn .tab-icon { font-size: 18px; }
+      .tab-btn .tab-label { font-size: 13px; }
+      .tab-manage-btn {
+        position: fixed;
+        bottom: 16px; left: 8px;
+        width: 204px;
+        border-radius: 12px;
+      }
+      /* ヘルスバーはサイドバー上部に固定 */
+      #health-bar {
+        position: fixed;
+        top: 0; left: 0;
+        width: 220px;
+        border-radius: 0;
+        border-bottom: 1px solid var(--border-soft);
+        border-right: 1px solid var(--border-soft);
+        border-top: none;
+        z-index: 900;
+      }
+      /* カードをPC幅に */
+      .card { max-width: 100%; }
+      /* FABはPC非表示 */
+      #fab-group { display: none !important; }
+      /* モーダルはPC幅制限 */
+      .modal-sheet { max-width: 560px; margin: auto; border-radius: 20px; }
     }
 
     /* ======= CARD ======= */
@@ -722,6 +789,17 @@
     .fab-custom:active { transform: scale(0.93); }
     /* AI ページを active 時に flex レイアウトにする */
     #page-ai.active { display: flex !important; }
+
+    /* ======= 業務AI タブ ======= */
+    .bizai-tpl-btn {
+      padding: 6px 12px; border-radius: 20px; border: 1.5px solid var(--border-soft);
+      background: var(--bg-card); color: var(--text-primary);
+      font-size: 12px; cursor: pointer; font-family: inherit;
+      transition: all 0.15s;
+    }
+    .bizai-tpl-btn:active, .bizai-tpl-btn.selected {
+      background: var(--accent-blue); color: #fff; border-color: var(--accent-blue);
+    }
 
     /* ======= DB STATUS CARD ======= */
     .db-status-grid {
@@ -1607,7 +1685,7 @@
 
     /* ===== AI Chat Tab ===== */
     #page-ai {
-      display: flex; flex-direction: column;
+      flex-direction: column;
       height: calc(100dvh - var(--tab-bar-h) - max(var(--safe-top),12px) - max(var(--safe-bottom),0px) - 32px);
       padding: 0;
     }
@@ -3022,6 +3100,78 @@
       <input id="logs-search-input" type="search" placeholder="🔍 キーワードで絞り込み..." style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border-soft);border-radius:8px;font-size:11px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:8px;">
       <div id="logs-count" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;"></div>
       <div id="logs-content" style="font-family:'SF Mono','Fira Code',monospace;font-size:11px;max-height:55vh;overflow-y:auto;border-radius:8px;background:#0d1117;padding:10px;"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: 業務AI ===== -->
+  <div id="page-bizai" class="tab-page">
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">🗂 業務AI — IT以外の仕事を自動化</div>
+      <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px;">文書作成・メール・議事録・分析などをAIで効率化します</p>
+
+      <!-- テンプレート選択 -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;" id="bizai-template-list">
+        <button class="bizai-tpl-btn" data-tpl="email_reply">📧 メール返信</button>
+        <button class="bizai-tpl-btn" data-tpl="minutes">📝 議事録要約</button>
+        <button class="bizai-tpl-btn" data-tpl="report_weekly">📊 週報作成</button>
+        <button class="bizai-tpl-btn" data-tpl="contract_check">📄 契約書チェック</button>
+        <button class="bizai-tpl-btn" data-tpl="presentation">🎯 資料構成案</button>
+        <button class="bizai-tpl-btn" data-tpl="schedule">🗓 日程調整文</button>
+        <button class="bizai-tpl-btn" data-tpl="estimate">💰 見積もり作成</button>
+        <button class="bizai-tpl-btn" data-tpl="complaint">🤝 クレーム対応</button>
+        <button class="bizai-tpl-btn" data-tpl="free">✏️ フリー入力</button>
+      </div>
+
+      <!-- 入力欄 -->
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px;" id="bizai-input-label">内容を入力してください</div>
+      <textarea id="bizai-input" rows="5"
+        style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border-soft);border-radius:12px;font-size:13px;font-family:inherit;resize:vertical;background:var(--bg-card);color:var(--text-primary);"
+        placeholder="例）受信したメールの内容をここに貼り付けてください..."></textarea>
+
+      <!-- オプション行 -->
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;">
+        <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+          文体:
+          <select id="bizai-tone" style="font-size:12px;border-radius:8px;border:1px solid var(--border-soft);padding:3px 6px;background:var(--bg-card);color:var(--text-primary);">
+            <option value="formal">丁寧語（ビジネス）</option>
+            <option value="semi">やや丁寧</option>
+            <option value="casual">カジュアル</option>
+          </select>
+        </label>
+        <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+          長さ:
+          <select id="bizai-length" style="font-size:12px;border-radius:8px;border:1px solid var(--border-soft);padding:3px 6px;background:var(--bg-card);color:var(--text-primary);">
+            <option value="short">簡潔（200字以内）</option>
+            <option value="medium" selected>標準（400字程度）</option>
+            <option value="long">詳細（800字以上）</option>
+          </select>
+        </label>
+      </div>
+
+      <button id="bizai-run-btn" class="btn-primary" style="width:100%;margin-top:10px;" disabled>
+        🤖 AI生成
+      </button>
+    </div>
+
+    <!-- 結果カード -->
+    <div class="card" id="bizai-result-card" style="display:none;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin:0;">✨ 生成結果</div>
+        <div style="display:flex;gap:6px;">
+          <button id="bizai-copy-btn" class="btn-secondary" style="font-size:12px;padding:4px 10px;">📋 コピー</button>
+          <button id="bizai-reset-btn" class="btn-secondary" style="font-size:12px;padding:4px 10px;">↩ リセット</button>
+        </div>
+      </div>
+      <div id="bizai-result-text" style="font-size:13px;line-height:1.9;white-space:pre-wrap;word-break:break-all;background:rgba(79,141,253,0.04);border:1px solid var(--border-soft);border-radius:10px;padding:12px;max-height:50vh;overflow-y:auto;"></div>
+    </div>
+
+    <!-- 履歴カード -->
+    <div class="card" id="bizai-history-card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin:0;">🕐 生成履歴</div>
+        <button id="bizai-history-clear" class="btn-secondary" style="font-size:11px;padding:3px 8px;">クリア</button>
+      </div>
+      <div id="bizai-history-list" style="font-size:12px;color:var(--text-muted);"></div>
     </div>
   </div>
 
@@ -6024,6 +6174,16 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v31', date: '2026-03-01',
+          title: '📱 iPhoneレイアウト修正 + PC対応 + 業務AIタブ追加',
+          items: [
+            { tag: 'fix',  text: 'iPhoneレイアウト崩壊バグ修正: ハブカード並び替えの applyHubCardOrder() が hub.style.display="flex" をインラインスタイルで設定し、CSSクラス .tab-page{display:none} を上書きしていた。DOM物理並び替えに変更し修正' },
+            { tag: 'fix',  text: 'viewport修正: user-scalable=no を追加してiPhoneでのピンチ拡大を無効化。html/bodyにoverflow-x:hiddenを追加し横スクロール防止' },
+            { tag: 'feat', text: 'PCレスポンシブ対応: 768px以上の画面でタブバーが左サイドバーに変換。PC/タブレットでワイドレイアウト表示' },
+            { tag: 'feat', text: '業務AIタブ追加: メール返信・議事録要約・週報作成・契約書チェック・資料構成案・日程調整・見積もり作成・クレーム対応など9種類のテンプレートでIT以外の業務をClaudeで効率化' },
+          ],
+        },
+        {
           version: 'v30', date: '2026-03-01',
           title: '🛠 ログモーダル修正 + FABカスタム + ハブ並び替え + 報告書オフライン + 株価分析',
           items: [
@@ -6268,7 +6428,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v30';
+        const swVer = 'kintai-v31';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -7985,18 +8145,18 @@
       function applyHubCardOrder() {
         const hub = document.getElementById('page-hub');
         if (!hub) return;
-        hub.style.display = 'flex';
-        hub.style.flexDirection = 'column';
+        // display は触らない（CSSクラス管理に任せる）
         const order = loadHubOrder() || HUB_CARD_DEFS.map(d => d.id);
-        order.forEach((id, i) => {
+        // 指定順にDOMを物理的に並び替え
+        order.forEach(id => {
           const el = document.getElementById(id);
-          if (el) el.style.order = i;
+          if (el && el.parentElement === hub) hub.appendChild(el);
         });
         // 定義にないカードは末尾
-        HUB_CARD_DEFS.forEach((d, i) => {
+        HUB_CARD_DEFS.forEach(d => {
           if (!order.includes(d.id)) {
             const el = document.getElementById(d.id);
-            if (el) el.style.order = order.length + i;
+            if (el && el.parentElement === hub) hub.appendChild(el);
           }
         });
       }
@@ -11288,6 +11448,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         { id: 'spec',      icon: '📁', label: '仕様',    defaultVisible: false },
         { id: 'logs',      icon: '📋', label: 'ログ',    defaultVisible: false },
         { id: 'perf',      icon: '⚡', label: 'パフォーマンス', defaultVisible: false },
+        { id: 'bizai',     icon: '🗂', label: '業務AI',      defaultVisible: true  },
       ];
 
       // ── カスタムタブ CRUD ──────────────────────────────────────────────────
@@ -12011,6 +12172,215 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         }
         recalc();
       };
+    })();
+
+    /* =====================================================
+       業務AI タブ
+       ===================================================== */
+    (function _initBizAiTab() {
+      const BIZAI_HIST_KEY = '_kintai_bizai_hist_v1';
+      const TEMPLATES = {
+        email_reply: {
+          label: '📧 メール返信',
+          placeholder: '返信したいメールの内容を貼り付けてください...',
+          prompt: (text, tone, len) =>
+            `以下のメールに対して、${_toneLabel(tone)}で${_lenLabel(len)}返信メールを作成してください。\n\n【受信メール】\n${text}`
+        },
+        minutes: {
+          label: '📝 議事録要約',
+          placeholder: '会議の発言録や録音の文字起こしを貼り付けてください...',
+          prompt: (text, tone, len) =>
+            `以下の会議内容を議事録として整理してください。決定事項・アクションアイテム・担当者を明確に。文体は${_toneLabel(tone)}、${_lenLabel(len)}でまとめてください。\n\n【会議内容】\n${text}`
+        },
+        report_weekly: {
+          label: '📊 週報作成',
+          placeholder: '今週やったこと・課題・来週の予定などをメモ書きで入力してください...',
+          prompt: (text, tone, len) =>
+            `以下のメモを元に、${_toneLabel(tone)}の週次報告書を作成してください。フォーマット：【今週の成果】【課題・懸念事項】【来週の計画】の3セクション構成で${_lenLabel(len)}。\n\n【メモ】\n${text}`
+        },
+        contract_check: {
+          label: '📄 契約書チェック',
+          placeholder: '確認したい契約書の条項や文章を貼り付けてください...',
+          prompt: (text, tone, len) =>
+            `以下の契約書文章を確認し、注意すべき点・不明瞭な箇所・リスクがある条項を${_lenLabel(len)}で指摘してください。法的アドバイスではなく一般的なチェックポイントのみ。\n\n【契約書文章】\n${text}`
+        },
+        presentation: {
+          label: '🎯 資料構成案',
+          placeholder: 'プレゼンのテーマや伝えたい内容を入力してください...',
+          prompt: (text, tone, len) =>
+            `以下のテーマでプレゼンテーション資料の構成案を作成してください。各スライドのタイトルと要点を${_lenLabel(len)}で提案してください。\n\n【テーマ・内容】\n${text}`
+        },
+        schedule: {
+          label: '🗓 日程調整文',
+          placeholder: '調整したい打ち合わせの目的や候補日時を入力してください...',
+          prompt: (text, tone, len) =>
+            `以下の情報を元に、日程調整の依頼メール文を${_toneLabel(tone)}で作成してください。${_lenLabel(len)}。\n\n【情報】\n${text}`
+        },
+        estimate: {
+          label: '💰 見積もり作成',
+          placeholder: '作業内容・工数・単価などをメモ書きで入力してください...',
+          prompt: (text, tone, len) =>
+            `以下の情報を元に、見積書の項目と金額の案を作成し、${_toneLabel(tone)}の添え状文も付けてください。${_lenLabel(len)}。\n\n【情報】\n${text}`
+        },
+        complaint: {
+          label: '🤝 クレーム対応',
+          placeholder: 'クレームの内容と状況を入力してください...',
+          prompt: (text, tone, len) =>
+            `以下のクレームに対して、誠実かつ${_toneLabel(tone)}のお詫び・対応文を作成してください。${_lenLabel(len)}。感情的にならず事実に基づいた内容で。\n\n【クレーム内容】\n${text}`
+        },
+        free: {
+          label: '✏️ フリー入力',
+          placeholder: 'AIへの指示と素材をここに入力してください...',
+          prompt: (text) => text
+        }
+      };
+
+      function _toneLabel(t) {
+        return { formal: 'ビジネス敬語（丁寧語）', semi: 'やや丁寧な口調', casual: 'カジュアルな口調' }[t] || '丁寧語';
+      }
+      function _lenLabel(l) {
+        return { short: '200字以内の簡潔さ', medium: '400字程度の標準的な長さ', long: '800字以上の詳細な内容' }[l] || '標準的な長さ';
+      }
+
+      let _currentTpl = null;
+      const inputEl  = document.getElementById('bizai-input');
+      const labelEl  = document.getElementById('bizai-input-label');
+      const runBtn   = document.getElementById('bizai-run-btn');
+      const resultCard = document.getElementById('bizai-result-card');
+      const resultEl = document.getElementById('bizai-result-text');
+      const copyBtn  = document.getElementById('bizai-copy-btn');
+      const resetBtn = document.getElementById('bizai-reset-btn');
+      const histList = document.getElementById('bizai-history-list');
+      const histClearBtn = document.getElementById('bizai-history-clear');
+
+      // テンプレートボタン
+      document.querySelectorAll('.bizai-tpl-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tpl = TEMPLATES[btn.dataset.tpl];
+          if (!tpl) return;
+          document.querySelectorAll('.bizai-tpl-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          _currentTpl = btn.dataset.tpl;
+          labelEl.textContent = tpl.label + '：内容を入力';
+          inputEl.placeholder = tpl.placeholder;
+          inputEl.value = '';
+          runBtn.disabled = true;
+          resultCard.style.display = 'none';
+        });
+      });
+
+      inputEl?.addEventListener('input', () => {
+        runBtn.disabled = !inputEl.value.trim() || !_currentTpl;
+      });
+
+      runBtn?.addEventListener('click', async () => {
+        const text = inputEl.value.trim();
+        if (!text || !_currentTpl) return;
+        const tpl = TEMPLATES[_currentTpl];
+        const tone = document.getElementById('bizai-tone')?.value || 'formal';
+        const len  = document.getElementById('bizai-length')?.value || 'medium';
+        const prompt = tpl.prompt(text, tone, len);
+
+        runBtn.disabled = true;
+        runBtn.textContent = '⏳ 生成中...';
+        resultCard.style.display = 'none';
+
+        try {
+          const sens = await loadSensitiveData();
+          const apiKey = sens?.aiKeyClaude;
+          if (!apiKey) {
+            toast('⚠️ ClaudeのAPIキーがAIタブ→設定に未入力です');
+            return;
+          }
+          const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-allow-browser': 'true',
+              'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-6',
+              max_tokens: 1500,
+              messages: [{ role: 'user', content: prompt }]
+            })
+          });
+          if (!res.ok) throw new Error(`API error ${res.status}`);
+          const data = await res.json();
+          const output = data.content?.[0]?.text || '（応答なし）';
+          resultEl.textContent = output;
+          resultCard.style.display = 'block';
+          resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+          // 履歴保存
+          const hist = _loadHistory();
+          hist.unshift({
+            ts: new Date().toISOString(),
+            tpl: _currentTpl,
+            label: tpl.label,
+            preview: output.slice(0, 60) + (output.length > 60 ? '...' : '')
+          });
+          if (hist.length > 20) hist.length = 20;
+          _saveHistory(hist);
+          _renderHistory();
+        } catch (e) {
+          toast('❌ エラー: ' + e.message);
+        } finally {
+          runBtn.disabled = false;
+          runBtn.textContent = '🤖 AI生成';
+        }
+      });
+
+      copyBtn?.addEventListener('click', () => {
+        const txt = resultEl.textContent;
+        if (!txt) return;
+        navigator.clipboard.writeText(txt).then(() => toast('📋 コピーしました')).catch(() => {
+          const ta = document.createElement('textarea');
+          ta.value = txt; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); document.body.removeChild(ta);
+          toast('📋 コピーしました');
+        });
+      });
+
+      resetBtn?.addEventListener('click', () => {
+        inputEl.value = '';
+        resultCard.style.display = 'none';
+        runBtn.disabled = true;
+        document.querySelectorAll('.bizai-tpl-btn').forEach(b => b.classList.remove('selected'));
+        _currentTpl = null;
+        labelEl.textContent = '内容を入力してください';
+        inputEl.placeholder = '例）受信したメールの内容をここに貼り付けてください...';
+      });
+
+      function _loadHistory() {
+        try { return JSON.parse(localStorage.getItem(BIZAI_HIST_KEY) || '[]'); } catch(_) { return []; }
+      }
+      function _saveHistory(h) { localStorage.setItem(BIZAI_HIST_KEY, JSON.stringify(h)); }
+      function _renderHistory() {
+        const hist = _loadHistory();
+        if (!histList) return;
+        if (!hist.length) {
+          histList.innerHTML = '<div style="padding:8px 0;color:var(--text-muted);">履歴はまだありません</div>';
+          return;
+        }
+        histList.innerHTML = hist.map(h => `
+          <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-soft);align-items:flex-start;">
+            <span style="flex-shrink:0;font-size:11px;color:var(--text-muted);white-space:nowrap;">${h.ts.slice(5,16).replace('T',' ')}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;font-weight:700;color:var(--accent-blue);">${_esc(h.label)}</div>
+              <div style="font-size:12px;color:var(--text-primary);margin-top:2px;word-break:break-all;">${_esc(h.preview)}</div>
+            </div>
+          </div>`).join('');
+      }
+
+      histClearBtn?.addEventListener('click', () => {
+        if (!confirm('履歴をすべて削除しますか？')) return;
+        localStorage.removeItem(BIZAI_HIST_KEY);
+        _renderHistory();
+      });
+
+      _renderHistory();
     })();
 
     /* =====================================================
