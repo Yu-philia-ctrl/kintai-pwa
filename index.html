@@ -3695,6 +3695,46 @@
     </div>
   </div>
 
+  <!-- ===== TAB: ターミナル ===== -->
+  <div id="page-terminal" class="tab-page">
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin-bottom:0;">🖥 ブラウザ端末 <span style="font-size:10px;font-weight:400;opacity:0.7;">(ttyd)</span></div>
+        <span id="ttyd-status-dot" style="font-size:11px;color:var(--text-muted);">— 確認中</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+        <code id="ttyd-url-text" style="flex:1;font-size:12px;background:var(--bg-glass);padding:6px 10px;border-radius:8px;border:1px solid var(--border-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— 確認中</code>
+        <button id="ttyd-refresh-btn" class="btn-secondary" style="font-size:12px;padding:6px;">🔄</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <button id="ttyd-open-btn" class="btn-primary" style="flex:1;font-size:13px;padding:10px;">🖥 ターミナルを開く</button>
+        <button id="ttyd-open-inline-btn" class="btn-secondary" style="flex:1;font-size:13px;padding:10px;">📺 埋め込み表示</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.6;">
+        💡 同一 Wi-Fi 内またはTailscale 経由でアクセスすると macOS の zsh ターミナルを操作できます。<br>
+        🔒 Tailscale 未接続の場合は LAN 内のみ利用可能です。
+      </div>
+    </div>
+    <!-- 埋め込みiframe (ボタンで表示/非表示) -->
+    <div id="ttyd-inline-wrap" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:13px;font-weight:700;">📺 埋め込みターミナル</div>
+        <button id="ttyd-close-inline-btn" class="btn-secondary" style="font-size:12px;padding:4px 10px;">✕ 閉じる</button>
+      </div>
+      <iframe id="ttyd-iframe" src="" style="width:100%;height:60vh;min-height:400px;border:none;border-radius:12px;background:#1a1a2e;" allowfullscreen></iframe>
+    </div>
+    <!-- Tailscale ステータス -->
+    <div class="card">
+      <div class="card-title">🌐 Tailscale VPN</div>
+      <div id="tailscale-terminal-status" style="font-size:12px;color:var(--text-muted);line-height:1.8;">
+        確認中...
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-muted);">
+        外部から接続するには: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">sudo tailscaled &amp;&amp; tailscale up</code> を実行してください
+      </div>
+    </div>
+  </div>
+
   <nav class="bottom-tabs" id="bottom-tabs">
     <!-- タブボタンは JS (_initTabManager) で動的に生成されます -->
     <button class="tab-manage-btn" id="tab-manage-btn" title="タブ管理">
@@ -7167,6 +7207,17 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v46', date: '2026-03-02',
+          title: '🖥 ターミナルタブ追加 (ttyd) + 公開鍵SSH認証',
+          items: [
+            { tag: 'feature', text: '🖥 ターミナルタブ追加: ttyd (port 7681) へのブラウザ端末。「ターミナルを開く」(新タブ) / 「埋め込み表示」(iframeをタブ内に表示) の2モード' },
+            { tag: 'feature', text: 'ttyd launchd自動起動 (com.kintai.ttyd): RunAtLoad+KeepAlive、KeepAlive=true、zsh -l を起動' },
+            { tag: 'feature', text: 'GET /api/ttyd-url エンドポイント: ttyd稼働状態 + LAN IP を返す (miniserve-urlと同じIP解決ロジック)' },
+            { tag: 'feature', text: 'Tailscale VPN状態をターミナルタブで表示。接続時は外部からのttyd URLも案内' },
+            { tag: 'feature', text: 'SSH公開鍵認証設定: ed25519キー生成 + authorized_keys登録。LAN (192.168.x.x:22) での公開鍵認証を確認済み' },
+          ],
+        },
+        {
           version: 'v45', date: '2026-03-02',
           title: '📝 メモ複数化（カテゴリ+テキスト）+ miniserve IP修正',
           items: [
@@ -7573,7 +7624,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v45';
+        const swVer = 'kintai-v46';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -13710,6 +13761,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         { id: 'perf',      icon: '⚡', label: 'パフォーマンス', defaultVisible: false },
         { id: 'bizai',     icon: '🗂', label: '業務AI',      defaultVisible: true  },
         { id: 'docker',    icon: '🐳', label: 'Docker',      defaultVisible: true  },
+        { id: 'terminal',  icon: '🖥', label: 'ターミナル',  defaultVisible: true  },
       ];
 
       // ── カスタムタブ CRUD ──────────────────────────────────────────────────
@@ -13812,6 +13864,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         if (tabName === 'logs')     { if (window._initLogsTab) window._initLogsTab(); }
         if (tabName === 'perf')     { if (window._initPerfTab) window._initPerfTab(); }
         if (tabName === 'docker')   { if (window._initDockerTab) window._initDockerTab(); }
+        if (tabName === 'terminal') { if (window._initTerminalTab) window._initTerminalTab(); }
       }
       window._switchTab = switchTab;
 
@@ -15069,6 +15122,91 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       }
 
       window._initDockerTab = _loadDockerView;
+    })();
+
+    /* =====================================================
+       TERMINAL TAB — ttyd ブラウザ端末
+       ===================================================== */
+    (function initTerminalTab() {
+      const _TTYD_IP_KEY = '_kintai_ttyd_ip_v1';
+      const _ttydPort = 7681;
+      let _ttydIp = (() => {
+        try { return localStorage.getItem(_TTYD_IP_KEY) || ''; } catch(_) { return ''; }
+      })();
+
+      function _getTtydUrl() {
+        if (_ttydIp) return `http://${_ttydIp}:${_ttydPort}`;
+        try {
+          const h = new URL(window._srvBase || '').hostname;
+          if (h && h !== 'localhost' && h !== '127.0.0.1') return `http://${h}:${_ttydPort}`;
+        } catch(_) {}
+        return `http://localhost:${_ttydPort}`;
+      }
+
+      async function refreshTtydStatus() {
+        const dotEl = document.getElementById('ttyd-status-dot');
+        const urlEl = document.getElementById('ttyd-url-text');
+        const tsEl  = document.getElementById('tailscale-terminal-status');
+        if (!dotEl) return;
+        const base = window._srvBase || 'http://localhost:8899';
+        try {
+          const r = await fetch(`${base}/api/ttyd-url`, { signal: AbortSignal.timeout(4000) });
+          if (!r.ok) throw new Error();
+          const d = await r.json();
+          if (d.host_ip) {
+            _ttydIp = d.host_ip;
+            try { localStorage.setItem(_TTYD_IP_KEY, d.host_ip); } catch(_) {}
+          }
+          dotEl.innerHTML = d.running
+            ? '<span style="color:var(--accent-green);">● 稼働中</span>'
+            : '<span style="color:#e57373;">● 停止中</span>';
+          if (urlEl) urlEl.textContent = _getTtydUrl();
+        } catch {
+          dotEl.innerHTML = '<span style="color:var(--text-muted);">— サーバー未接続</span>';
+        }
+        // Tailscale状態
+        try {
+          const tr = await fetch(`${base}/api/tailscale-url`, { signal: AbortSignal.timeout(3000) });
+          const td = await tr.json();
+          if (tsEl) {
+            if (td.https_url) {
+              tsEl.innerHTML = `✅ 接続中: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${td.https_url}</code><br>外部からも <a href="http://${new URL(td.https_url).hostname}:${_ttydPort}" target="_blank" rel="noopener" style="color:var(--accent-blue);">ttyd アクセス</a> できます`;
+            } else {
+              tsEl.innerHTML = '⚠️ 未接続 — <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">tailscale up</code> を実行して VPN に接続してください';
+            }
+          }
+        } catch {
+          if (tsEl) tsEl.textContent = '— 確認できませんでした';
+        }
+      }
+
+      document.getElementById('ttyd-open-btn')?.addEventListener('click', async () => {
+        if (!_ttydIp) await refreshTtydStatus();
+        window.open(_getTtydUrl(), '_blank', 'noopener');
+      });
+
+      document.getElementById('ttyd-open-inline-btn')?.addEventListener('click', async () => {
+        if (!_ttydIp) await refreshTtydStatus();
+        const wrap = document.getElementById('ttyd-inline-wrap');
+        const iframe = document.getElementById('ttyd-iframe');
+        if (!wrap || !iframe) return;
+        if (wrap.style.display === 'none') {
+          iframe.src = _getTtydUrl();
+          wrap.style.display = 'block';
+        } else {
+          wrap.style.display = 'none';
+          iframe.src = '';
+        }
+      });
+
+      document.getElementById('ttyd-close-inline-btn')?.addEventListener('click', () => {
+        document.getElementById('ttyd-inline-wrap').style.display = 'none';
+        document.getElementById('ttyd-iframe').src = '';
+      });
+
+      document.getElementById('ttyd-refresh-btn')?.addEventListener('click', refreshTtydStatus);
+
+      window._initTerminalTab = refreshTtydStatus;
     })();
 
     /* =====================================================

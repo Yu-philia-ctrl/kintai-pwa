@@ -75,6 +75,7 @@ ICLOUD_BACKUP_DIR = ICLOUD_ATT_DIR / 'Backup'            # 世代バックアッ
 # 旧パス (互換性のため保持)
 ICLOUD_DIR = Path.home() / 'Library/Mobile Documents/com~apple~CloudDocs/kintai'
 STRUCTURE_MD = _HERE / 'STRUCTURE.md'
+PROMPTS_DIR  = Path.home() / 'root' / 'prompts'
 
 # ===== サーバーサイドデータブリッジ =====
 # GitHub Pages / localhost / iPhone など異なるオリジン間でデータを共有するためのファイルストア。
@@ -338,6 +339,38 @@ class JinjerHandler(BaseHTTPRequestHandler):
             else:
                 self._send_text('STRUCTURE.md が生成されていません。generate_structure.py を実行してください。', 404)
 
+        # ===== /api/prompts =====
+        elif path == '/api/prompts':
+            result = []
+            if PROMPTS_DIR.exists():
+                import glob as _glob
+                for md_path in sorted(_glob.glob(str(PROMPTS_DIR / '*.md'))):
+                    try:
+                        text = Path(md_path).read_text(encoding='utf-8').strip()
+                        lines = text.splitlines()
+                        category = lines[0].lstrip('# ').strip() if lines else Path(md_path).stem
+                        items = []
+                        for line in lines[1:]:
+                            line = line.strip()
+                            if line.startswith('- ') and line[2:]:
+                                prompt_text = line[2:].strip()
+                                # アイコン検出 (行頭の絵文字)
+                                import unicodedata as _ud
+                                icon = '💬'
+                                for ch in prompt_text:
+                                    if _ud.category(ch) in ('So', 'Sm') or ord(ch) > 0x1F300:
+                                        icon = ch
+                                        break
+                                items.append({'icon': icon, 'text': prompt_text})
+                        if items:
+                            result.append({'category': category, 'items': items})
+                    except Exception:
+                        pass
+            if result:
+                self._send_json(result)
+            else:
+                self._send_json([], 204)
+
         # ===== /api/jobs =====
         elif path == '/api/jobs':
             self._handle_jobs(params)
@@ -393,6 +426,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         # ===== /api/miniserve-url — miniserve の LAN URL を返す =====
         elif path == '/api/miniserve-url':
             self._handle_miniserve_url()
+
+        # ===== /api/ttyd-url — ttyd ブラウザ端末の URL を返す =====
+        elif path == '/api/ttyd-url':
+            self._handle_ttyd_url()
 
         # ===== /api/backup/full — フルバックアップ取得 =====
         elif path == '/api/backup/full':
@@ -747,6 +784,49 @@ class JinjerHandler(BaseHTTPRequestHandler):
                     pass
         if not host_ip and not os.path.exists('/.dockerenv'):
             # ネイティブ Mac 環境: UDP connect trick で LAN IP を取得
+            try:
+                s = _sock.socket(_sock.AF_INET, _sock.SOCK_DGRAM)
+                s.settimeout(0)
+                s.connect(('8.8.8.8', 80))
+                host_ip = s.getsockname()[0]
+                s.close()
+            except Exception:
+                pass
+
+        self._send_json({
+            'port':    port,
+            'running': running,
+            'host_ip': host_ip,
+        })
+
+    # ── ttyd ブラウザ端末 URL ───────────────────────────────────────────────
+    _TTYD_PORT = 7681
+
+    def _handle_ttyd_url(self):
+        """ttyd の稼働状態と LAN IP を返す（miniserve-url と同じ IP 解決ロジック）。"""
+        import socket as _sock
+        port = JinjerHandler._TTYD_PORT
+        running = False
+        for host in ('127.0.0.1', 'host.docker.internal'):
+            try:
+                cs = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+                cs.settimeout(0.5)
+                cs.connect((host, port))
+                cs.close()
+                running = True
+                break
+            except Exception:
+                pass
+
+        host_ip = os.environ.get('KINTAI_HOST_IP', '').strip()
+        if not host_ip:
+            host_ip_file = DATA_DIR / 'host_ip.txt'
+            if host_ip_file.exists():
+                try:
+                    host_ip = host_ip_file.read_text().strip()
+                except Exception:
+                    pass
+        if not host_ip and not os.path.exists('/.dockerenv'):
             try:
                 s = _sock.socket(_sock.AF_INET, _sock.SOCK_DGRAM)
                 s.settimeout(0)
