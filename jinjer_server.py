@@ -365,6 +365,18 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/tunnel-url':
             self._handle_tunnel_url()
 
+        # ===== /api/docker/containers — コンテナ一覧 =====
+        elif path == '/api/docker/containers':
+            self._handle_docker_containers()
+
+        # ===== /api/docker/images — イメージ一覧 =====
+        elif path == '/api/docker/images':
+            self._handle_docker_images()
+
+        # ===== /api/docker/logs — コンテナログ =====
+        elif path == '/api/docker/logs':
+            self._handle_docker_logs(params)
+
         # ===== /api/backup/list — iCloud バックアップ一覧 =====
         elif path == '/api/backup/list':
             self._handle_backup_list()
@@ -427,6 +439,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
             month = month.zfill(2)
             result = create_next_month_report(year, month)
             self._send_json(result, 200 if result['ok'] else 400)
+
+        # ===== /api/docker/action — コンテナ操作 (start/stop/restart/rm) =====
+        elif path == '/api/docker/action':
+            self._handle_docker_action()
 
         # ===== /api/system/restart =====
         elif path == '/api/system/restart':
@@ -768,6 +784,117 @@ class JinjerHandler(BaseHTTPRequestHandler):
         else:
             self._send_json({'url': None, 'active': False,
                              'note': 'Cloudflare Tunnel は未起動です'})
+
+    # ===== Docker 管理 =========================================================
+
+    _DOCKER_BIN = '/usr/local/bin/docker'
+
+    def _run_docker(self, args: list, timeout: int = 10) -> tuple[int, str, str]:
+        """docker コマンドを実行して (returncode, stdout, stderr) を返す。"""
+        try:
+            r = subprocess.run(
+                [self._DOCKER_BIN] + args,
+                capture_output=True, text=True, timeout=timeout
+            )
+            return r.returncode, r.stdout, r.stderr
+        except FileNotFoundError:
+            return -1, '', 'docker command not found'
+        except subprocess.TimeoutExpired:
+            return -1, '', 'docker command timed out'
+
+    def _handle_docker_containers(self):
+        """全コンテナの情報を返す (running + stopped)。"""
+        rc, out, err = self._run_docker([
+            'ps', '-a',
+            '--format',
+            '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.State}}'
+        ])
+        if rc != 0:
+            self._send_json({'error': err or 'docker ps failed'}, 500)
+            return
+        containers = []
+        for line in out.strip().splitlines():
+            parts = line.split('\t')
+            if len(parts) < 6:
+                continue
+            containers.append({
+                'id':     parts[0],
+                'name':   parts[1],
+                'image':  parts[2],
+                'status': parts[3],
+                'ports':  parts[4],
+                'state':  parts[5],
+            })
+        self._send_json({'containers': containers})
+
+    def _handle_docker_images(self):
+        """イメージ一覧を返す。"""
+        rc, out, err = self._run_docker([
+            'images',
+            '--format',
+            '{{.ID}}\t{{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}'
+        ])
+        if rc != 0:
+            self._send_json({'error': err or 'docker images failed'}, 500)
+            return
+        images = []
+        for line in out.strip().splitlines():
+            parts = line.split('\t')
+            if len(parts) < 5:
+                continue
+            images.append({
+                'id':      parts[0],
+                'repo':    parts[1],
+                'tag':     parts[2],
+                'size':    parts[3],
+                'created': parts[4],
+            })
+        self._send_json({'images': images})
+
+    def _handle_docker_logs(self, params: dict):
+        """指定コンテナの直近ログを返す。"""
+        cid = params.get('id', [''])[0].strip()
+        lines = params.get('lines', ['100'])[0]
+        if not cid or not cid.replace('-', '').isalnum():
+            self._send_json({'error': 'invalid id'}, 400)
+            return
+        try:
+            n = max(1, min(int(lines), 500))
+        except ValueError:
+            n = 100
+        rc, out, err = self._run_docker(['logs', '--tail', str(n), cid], timeout=15)
+        # docker logs writes to stderr for actual log content in some versions
+        log_text = out + (('\n' + err) if err and rc == 0 else '')
+        if rc != 0:
+            self._send_json({'error': err or 'docker logs failed'}, 500)
+            return
+        self._send_json({'id': cid, 'logs': log_text})
+
+    def _handle_docker_action(self):
+        """コンテナ操作: start / stop / restart / rm。"""
+        body = self._read_body()
+        try:
+            data = json.loads(body)
+        except Exception:
+            self._send_json({'error': 'invalid JSON'}, 400)
+            return
+        action = data.get('action', '')
+        cid    = data.get('id', '').strip()
+        if not cid or not cid.replace('-', '').isalnum():
+            self._send_json({'error': 'invalid id'}, 400)
+            return
+        if action not in ('start', 'stop', 'restart', 'rm'):
+            self._send_json({'error': 'invalid action'}, 400)
+            return
+        args = [action]
+        if action == 'rm':
+            args.append('-f')
+        args.append(cid)
+        rc, out, err = self._run_docker(args, timeout=30)
+        if rc != 0:
+            self._send_json({'error': err or f'docker {action} failed'}, 500)
+        else:
+            self._send_json({'ok': True, 'action': action, 'id': cid})
 
     # ===== iCloud バックアップ管理 =============================================
 
