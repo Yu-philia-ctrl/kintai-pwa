@@ -2551,9 +2551,31 @@
     </div>
     <div class="ai-messages" id="ai-messages"></div>
     <div class="ai-prompts-wrap" id="ai-prompts-wrap"></div>
+    <!-- プロンプトライブラリ展開ボタン -->
+    <div style="display:flex;padding:0 10px 4px;gap:6px;flex-shrink:0;">
+      <button id="ai-prompt-lib-btn" class="btn-secondary"
+        style="font-size:11px;padding:5px 12px;border-radius:999px;display:flex;align-items:center;gap:4px;">
+        📝 プロンプト例を見る
+      </button>
+    </div>
     <div class="ai-input-row">
       <textarea class="ai-input" id="ai-input" placeholder="AIに質問… (Enter で送信、Shift+Enter で改行)" rows="1"></textarea>
       <button class="ai-send-btn" id="ai-send-btn">↑</button>
+    </div>
+  </div>
+
+  <!-- ===== AI プロンプトライブラリモーダル ===== -->
+  <div class="modal-backdrop" id="ai-prompt-lib-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title">📝 プロンプトライブラリ</div>
+        <button class="modal-close" id="ai-prompt-lib-close">✕</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-muted);padding:0 14px 8px;flex-shrink:0;">
+        タップするとテキストエリアに貼り付けられます。そのまま送信または編集してください。
+      </p>
+      <div id="ai-prompt-lib-list" style="overflow-y:auto;flex:1;min-height:0;padding:0 14px 14px;"></div>
     </div>
   </div>
 
@@ -3535,7 +3557,7 @@
           <div class="modal-title">⊕ コンテナ作成</div>
           <button class="modal-close" id="docker-create-close">✕</button>
         </div>
-        <div style="padding:0 14px;overflow-y:auto;max-height:60dvh;">
+        <div style="padding:0 14px;overflow-y:auto;flex:1;min-height:0;max-height:55svh;">
           <!-- イメージ行 -->
           <div style="margin-bottom:10px;">
             <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">イメージ名 *</div>
@@ -3577,8 +3599,8 @@
               style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border-soft);border-radius:10px;font-size:12px;font-family:monospace;background:var(--bg-card);color:var(--text-primary);resize:vertical;"></textarea>
           </div>
         </div>
-        <div style="padding:12px 14px;">
-          <button id="docker-run-btn" class="btn-primary" style="width:100%;">▶ 起動</button>
+        <div style="padding:10px 14px;padding-bottom:max(10px, env(safe-area-inset-bottom));flex-shrink:0;">
+          <button id="docker-run-btn" class="btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700;">▶ 起動</button>
         </div>
       </div>
     </div>
@@ -6932,6 +6954,15 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v41', date: '2026-03-01',
+          title: '🛠 miniserve IP永続化 + Docker作成モーダルiPhone対応 + AIプロンプトライブラリ',
+          items: [
+            { tag: 'fix',  text: 'miniserve「ブラウザで開く」: 解決済みLAN IPをlocalStorageにキャッシュ。再訪問時もlocalhost:9000にならない' },
+            { tag: 'fix',  text: 'Dockerコンテナ作成モーダル: iPhoneキーボード展開時も「▶ 起動」ボタンが見切れないよう max-height:55svh + safe-area 対応' },
+            { tag: 'feat', text: 'AIタブにプロンプトライブラリ追加（📝 プロンプト例を見る）。kintai/勤怠/Docker/フリーランス/コード/ビジネス/学習の6カテゴリ・24プロンプト' },
+          ],
+        },
+        {
           version: 'v40', date: '2026-03-01',
           title: '🔒 セキュリティ強化 + Docker可視化改善 + QRコード修正',
           items: [
@@ -7286,7 +7317,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v40';
+        const swVer = 'kintai-v41';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -9722,7 +9753,17 @@
        同一Wi-Fiから ~/root を LAN に公開する miniserve との連携
        ===================================================== */
     (function initMiniserveCard() {
-      let _miniserveUrl = 'http://localhost:9000';
+      const _MINISERVE_IP_KEY = '_kintai_miniserve_ip_v1';
+      const _port = 9000;
+
+      // LS キャッシュから前回解決済みIPを復元（API呼び出し前の初期値として使用）
+      // → ユーザーがボタンをすばやく押してもlocalhostにならない
+      const _cachedIp = (() => {
+        try { return localStorage.getItem(_MINISERVE_IP_KEY) || ''; } catch(_) { return ''; }
+      })();
+      let _miniserveUrl = _cachedIp
+        ? `http://${_cachedIp}:${_port}`
+        : `http://localhost:${_port}`;
 
       async function refreshMiniserveStatus() {
         const dotEl  = document.getElementById('miniserve-status-dot');
@@ -9731,11 +9772,12 @@
         if (!dotEl) return;
 
         const base = window._srvBase || 'http://localhost:8899';
-        // LAN IP: _srvBase のホスト名から取得（Docker/GitHub Pages どちらでも正確）
         const baseMatch = base.match(/^https?:\/\/([^:/]+)/);
         const lanHost   = baseMatch ? baseMatch[1] : 'localhost';
-        const port      = 9000;
-        _miniserveUrl   = `http://${lanHost}:${port}`;
+        // LS キャッシュがなければ _srvBase のホストをフォールバックとして使用
+        if (!_cachedIp || _cachedIp === 'localhost') {
+          _miniserveUrl = `http://${lanHost}:${_port}`;
+        }
 
         try {
           const r = await fetch(`${base}/api/miniserve-url`, {
@@ -9745,7 +9787,11 @@
           const d = await r.json();
 
           // host_ip が設定されていれば優先（サーバー側で検出したLAN IP）
-          if (d.host_ip) _miniserveUrl = `http://${d.host_ip}:${d.port}`;
+          if (d.host_ip) {
+            _miniserveUrl = `http://${d.host_ip}:${d.port}`;
+            // 解決済みIPをLSにキャッシュ（次回ページロード時のlocalhost問題を防ぐ）
+            try { localStorage.setItem(_MINISERVE_IP_KEY, d.host_ip); } catch(_) {}
+          }
 
           // ステータスドット
           if (d.running) {
@@ -12916,52 +12962,118 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           _initialized = false;
           window.initAiTab();
         });
-        // ── AI プロンプト例チップ ─────────────────────────────────
-        const _PROMPT_CHIPS = [
-          // 🔧 IT・技術
-          { icon: '🔧', text: 'このコードの問題点を分析して改善案を提案して' },
-          { icon: '🐍', text: 'PythonでCSVを集計してグラフ化するスクリプトを書いて' },
-          { icon: '🐳', text: 'Dockerfileを最適化するベストプラクティスを教えて' },
-          { icon: '🗄', text: 'SQLクエリのパフォーマンスを改善する方法を教えて' },
-          { icon: '⚙️', text: 'CI/CDパイプラインをGitHub Actionsで構築する方法を教えて' },
-          // 💼 ビジネス・仕事
-          { icon: '📝', text: 'この文章を簡潔でわかりやすいビジネス文書に書き直して' },
-          { icon: '📊', text: 'プレゼン資料の構成案を3パターン提案して' },
-          { icon: '📧', text: 'クライアントへの丁寧なお詫びメールの文面を作成して' },
-          { icon: '📋', text: '議事録を要約して次回のアクションアイテムを整理して' },
-          { icon: '💰', text: '以下のデータから経営判断に使えるインサイトを抽出して' },
-          // 🚀 キャリア・副業
-          { icon: '🚀', text: 'フリーランスエンジニアで年収1000万を目指す具体的な戦略を教えて' },
-          { icon: '📈', text: '2026年に需要が高いITスキルトップ10とその学習ロードマップを教えて' },
-          { icon: '💡', text: '副業・フリーランスを始めるための最初のステップを教えて' },
-          { icon: '🎯', text: 'ポートフォリオに載せるべきプロジェクト選定の基準を教えて' },
-          // 🧠 分析・思考
-          { icon: '🧠', text: 'このアイデアのメリット・デメリットを多角的に分析して' },
-          { icon: '🔍', text: '問題を解決するためのロジカルシンキングフレームワークを適用して' },
-          { icon: '⚖️', text: '意思決定に迷っているので判断軸を整理して決断を助けて' },
-          { icon: '💬', text: '複雑な技術概念を非エンジニアに伝わるように説明して' },
-          // ⚡ 生産性・日常
-          { icon: '📅', text: '効率的な週次レビューのテンプレートと実施手順を作成して' },
-          { icon: '⏱', text: '集中力を高めるための科学的に証明されたテクニックを教えて' },
-          { icon: '🏥', text: 'デスクワーク中心の生活で健康を維持する具体的な方法を教えて' },
-          { icon: '💪', text: '睡眠の質を改善するための実践的なアドバイスをください' },
+        // ── AI プロンプトライブラリ ───────────────────────────────
+        const _PROMPT_LIBRARY = [
+          {
+            category: '🗓 kintai・勤怠管理',
+            items: [
+              { icon: '📊', text: '今月の勤怠データを分析して、残業時間の傾向・パターン・改善すべき点を具体的に教えて' },
+              { icon: '📝', text: '今月分の作業報告書の「作業内容」欄に書くべき内容を、エンジニア視点でわかりやすくまとめて。作業内容: [ここに記入]' },
+              { icon: '⏰', text: '月の稼働時間が○○時間だった。フリーランスとして適切な単価・請求金額はいくらが妥当？計算根拠も教えて' },
+              { icon: '🔄', text: 'jinjerの打刻漏れを防ぐためのリマインダー習慣とチェックリストを作成して' },
+            ],
+          },
+          {
+            category: '💻 システム・Docker・インフラ',
+            items: [
+              { icon: '🐳', text: 'このDockerfileを最適化してビルド時間とイメージサイズを削減する方法を具体的に教えて:\n[Dockerfileの内容をここに貼り付け]' },
+              { icon: '🔧', text: 'Dockerコンテナがcode 137で終了した。原因として考えられるものを列挙し、それぞれの診断コマンドと対処法を教えて' },
+              { icon: '🏗', text: 'Python製HTTPサーバーをDocker + launchdでHA（高可用性）構成にする最適なアーキテクチャを設計して' },
+              { icon: '🔒', text: 'Tailscaleを使って外出先のiPhoneからMacのローカルサーバーに安全に接続するための具体的な設定手順を教えて' },
+              { icon: '⚡', text: 'Macのlaunchdジョブが起動しない。デバッグ手順と確認すべきログコマンドを教えて' },
+            ],
+          },
+          {
+            category: '🚀 フリーランス・キャリア',
+            items: [
+              { icon: '💰', text: 'フリーランスPythonエンジニア（スキル: [スキル列挙]）が年収○○万円を達成するための案件戦略・単価交渉のポイントを教えて' },
+              { icon: '📈', text: '2026年に最も需要の高いバックエンドエンジニアのスキルセットを教えて。それぞれの習得優先度と学習リソースも教えて' },
+              { icon: '🎯', text: 'クラウドワークスやランサーズで案件獲得率を上げるためのプロフィール・提案文の書き方を具体例付きで教えて' },
+              { icon: '📋', text: '以下の案件要件について、受注すべきかどうかをリスク・単価・スキルマッチの観点で評価して:\n[案件の詳細をここに貼り付け]' },
+            ],
+          },
+          {
+            category: '🔧 コード・開発',
+            items: [
+              { icon: '🔍', text: '以下のコードのバグを特定して修正案を提示して。修正理由も説明して:\n```\n[コードをここに貼り付け]\n```' },
+              { icon: '🐍', text: '以下のPythonコードをリファクタリングして可読性・保守性・パフォーマンスを改善して:\n```python\n[コードをここに貼り付け]\n```' },
+              { icon: '🌐', text: 'SafariとChrome両方で動作するJavaScriptのコードを書くときに注意すべきポイントと、よくあるバグのパターンを教えて' },
+              { icon: '🧪', text: '以下の関数に対してpytestで書くべきテストケースを網羅的に生成して:\n```python\n[関数をここに貼り付け]\n```' },
+            ],
+          },
+          {
+            category: '💼 ビジネス・コミュニケーション',
+            items: [
+              { icon: '📧', text: '以下の状況に対してクライアントに送るメールを書いて（丁寧・簡潔・プロフェッショナル）:\n状況: [ここに状況を記入]' },
+              { icon: '📊', text: '以下のデータを分析して、ビジネス判断に使えるインサイトを箇条書きで5点にまとめて:\n[データをここに貼り付け]' },
+              { icon: '📝', text: '以下の内容を、エンジニアでない人にも伝わるように平易な言葉で説明する文章に書き直して:\n[内容をここに記入]' },
+              { icon: '⚖️', text: '以下の選択肢について意思決定マトリクスを作成して、推奨案とその根拠を教えて:\n選択肢A: [内容]\n選択肢B: [内容]' },
+            ],
+          },
+          {
+            category: '🧠 思考・学習',
+            items: [
+              { icon: '🎓', text: '以下のトピックを完全初心者に教えるように、段階的に説明して。例えや具体的なケースも含めて:\nトピック: [ここに記入]' },
+              { icon: '🔎', text: '以下のアイデア・プランの弱点・リスク・改善点を辛口で徹底的に批評して:\n[アイデア・プランをここに記入]' },
+              { icon: '🗺', text: '[スキル・技術名]をゼロから習得するための30日学習ロードマップを作成して。毎日の具体的なタスクまで落とし込んで' },
+              { icon: '💡', text: '以下の問題に対してブレインストーミングして、ユニークなアイデアを10個以上提案して:\n問題: [ここに記入]' },
+            ],
+          },
         ];
+
+        // クイックチップ（上部横スクロール）— カテゴリ代表1件ずつ
         (function _renderPromptChips() {
           const wrap = document.getElementById('ai-prompts-wrap');
           if (!wrap) return;
-          wrap.innerHTML = _PROMPT_CHIPS.map(c =>
-            `<button class="ai-prompt-chip" data-prompt="${c.text.replace(/"/g,'&quot;')}">${c.icon} ${c.text.slice(0,18)}…</button>`
+          const chips = _PROMPT_LIBRARY.map(cat => cat.items[0]);
+          wrap.innerHTML = chips.map(c =>
+            `<button class="ai-prompt-chip" data-prompt="${_esc(c.text)}">${c.icon} ${c.text.slice(0, 14)}…</button>`
           ).join('');
           wrap.querySelectorAll('.ai-prompt-chip').forEach(btn => {
             btn.addEventListener('click', () => {
               const inp = document.getElementById('ai-input');
-              if (inp) {
-                inp.value = btn.dataset.prompt;
-                inp.focus();
-                inp.dispatchEvent(new Event('input'));
-              }
+              if (inp) { inp.value = btn.dataset.prompt; inp.focus(); inp.dispatchEvent(new Event('input')); }
             });
           });
+        })();
+
+        // ── プロンプトライブラリモーダル ──────────────────────────
+        (() => {
+          const libModal = document.getElementById('ai-prompt-lib-modal');
+          const libList  = document.getElementById('ai-prompt-lib-list');
+          const libBtn   = document.getElementById('ai-prompt-lib-btn');
+          const libClose = document.getElementById('ai-prompt-lib-close');
+          if (!libModal || !libList || !libBtn) return;
+
+          function _renderLibrary() {
+            libList.innerHTML = _PROMPT_LIBRARY.map(cat => `
+              <div style="margin-bottom:14px;">
+                <div style="font-size:12px;font-weight:700;color:var(--text-muted);padding:6px 0 6px;
+                  border-bottom:1px solid var(--border-soft);margin-bottom:6px;">${cat.category}</div>
+                ${cat.items.map(item => `
+                  <button class="ai-lib-prompt-btn" data-prompt="${_esc(item.text)}"
+                    style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;
+                    border:1px solid var(--border-soft);border-radius:10px;background:var(--bg-card);
+                    font-size:13px;color:var(--text-primary);cursor:pointer;line-height:1.5;
+                    font-family:inherit;word-break:break-all;">
+                    <span style="font-size:15px;margin-right:6px;">${item.icon}</span>${_esc(item.text)}
+                  </button>`).join('')}
+              </div>`).join('');
+            libList.querySelectorAll('.ai-lib-prompt-btn').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const inp = document.getElementById('ai-input');
+                if (inp) { inp.value = btn.dataset.prompt; inp.focus(); inp.dispatchEvent(new Event('input')); }
+                libModal.classList.remove('show');
+              });
+            });
+          }
+
+          libBtn.addEventListener('click', () => {
+            _renderLibrary();
+            libModal.classList.add('show');
+          });
+          libClose.addEventListener('click', () => libModal.classList.remove('show'));
+          libModal.addEventListener('click', e => { if (e.target === libModal) libModal.classList.remove('show'); });
         })();
 
         document.getElementById('ai-settings-btn')?.addEventListener('click', async () => {
