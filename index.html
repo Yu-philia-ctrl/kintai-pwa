@@ -1199,6 +1199,14 @@
       white-space:nowrap; transition:background 0.15s;
     }
     .kintai-content-chip:hover { background:var(--bg-card); }
+    .kintai-content-chip.active {
+      background:var(--accent-blue); color:#fff;
+      border-color:var(--accent-blue);
+    }
+    .memo-list-item {
+      background:var(--bg-glass); border:1px solid var(--border-soft);
+      border-radius:10px; padding:8px 10px; margin-bottom:6px;
+    }
     .report-actions {
       display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
     }
@@ -2745,7 +2753,8 @@
         <textarea id="content-textarea" class="memo-textarea" placeholder="作業内容（報告書に反映されます）" style="min-height:60px;"></textarea>
 
         <div class="modal-section-title" style="margin-top:10px;">メモ</div>
-        <textarea id="memo-textarea" class="memo-textarea" placeholder="この日のメモを入力"></textarea>
+        <div id="memo-list-wrap"></div>
+        <button class="btn-secondary" id="btn-memo-add" style="margin-top:4px;width:100%;font-size:12px;padding:6px;">＋ メモを追加</button>
 
         <div class="modal-section-title" style="margin-top:10px;">Obsidian</div>
         <div class="obs-row">
@@ -4347,6 +4356,52 @@
       });
     }
 
+    /* =====================================================
+       メモリスト — カテゴリ選択＋テキストの動的リスト
+       ===================================================== */
+    const MEMO_CATS = ['業務', 'TODO', '確認事項', '備考', 'その他'];
+    let _memoList = []; // 現在編集中のメモリスト [{cat, text}]
+
+    function _renderMemoList() {
+      const wrap = document.getElementById('memo-list-wrap');
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      _memoList.forEach((item, i) => {
+        const el = document.createElement('div');
+        el.className = 'memo-list-item';
+        const chips = MEMO_CATS.map(c =>
+          `<button class="kintai-content-chip memo-cat-chip${item.cat === c ? ' active' : ''}" data-idx="${i}" data-cat="${c}" type="button">${c}</button>`
+        ).join('');
+        el.innerHTML = `
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">${chips}</div>
+          <div style="display:flex;gap:6px;align-items:flex-start;">
+            <textarea class="memo-textarea memo-list-ta" data-idx="${i}" style="flex:1;min-height:52px;" placeholder="メモを入力">${item.text || ''}</textarea>
+            <button class="btn-secondary memo-list-del" data-idx="${i}" type="button" style="padding:4px 8px;flex-shrink:0;font-size:15px;line-height:1;" title="削除">×</button>
+          </div>`;
+        wrap.appendChild(el);
+      });
+      // イベント: カテゴリ選択
+      wrap.querySelectorAll('.memo-cat-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          _memoList[Number(btn.dataset.idx)].cat = btn.dataset.cat;
+          _renderMemoList();
+        });
+      });
+      // イベント: テキスト入力（リアルタイム同期）
+      wrap.querySelectorAll('.memo-list-ta').forEach(ta => {
+        ta.addEventListener('input', () => {
+          _memoList[Number(ta.dataset.idx)].text = ta.value;
+        });
+      });
+      // イベント: 削除
+      wrap.querySelectorAll('.memo-list-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+          _memoList.splice(Number(btn.dataset.idx), 1);
+          _renderMemoList();
+        });
+      });
+    }
+
     const STATUS_LIST = ["未", "出社", "在宅", "休日", "休み", "祝日"];
     /* =====================================================
        ⚠️ CRITICAL DATA KEYS — 絶対に変更・削除禁止 ⚠️
@@ -4942,20 +4997,22 @@
       return applyAutoRules(store.months[ym]);
     }
 
-    function saveDayData(dateStr, status, start, end, work_content, memo) {
+    function saveDayData(dateStr, status, start, end, work_content, memo_list) {
       const ym = dateStr.slice(0, 7);
       const store = loadStore();
       if (!store.months[ym]) store.months[ym] = buildSkeleton(ym);
       if (!store.months[ym][dateStr]) {
         store.months[ym][dateStr] = {
-          date: dateStr, status: '未', start: '', end: '', work_content: '', memo: '', updated_at: ''
+          date: dateStr, status: '未', start: '', end: '', work_content: '', memo: '', memo_list: [], updated_at: ''
         };
       }
       if (status !== '') store.months[ym][dateStr].status = status;
       store.months[ym][dateStr].start        = start;
       store.months[ym][dateStr].end          = end;
       store.months[ym][dateStr].work_content = work_content;
-      store.months[ym][dateStr].memo         = memo;
+      store.months[ym][dateStr].memo_list    = memo_list || [];
+      // 後方互換: memo フィールドにテキストを結合保存
+      store.months[ym][dateStr].memo = (memo_list || []).map(m => m.text).filter(Boolean).join('\n');
       store.months[ym][dateStr].updated_at   = new Date().toISOString().slice(0, 19);
       saveStore(store);
       // return view-corrected record
@@ -5034,15 +5091,15 @@
     /* =====================================================
        SAVE ATTENDANCE
        ===================================================== */
-    function saveAttendance(dateStr, status, memo, start, end, work_content = '') {
+    function saveAttendance(dateStr, status, memo_list, start, end, work_content = '') {
       const prev = attendanceData[dateStr] ? { ...attendanceData[dateStr] } : null;
       try {
-        const day = saveDayData(dateStr, status, start, end, work_content, memo);
+        const day = saveDayData(dateStr, status, start, end, work_content, memo_list);
         attendanceData[dateStr] = day;
         const hn = holidayName(dateStr);
         if (hn) holidaysData[dateStr] = hn;
 
-        localStorage.setItem(LAST_KEY, JSON.stringify({ status, memo, start, end, work_content }));
+        localStorage.setItem(LAST_KEY, JSON.stringify({ status, memo_list, start, end, work_content }));
         renderCalendar(currentYear, currentMonth);
         return true;
       } catch (e) {
@@ -5188,21 +5245,28 @@
       currentEditDate = dateStr;
 
       const dbData = attendanceData[dateStr] || null;
-      let status = '未', memo = '', start = '', end = '', work_content = '';
+      let status = '未', start = '', end = '', work_content = '';
       if (dbData) {
         status       = dbData.status       || '未';
-        memo         = dbData.memo         || '';
         start        = dbData.start        || '';
         end          = dbData.end          || '';
         work_content = dbData.work_content || '';
       }
+      // memo_list: 既存データ移行（旧 memo 文字列 → [{cat:'備考', text}]）
+      if (dbData?.memo_list?.length) {
+        _memoList = dbData.memo_list.map(m => ({ ...m }));
+      } else if (dbData?.memo) {
+        _memoList = [{ cat: '備考', text: dbData.memo }];
+      } else {
+        _memoList = [{ cat: '業務', text: '' }];
+      }
 
       document.getElementById('modal-date-label').textContent = formatDateJP(dateStr);
       document.getElementById('content-textarea').value = work_content;
-      document.getElementById('memo-textarea').value    = memo;
       document.getElementById('start-time').value       = start || '09:00';
       document.getElementById('end-time').value         = end   || '18:00';
       _renderContentChips('modal-content-chips', 'content-textarea');
+      _renderMemoList();
 
       const row = document.getElementById('status-chip-row');
       row.innerHTML = '';
@@ -5234,9 +5298,17 @@
       document.querySelectorAll('.status-chip')
         .forEach(c => c.classList.toggle('active', c.dataset.value === t.status));
       document.getElementById('content-textarea').value = t.work_content || '';
-      document.getElementById('memo-textarea').value    = t.memo  || '';
       document.getElementById('start-time').value       = t.start || '09:00';
       document.getElementById('end-time').value         = t.end   || '18:00';
+      // memo_list の複製
+      if (t.memo_list?.length) {
+        _memoList = t.memo_list.map(m => ({ ...m }));
+      } else if (t.memo) {
+        _memoList = [{ cat: '備考', text: t.memo }];
+      } else {
+        _memoList = [{ cat: '業務', text: '' }];
+      }
+      _renderMemoList();
     }
 
     /* =====================================================
@@ -5988,12 +6060,13 @@
     document.getElementById('modal-save').addEventListener('click', () => {
       if (!currentEditDate) return;
       const status       = getModalStatus();
-      const memo         = document.getElementById('memo-textarea').value;
       const start        = document.getElementById('start-time').value || '';
       const end          = document.getElementById('end-time').value   || '';
       const work_content = document.getElementById('content-textarea')?.value.trim() || '';
       if (work_content) _addToContentCache(work_content);
-      const ok = saveAttendance(currentEditDate, status, memo, start, end, work_content);
+      // テキストが空のエントリは除去
+      const memo_list = _memoList.filter(m => m.text.trim());
+      const ok = saveAttendance(currentEditDate, status, memo_list, start, end, work_content);
       if (ok) { closeModal(); toast('保存しました'); }
     });
 
@@ -6011,6 +6084,12 @@
       const prev = attendanceData[p];
       if (!prev) { alert('前日のデータがありません'); return; }
       applyTemplate(prev);
+    });
+
+    // メモ追加ボタン
+    document.getElementById('btn-memo-add')?.addEventListener('click', () => {
+      _memoList.push({ cat: '業務', text: '' });
+      _renderMemoList();
     });
 
     // Obsidian
@@ -7088,6 +7167,16 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v45', date: '2026-03-02',
+          title: '📝 メモ複数化（カテゴリ+テキスト）+ miniserve IP修正',
+          items: [
+            { tag: 'feature', text: 'kintai日次モーダル: メモを動的リスト形式に変更。カテゴリ（業務/TODO/確認事項/備考/その他）+テキストを複数追加可能' },
+            { tag: 'feature', text: 'メモ追加「＋ メモを追加」ボタン、各エントリに×削除ボタン、カテゴリチップで色区別' },
+            { tag: 'fix',     text: 'memo_list: 旧memo文字列からの自動移行対応。後方互換のためmemoフィールドも結合テキストで保持' },
+            { tag: 'fix',     text: 'miniserve「ブラウザで開く」: _srvBaseのホスト名をフォールバックに使用。クリック時にIP未解決なら再取得してから開く' },
+          ],
+        },
+        {
           version: 'v44', date: '2026-03-02',
           title: '📋 報告書タブ 勤怠データ反映 + 作業内容キャッシュ',
           items: [
@@ -7484,7 +7573,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v44';
+        const swVer = 'kintai-v45';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -9939,9 +10028,16 @@
       })();
 
       // 常に最新の _resolvedIp を使って URL を返すゲッター
-      // → ボタン click は _getUrl() を呼ぶので API 解決後も正しい URL になる
       function _getUrl() {
-        return _resolvedIp ? `http://${_resolvedIp}:${_port}` : `http://localhost:${_port}`;
+        if (_resolvedIp) return `http://${_resolvedIp}:${_port}`;
+        // _srvBase が LAN IP 解決済みならそのホスト部を流用
+        try {
+          const srvHost = new URL(window._srvBase || '').hostname;
+          if (srvHost && srvHost !== 'localhost' && srvHost !== '127.0.0.1') {
+            return `http://${srvHost}:${_port}`;
+          }
+        } catch(_) {}
+        return `http://localhost:${_port}`;
       }
 
       async function refreshMiniserveStatus() {
@@ -9996,7 +10092,8 @@
         }
       }
 
-      document.getElementById('miniserve-open-btn')?.addEventListener('click', () => {
+      document.getElementById('miniserve-open-btn')?.addEventListener('click', async () => {
+        if (!_resolvedIp) await refreshMiniserveStatus();
         window.open(_getUrl(), '_blank', 'noopener');
       });
 
