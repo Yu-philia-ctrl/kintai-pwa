@@ -722,23 +722,44 @@
     .fab-task.hidden { display:none; }
 
     /* ======= TASK MODAL ======= */
-    .task-add-form { padding:12px 16px 4px; display:flex; flex-direction:column; gap:8px; }
-    .task-add-input { padding:8px 10px; border:1.5px solid var(--border-color); border-radius:8px; font-size:15px; font-family:inherit; background:var(--bg-card); color:var(--text-main); outline:none; }
+    .task-add-form { padding:12px 16px 4px; display:flex; flex-direction:column; gap:8px; border-bottom:1px solid var(--border-color); }
+    .task-add-input { padding:8px 10px; border:1.5px solid var(--border-color); border-radius:8px; font-size:14px; font-family:inherit; background:var(--bg-card); color:var(--text-main); outline:none; }
     .task-add-input:focus { border-color:var(--accent-blue); }
-    .task-add-textarea { height:60px; resize:none; }
+    .task-add-textarea { height:52px; resize:none; }
     .task-add-submit { background:var(--accent-blue); color:#fff; border:none; border-radius:8px; padding:9px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; }
     .task-section-title { font-size:11px; font-weight:700; color:var(--text-muted); padding:8px 16px 2px; text-transform:uppercase; letter-spacing:.05em; }
     .task-list { padding:0 16px; }
-    .task-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--border-color); }
+    .task-item { display:flex; align-items:flex-start; gap:8px; padding:10px 0; border-bottom:1px solid var(--border-color); }
     .task-item:last-child { border-bottom:none; }
     .task-check { width:20px; height:20px; flex-shrink:0; margin-top:2px; cursor:pointer; accent-color:var(--accent-blue); }
     .task-body { flex:1; min-width:0; }
-    .task-title { font-size:15px; font-weight:700; word-break:break-all; }
+    .task-title { font-size:14px; font-weight:700; word-break:break-all; }
+    .task-meta { display:flex; gap:6px; margin-top:4px; flex-wrap:wrap; align-items:center; }
+    .task-assignee { font-size:11px; background:rgba(79,141,253,0.15); color:var(--accent-blue); padding:1px 7px; border-radius:999px; white-space:nowrap; }
+    .task-due { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+    .task-due.overdue { color:#e57373; font-weight:700; }
     .task-memo { font-size:12px; color:var(--text-muted); margin-top:3px; white-space:pre-wrap; word-break:break-all; }
     .task-item.done .task-title { text-decoration:line-through; opacity:0.5; }
     .task-item.done .task-memo { opacity:0.4; }
-    .task-del { background:none; border:none; color:#e57373; font-size:18px; cursor:pointer; padding:0 4px; align-self:center; line-height:1; }
+    .task-item.done .task-meta { opacity:0.4; }
+    .task-item.deleted-item { opacity:0.65; }
+    .task-actions { display:flex; flex-direction:column; gap:3px; align-self:flex-start; flex-shrink:0; }
+    .task-edit { background:none; border:none; color:var(--text-muted); font-size:15px; cursor:pointer; padding:0 3px; line-height:1; }
+    .task-edit:hover { color:var(--accent-blue); }
+    .task-del { background:none; border:none; color:#e57373; font-size:15px; cursor:pointer; padding:0 3px; line-height:1; }
+    .task-restore { background:none; border:none; color:var(--accent-blue); font-size:13px; cursor:pointer; padding:0 3px; line-height:1; }
     .task-empty { text-align:center; color:var(--text-muted); padding:24px 0; font-size:14px; line-height:1.8; }
+    /* Inline edit form */
+    .task-edit-form { background:var(--bg-glass); border-radius:10px; padding:10px; margin:4px 0; display:flex; flex-direction:column; gap:6px; }
+    .task-edit-input { padding:6px 8px; border:1.5px solid var(--border-color); border-radius:7px; font-size:13px; font-family:inherit; background:var(--bg-card); color:var(--text-main); outline:none; width:100%; box-sizing:border-box; }
+    .task-edit-input:focus { border-color:var(--accent-blue); }
+    .task-edit-textarea { height:48px; resize:none; }
+    .task-edit-actions { display:flex; gap:8px; }
+    .task-edit-save { flex:1; background:var(--accent-blue); color:#fff; border:none; border-radius:7px; padding:7px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .task-edit-cancel { background:var(--bg-card); color:var(--text-muted); border:1px solid var(--border-color); border-radius:7px; padding:7px 14px; font-size:13px; cursor:pointer; font-family:inherit; }
+    /* Trash section */
+    .task-trash-toggle { background:none; border:none; color:var(--text-muted); font-size:12px; cursor:pointer; padding:6px 16px; font-family:inherit; text-align:left; width:100%; }
+    .task-trash-toggle:hover { color:var(--text-primary); }
 
     /* ======= FLOATING TODAY BUTTON ======= */
     .fab-today {
@@ -2899,14 +2920,18 @@
 
   <!-- Task modal -->
   <div class="modal-backdrop" id="task-modal">
-    <div class="modal-sheet" style="max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="modal-sheet" style="max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
       <div class="modal-handle"></div>
       <div class="modal-header">
-        <div>📋 タスク</div>
+        <div>📋 タスク管理</div>
         <div class="modal-close" id="task-modal-close">×</div>
       </div>
       <div class="task-add-form">
-        <input id="task-title-input" class="task-add-input" type="text" placeholder="タスク名を入力">
+        <input id="task-title-input" class="task-add-input" type="text" placeholder="タスク名を入力 *">
+        <div style="display:flex;gap:8px;">
+          <input id="task-assignee-input" class="task-add-input" type="text" placeholder="担当者（任意）" style="flex:1;">
+          <input id="task-due-input" class="task-add-input" type="date" style="flex:1;" title="期日（任意）">
+        </div>
         <textarea id="task-memo-input" class="task-add-input task-add-textarea" placeholder="メモ（任意）"></textarea>
         <button class="task-add-submit" id="task-add-btn">＋ 追加</button>
       </div>
@@ -6329,53 +6354,178 @@
     }
 
     function taskItemHTML(t) {
+      const today = new Date().toISOString().slice(0,10);
       const memoHTML = t.memo ? `<div class="task-memo">${_esc(t.memo)}</div>` : '';
-      return `<div class="task-item${t.done ? ' done' : ''}">
+      let metaHTML = '';
+      if (t.assignee || t.due) {
+        metaHTML = '<div class="task-meta">';
+        if (t.assignee) metaHTML += `<span class="task-assignee">👤 ${_esc(t.assignee)}</span>`;
+        if (t.due) {
+          const overdue = !t.done && t.due < today;
+          metaHTML += `<span class="task-due${overdue ? ' overdue' : ''}">📅 ${_esc(t.due)}${overdue ? ' ⚠' : ''}</span>`;
+        }
+        metaHTML += '</div>';
+      }
+      return `<div class="task-item${t.done ? ' done' : ''}" data-id="${t.id}">
         <input type="checkbox" class="task-check" data-id="${t.id}" ${t.done ? 'checked' : ''}>
         <div class="task-body">
-          <div class="task-title">${_esc(t.title)}</div>${memoHTML}
+          <div class="task-title">${_esc(t.title)}</div>${metaHTML}${memoHTML}
         </div>
-        <button class="task-del" data-id="${t.id}" title="削除">🗑</button>
+        <div class="task-actions">
+          <button class="task-edit" data-id="${t.id}" title="編集">✏️</button>
+          <button class="task-del" data-id="${t.id}" title="削除">🗑</button>
+        </div>
+      </div>`;
+    }
+
+    function taskDeletedItemHTML(t) {
+      const deletedAt = t.deletedAt ? t.deletedAt.slice(0,10) : '';
+      return `<div class="task-item deleted-item" data-id="${t.id}">
+        <div class="task-body" style="opacity:0.7;">
+          <div class="task-title" style="font-size:13px;">${_esc(t.title)}</div>
+          ${deletedAt ? `<div class="task-due">🗑 ${deletedAt} 削除</div>` : ''}
+        </div>
+        <div class="task-actions">
+          <button class="task-restore" data-id="${t.id}" title="元に戻す">↩</button>
+        </div>
       </div>`;
     }
 
     function renderTaskList() {
-      const tasks     = loadTasks();
+      const allTasks  = loadTasks();
       const container = document.getElementById('task-list-container');
-      const todo      = tasks.filter(t => !t.done);
-      const done      = tasks.filter(t => t.done);
+      const active    = allTasks.filter(t => !t.deleted);
+      const trash     = allTasks.filter(t => t.deleted);
+      const todo      = active.filter(t => !t.done);
+      const done      = active.filter(t => t.done);
       let html = '';
       if (!todo.length && !done.length) {
         html = '<div class="task-empty">タスクはまだありません<br>上のフォームから追加できます</div>';
       } else {
-        if (todo.length) html += '<div class="task-section-title">未完了</div><div class="task-list">' + todo.map(taskItemHTML).join('') + '</div>';
-        if (done.length) html += '<div class="task-section-title">完了済み</div><div class="task-list">' + done.map(taskItemHTML).join('') + '</div>';
+        if (todo.length) html += '<div class="task-section-title">未完了 (' + todo.length + ')</div><div class="task-list">' + todo.map(taskItemHTML).join('') + '</div>';
+        if (done.length) html += '<div class="task-section-title">完了済み (' + done.length + ')</div><div class="task-list">' + done.map(taskItemHTML).join('') + '</div>';
+      }
+      if (trash.length) {
+        html += `<button class="task-trash-toggle" id="task-trash-toggle">🗑 ゴミ箱 (${trash.length}件) — クリックで表示</button>
+          <div id="task-trash-list" style="display:none;">
+            <div class="task-list">${trash.map(taskDeletedItemHTML).join('')}</div>
+            <div style="padding:0 16px 8px;"><button id="task-purge-btn" style="font-size:11px;color:#e57373;background:none;border:none;cursor:pointer;">🗑 ゴミ箱を完全消去</button></div>
+          </div>`;
       }
       container.innerHTML = html;
 
+      // Checkbox toggle
       container.querySelectorAll('.task-check').forEach(cb => {
         cb.addEventListener('change', () => {
           const ts = loadTasks();
           const idx = ts.findIndex(t => t.id === cb.dataset.id);
-          if (idx !== -1) { ts[idx].done = cb.checked; saveTasks(ts); renderTaskList(); }
+          if (idx !== -1) { ts[idx].done = cb.checked; ts[idx].updatedAt = new Date().toISOString(); saveTasks(ts); renderTaskList(); }
         });
       });
+
+      // Soft delete
       container.querySelectorAll('.task-del').forEach(btn => {
         btn.addEventListener('click', () => {
-          if (!confirm('このタスクを削除しますか？')) return;
-          saveTasks(loadTasks().filter(t => t.id !== btn.dataset.id));
-          renderTaskList();
+          const ts = loadTasks();
+          const idx = ts.findIndex(t => t.id === btn.dataset.id);
+          if (idx !== -1) {
+            ts[idx].deleted = true;
+            ts[idx].deletedAt = new Date().toISOString();
+            saveTasks(ts);
+            renderTaskList();
+            toast('🗑 削除しました（ゴミ箱から復元可）');
+          }
         });
+      });
+
+      // Edit button → inline edit
+      container.querySelectorAll('.task-edit').forEach(btn => {
+        btn.addEventListener('click', () => _openInlineEdit(btn.dataset.id));
+      });
+
+      // Restore from trash
+      container.querySelectorAll('.task-restore').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const ts = loadTasks();
+          const idx = ts.findIndex(t => t.id === btn.dataset.id);
+          if (idx !== -1) { ts[idx].deleted = false; ts[idx].deletedAt = null; saveTasks(ts); renderTaskList(); toast('↩ タスクを復元しました'); }
+        });
+      });
+
+      // Trash toggle
+      document.getElementById('task-trash-toggle')?.addEventListener('click', () => {
+        const tl = document.getElementById('task-trash-list');
+        const tb = document.getElementById('task-trash-toggle');
+        const open = tl.style.display !== 'none';
+        tl.style.display = open ? 'none' : '';
+        tb.textContent = open
+          ? `🗑 ゴミ箱 (${trash.length}件) — クリックで表示`
+          : `🗑 ゴミ箱 (${trash.length}件) — 非表示`;
+      });
+
+      // Purge trash
+      document.getElementById('task-purge-btn')?.addEventListener('click', () => {
+        if (!confirm(`ゴミ箱内の ${trash.length} 件を完全削除しますか？元に戻せません。`)) return;
+        saveTasks(loadTasks().filter(t => !t.deleted));
+        renderTaskList();
+        toast('🗑 ゴミ箱を空にしました');
+      });
+    }
+
+    function _openInlineEdit(taskId) {
+      const container = document.getElementById('task-list-container');
+      const itemEl    = container.querySelector(`.task-item[data-id="${taskId}"]`);
+      if (!itemEl) return;
+      const ts  = loadTasks();
+      const t   = ts.find(x => x.id === taskId);
+      if (!t) return;
+
+      // Replace item content with edit form
+      itemEl.innerHTML = `
+        <div class="task-edit-form" style="flex:1;">
+          <input class="task-edit-input" id="tedit-title-${taskId}" type="text" value="${_esc(t.title)}" placeholder="タスク名 *">
+          <div style="display:flex;gap:6px;">
+            <input class="task-edit-input" id="tedit-assignee-${taskId}" type="text" value="${_esc(t.assignee||'')}" placeholder="担当者" style="flex:1;">
+            <input class="task-edit-input" id="tedit-due-${taskId}" type="date" value="${_esc(t.due||'')}" style="flex:1;">
+          </div>
+          <textarea class="task-edit-input task-edit-textarea" id="tedit-memo-${taskId}" placeholder="メモ（任意）">${_esc(t.memo||'')}</textarea>
+          <div class="task-edit-actions">
+            <button class="task-edit-save" id="tedit-save-${taskId}">✓ 保存</button>
+            <button class="task-edit-cancel" id="tedit-cancel-${taskId}">キャンセル</button>
+          </div>
+        </div>`;
+
+      document.getElementById(`tedit-save-${taskId}`)?.addEventListener('click', () => {
+        const newTitle = document.getElementById(`tedit-title-${taskId}`)?.value.trim();
+        if (!newTitle) { toast('タスク名を入力してください'); return; }
+        const ts2 = loadTasks();
+        const idx = ts2.findIndex(x => x.id === taskId);
+        if (idx !== -1) {
+          ts2[idx].title    = newTitle;
+          ts2[idx].assignee = document.getElementById(`tedit-assignee-${taskId}`)?.value.trim() || '';
+          ts2[idx].due      = document.getElementById(`tedit-due-${taskId}`)?.value || '';
+          ts2[idx].memo     = document.getElementById(`tedit-memo-${taskId}`)?.value.trim() || '';
+          ts2[idx].updatedAt = new Date().toISOString();
+          saveTasks(ts2);
+        }
+        renderTaskList();
+        toast('✅ タスクを更新しました');
+      });
+
+      document.getElementById(`tedit-cancel-${taskId}`)?.addEventListener('click', () => {
+        renderTaskList();
       });
     }
 
     (function initTaskModal() {
-      const modal    = document.getElementById('task-modal');
-      const fab      = document.getElementById('fab-task');
-      const closeBtn = document.getElementById('task-modal-close');
-      const addBtn   = document.getElementById('task-add-btn');
-      const titleIn  = document.getElementById('task-title-input');
-      const memoIn   = document.getElementById('task-memo-input');
+      const modal       = document.getElementById('task-modal');
+      const fab         = document.getElementById('fab-task');
+      const closeBtn    = document.getElementById('task-modal-close');
+      const addBtn      = document.getElementById('task-add-btn');
+      const titleIn     = document.getElementById('task-title-input');
+      const assigneeIn  = document.getElementById('task-assignee-input');
+      const dueIn       = document.getElementById('task-due-input');
+      const memoIn      = document.getElementById('task-memo-input');
 
       function openTaskModal() {
         modal.classList.add('show');
@@ -6384,8 +6534,10 @@
       }
       function closeTaskModal() {
         modal.classList.remove('show');
-        titleIn.value = '';
-        memoIn.value  = '';
+        titleIn.value    = '';
+        assigneeIn.value = '';
+        dueIn.value      = '';
+        memoIn.value     = '';
       }
 
       fab.addEventListener('click', openTaskModal);
@@ -6395,11 +6547,25 @@
       addBtn.addEventListener('click', () => {
         const title = titleIn.value.trim();
         if (!title) { toast('タスク名を入力してください'); titleIn.focus(); return; }
-        const ts = loadTasks();
-        ts.unshift({ id: Date.now().toString(), title, memo: memoIn.value.trim(), done: false, created: new Date().toISOString() });
+        const now = new Date().toISOString();
+        const ts  = loadTasks();
+        ts.unshift({
+          id:        Date.now().toString(),
+          title,
+          assignee:  assigneeIn.value.trim(),
+          due:       dueIn.value,
+          memo:      memoIn.value.trim(),
+          done:      false,
+          deleted:   false,
+          deletedAt: null,
+          created:   now,
+          updatedAt: now
+        });
         saveTasks(ts);
-        titleIn.value = '';
-        memoIn.value  = '';
+        titleIn.value    = '';
+        assigneeIn.value = '';
+        dueIn.value      = '';
+        memoIn.value     = '';
         renderTaskList();
         toast('✅ タスクを追加しました');
       });
@@ -6424,6 +6590,17 @@
         fabToday.classList.toggle('hidden', open);
         fab.classList.toggle('hidden', open);
       }).observe(modal, { attributes: true });
+
+      // 30日以上前に削除されたタスクを自動パージ（起動時に1回）
+      setTimeout(() => {
+        const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const ts = loadTasks();
+        const filtered = ts.filter(t => !t.deleted || !t.deletedAt || t.deletedAt > cutoff);
+        if (filtered.length !== ts.length) {
+          saveTasks(filtered);
+          _appLog('info', 'tasks', `ゴミ箱から${ts.length - filtered.length}件を自動削除（30日経過）`);
+        }
+      }, 3000);
     })();
 
     /* =====================================================
@@ -6617,6 +6794,18 @@
        ===================================================== */
     (function initSystemTab() {
       const CHANGELOG = [
+        {
+          version: 'v37', date: '2026-03-01',
+          title: '📋 タスク管理強化: 担当者・期日・編集・ソフトデリート・ゴミ箱',
+          items: [
+            { tag: 'feat', text: 'タスクに担当者（assignee）・期日（due）フィールドを追加。追加フォームに担当者・期日入力欄を表示' },
+            { tag: 'feat', text: '各タスクに編集ボタン（✏️）を追加。インライン編集でタイトル・担当者・期日・メモをその場で変更可能' },
+            { tag: 'feat', text: 'ソフトデリート対応: 削除ボタンで即消去せずゴミ箱に移動。ゴミ箱セクションから「↩ 元に戻す」で復元可能' },
+            { tag: 'feat', text: 'ゴミ箱管理: 「🗑 ゴミ箱を完全消去」で永久削除。30日経過したゴミ箱アイテムは起動時に自動パージ' },
+            { tag: 'feat', text: '期日が過ぎたタスクに⚠️マークと赤色表示。updatedAtフィールドで最終更新時刻を記録' },
+            { tag: 'fix',  text: 'タスクデータ構造を拡張（assignee, due, updatedAt, deleted, deletedAt）。既存タスクとの後方互換性を維持' },
+          ],
+        },
         {
           version: 'v36', date: '2026-03-01',
           title: '🐳 Docker-in-Docker修正 + Bolt.new連携強化 + ハブ並び替えUI改善',
@@ -6926,7 +7115,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v36';
+        const swVer = 'kintai-v37';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
