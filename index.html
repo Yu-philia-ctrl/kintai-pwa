@@ -389,7 +389,7 @@
       box-shadow: 0 -8px 36px rgba(60,80,200,0.13);
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow: clip;
     }
     .modal-handle {
       width: 34px; height: 4px;
@@ -461,7 +461,7 @@
     .btn-primary:active { transform: scale(0.97); }
 
     /* ======= SETTINGS MODAL ======= */
-    .settings-body { display:flex; flex-direction:column; gap:12px; overflow-y:auto; -webkit-overflow-scrolling:touch; flex:1; min-height:0; }
+    .settings-body { display:flex; flex-direction:column; gap:12px; overflow-y:auto; -webkit-overflow-scrolling:touch; flex:1; min-height:0; overscroll-behavior:contain; }
     .settings-row { display:flex; flex-direction:column; gap:5px; }
     .settings-label { font-size:12px; font-weight:700; color:var(--text-muted); }
     .settings-input {
@@ -1192,6 +1192,13 @@
     .report-note-有給   { background: #fff8e1; color: #ef6c00; }
     .report-note-祝日   { background: #ffebee; color: #c62828; }
     .report-note-休日   { background: #ede7f6; color: #5e35b1; }
+    .kintai-content-chip {
+      font-size:11px; padding:3px 8px;
+      border:1px solid var(--border-soft); border-radius:8px;
+      background:var(--bg-glass); cursor:pointer;
+      white-space:nowrap; transition:background 0.15s;
+    }
+    .kintai-content-chip:hover { background:var(--bg-card); }
     .report-actions {
       display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
     }
@@ -2406,13 +2413,21 @@
     <div class="report-server-banner" id="report-server-banner" style="display:none;">
       ⚠️ <strong>ローカルサーバー未接続</strong>
       <span id="report-srv-reconnecting" style="margin-left:8px;font-size:12px;opacity:0.85;">🔄 自動再接続中…</span>
-      <div style="margin-top:8px;">
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
         <input type="file" id="report-local-file" accept=".xlsx,.xls" style="display:none;">
+        <input type="file" id="report-local-multi" accept=".xlsx,.xls" multiple style="display:none;">
         <button class="btn-secondary" style="font-size:12px;padding:4px 12px;"
           onclick="document.getElementById('report-local-file').click()">
-          📂 Excelを直接開く
+          📄 Excelを直接開く
         </button>
-        <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">（Work_ReportフォルダからXLSXを選択）</span>
+        <button class="btn-secondary" id="report-folder-btn" style="font-size:12px;padding:4px 12px;">
+          📂 フォルダを選択（iCloud Drive）
+        </button>
+      </div>
+      <!-- フォルダ選択後のファイル一覧 -->
+      <div id="report-folder-section" style="display:none;margin-top:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">📁 フォルダ内のExcelファイル</div>
+        <div id="report-folder-list" style="display:flex;flex-direction:column;gap:4px;"></div>
       </div>
     </div>
 
@@ -2433,6 +2448,7 @@
       <!-- アクションボタン -->
       <div class="report-actions">
         <button class="data-btn" id="btn-report-load">📥 Excel 読み込み</button>
+        <button class="data-btn" id="btn-report-merge">🔄 勤怠から反映</button>
         <button class="data-btn" id="btn-report-sync">📤 kintai から同期</button>
         <button class="data-btn" id="btn-report-generate">➕ 翌月を自動生成</button>
       </div>
@@ -2637,6 +2653,64 @@
           </div>
         </div>
         <button id="ai-settings-save" style="width:100%;padding:12px;background:var(--accent-blue);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">💾 保存</button>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-soft);">
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">🔑 バックアップ（クロスデバイス移行用）</div>
+          <div style="display:flex;gap:8px;">
+            <button id="ai-keys-export-btn" style="flex:1;padding:10px;border:1px solid var(--border-soft);background:var(--bg-card);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;">📤 エクスポート</button>
+            <label id="ai-keys-import-label" style="flex:1;padding:10px;border:1px solid var(--border-soft);background:var(--bg-card);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;text-align:center;">
+              📥 インポート
+              <input type="file" id="ai-keys-import-file" accept=".json" style="display:none;">
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 報告書 日次編集モーダル -->
+  <div class="modal-backdrop" id="report-day-modal" style="display:none;">
+    <div class="modal-sheet">
+      <div class="modal-handle" style="flex-shrink:0;"></div>
+      <div class="modal-header" style="flex-shrink:0;">
+        <div id="rdm-date-label" style="font-weight:700;"></div>
+        <div class="modal-close" id="rdm-close">×</div>
+      </div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div class="settings-label">区分</div>
+          <select id="rdm-location" class="settings-input">
+            <option value="">— 選択 —</option>
+            <option>出社</option><option>在宅</option>
+            <option>有給</option><option>祝日</option><option>休日</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">業務時間 / 休憩</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="time" id="rdm-start" class="settings-input" style="flex:1;min-width:90px;">
+            <span style="color:var(--text-muted);">〜</span>
+            <input type="time" id="rdm-end"   class="settings-input" style="flex:1;min-width:90px;">
+            <span style="font-size:11px;color:var(--text-muted);">休憩</span>
+            <input type="time" id="rdm-break" class="settings-input" style="width:80px;">
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">合計作業時間（自動計算）</div>
+          <div id="rdm-total" style="font-size:20px;font-weight:800;color:var(--accent-blue);padding:2px 0;">—</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">作業内容 — 過去の定常業務から選択:</div>
+          <div id="rdm-content-chips" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;"></div>
+          <textarea id="rdm-content" class="memo-textarea" rows="3" placeholder="作業内容を入力"></textarea>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">備考</div>
+          <input type="text" id="rdm-remark" class="settings-input" placeholder="備考">
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" id="rdm-cancel">キャンセル</button>
+          <button class="btn-primary"   id="rdm-save">💾 保存</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2644,38 +2718,44 @@
   <!-- 編集モーダル -->
   <div class="modal-backdrop" id="memo-modal">
     <div class="modal-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
+      <div class="modal-handle" style="flex-shrink:0;"></div>
+      <div class="modal-header" style="flex-shrink:0;">
         <div id="modal-date-label"></div>
         <div class="modal-close" id="modal-close">×</div>
       </div>
 
-      <div class="modal-section-title">ステータス</div>
-      <div class="status-chip-row" id="status-chip-row"></div>
+      <div class="settings-body">
+        <div class="modal-section-title">ステータス</div>
+        <div class="status-chip-row" id="status-chip-row"></div>
 
-      <div class="modal-section-title">業務時間（1分単位）</div>
-      <div class="row-time">
-        <input id="start-time" class="time-input" type="time" step="60">
-        <span style="color:var(--text-muted);font-weight:800;">〜</span>
-        <input id="end-time" class="time-input" type="time" step="60">
-      </div>
+        <div class="modal-section-title">業務時間（1分単位）</div>
+        <div class="row-time">
+          <input id="start-time" class="time-input" type="time" step="60">
+          <span style="color:var(--text-muted);font-weight:800;">〜</span>
+          <input id="end-time" class="time-input" type="time" step="60">
+        </div>
 
-      <div class="dup-row">
-        <button class="btn-secondary" id="btn-dup-prev">前日を複製</button>
-        <button class="btn-secondary" id="btn-dup-last">直近を複製</button>
-      </div>
+        <div class="dup-row">
+          <button class="btn-secondary" id="btn-dup-prev">前日を複製</button>
+          <button class="btn-secondary" id="btn-dup-last">直近を複製</button>
+        </div>
 
-      <div class="modal-section-title">メモ</div>
-      <textarea id="memo-textarea" class="memo-textarea" placeholder="この日のメモを入力"></textarea>
+        <div class="modal-section-title">作業内容</div>
+        <div id="modal-content-chips" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;"></div>
+        <textarea id="content-textarea" class="memo-textarea" placeholder="作業内容（報告書に反映されます）" style="min-height:60px;"></textarea>
 
-      <div class="modal-section-title" style="margin-top:10px;">Obsidian</div>
-      <div class="obs-row">
-        <button class="btn-secondary" id="btn-obs-open">📝 Obsidianで開く</button>
-      </div>
+        <div class="modal-section-title" style="margin-top:10px;">メモ</div>
+        <textarea id="memo-textarea" class="memo-textarea" placeholder="この日のメモを入力"></textarea>
 
-      <div class="modal-footer">
-        <button class="btn-secondary" id="modal-cancel">キャンセル</button>
-        <button class="btn-primary" id="modal-save">保存</button>
+        <div class="modal-section-title" style="margin-top:10px;">Obsidian</div>
+        <div class="obs-row">
+          <button class="btn-secondary" id="btn-obs-open">📝 Obsidianで開く</button>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" id="modal-cancel">キャンセル</button>
+          <button class="btn-primary" id="modal-save">保存</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2719,8 +2799,8 @@
   <!-- 設定モーダル -->
   <div class="modal-backdrop" id="settings-modal">
     <div class="modal-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
+      <div class="modal-handle" style="flex-shrink:0;"></div>
+      <div class="modal-header" style="flex-shrink:0;">
         <div>設定</div>
         <div class="modal-close" id="settings-close">×</div>
       </div>
@@ -4239,6 +4319,34 @@
     /* =====================================================
        CONSTANTS
        ===================================================== */
+    /* =====================================================
+       作業内容キャッシュ — kintai / 報告書の両タブで共有
+       ===================================================== */
+    const CONTENT_CACHE_KEY = '_kintai_content_cache_v1';
+    function _loadContentCache() {
+      try { return JSON.parse(localStorage.getItem(CONTENT_CACHE_KEY) || '[]'); } catch { return []; }
+    }
+    function _addToContentCache(text) {
+      if (!text?.trim()) return;
+      const arr = [text.trim(), ..._loadContentCache().filter(c => c !== text.trim())].slice(0, 30);
+      localStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(arr));
+    }
+    function _renderContentChips(wrapId, textareaId) {
+      const wrap = document.getElementById(wrapId);
+      if (!wrap) return;
+      const cache = _loadContentCache().slice(0, 6);
+      if (!cache.length) { wrap.innerHTML = ''; return; }
+      wrap.innerHTML = cache.map(c =>
+        `<button class="kintai-content-chip" data-text="${c.replace(/"/g,'&quot;')}">${c.slice(0,18)}${c.length>18?'…':''}</button>`
+      ).join('');
+      wrap.querySelectorAll('.kintai-content-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const ta = document.getElementById(textareaId);
+          if (ta) { ta.value = btn.dataset.text; ta.focus(); }
+        });
+      });
+    }
+
     const STATUS_LIST = ["未", "出社", "在宅", "休日", "休み", "祝日"];
     /* =====================================================
        ⚠️ CRITICAL DATA KEYS — 絶対に変更・削除禁止 ⚠️
@@ -4402,6 +4510,16 @@
         obj[k] = await _encSens(v || '');
       }
       localStorage.setItem(_SENS_STORE_KEY, JSON.stringify(obj));
+      // AIキーはプレーンでも並行保存（復号失敗時のフォールバック用）
+      const AI_KEYS = ['aiKeyClaude', 'aiKeyOpenAI', 'aiKeyGemini'];
+      const plain = {};
+      for (const k of AI_KEYS) { if (data[k] !== undefined) plain[k] = data[k] || ''; }
+      if (Object.keys(plain).length > 0) {
+        try {
+          const existing = JSON.parse(localStorage.getItem('_kintai_apikeys_v1') || '{}');
+          localStorage.setItem('_kintai_apikeys_v1', JSON.stringify({ ...existing, ...plain }));
+        } catch(_) {}
+      }
     }
 
     /** センシティブフィールドを復号して返す */
@@ -4413,6 +4531,15 @@
         const out = {};
         for (const [k, v] of Object.entries(enc)) {
           out[k] = await _decSens(v);
+        }
+        // AIキーが空なら plaintext フォールバック
+        const AI_KEYS = ['aiKeyClaude', 'aiKeyOpenAI', 'aiKeyGemini'];
+        const anyAiEmpty = AI_KEYS.some(k => !out[k]);
+        if (anyAiEmpty) {
+          try {
+            const plain = JSON.parse(localStorage.getItem('_kintai_apikeys_v1') || '{}');
+            for (const k of AI_KEYS) { if (!out[k] && plain[k]) out[k] = plain[k]; }
+          } catch(_) {}
         }
         return out;
       } catch { return {}; }
@@ -4815,20 +4942,21 @@
       return applyAutoRules(store.months[ym]);
     }
 
-    function saveDayData(dateStr, status, start, end, memo) {
+    function saveDayData(dateStr, status, start, end, work_content, memo) {
       const ym = dateStr.slice(0, 7);
       const store = loadStore();
       if (!store.months[ym]) store.months[ym] = buildSkeleton(ym);
       if (!store.months[ym][dateStr]) {
         store.months[ym][dateStr] = {
-          date: dateStr, status: '未', start: '', end: '', memo: '', updated_at: ''
+          date: dateStr, status: '未', start: '', end: '', work_content: '', memo: '', updated_at: ''
         };
       }
       if (status !== '') store.months[ym][dateStr].status = status;
-      store.months[ym][dateStr].start = start;
-      store.months[ym][dateStr].end   = end;
-      store.months[ym][dateStr].memo  = memo;
-      store.months[ym][dateStr].updated_at = new Date().toISOString().slice(0, 19);
+      store.months[ym][dateStr].start        = start;
+      store.months[ym][dateStr].end          = end;
+      store.months[ym][dateStr].work_content = work_content;
+      store.months[ym][dateStr].memo         = memo;
+      store.months[ym][dateStr].updated_at   = new Date().toISOString().slice(0, 19);
       saveStore(store);
       // return view-corrected record
       const { data } = applyAutoRules({ [dateStr]: store.months[ym][dateStr] });
@@ -4906,15 +5034,15 @@
     /* =====================================================
        SAVE ATTENDANCE
        ===================================================== */
-    function saveAttendance(dateStr, status, memo, start, end) {
+    function saveAttendance(dateStr, status, memo, start, end, work_content = '') {
       const prev = attendanceData[dateStr] ? { ...attendanceData[dateStr] } : null;
       try {
-        const day = saveDayData(dateStr, status, start, end, memo);
+        const day = saveDayData(dateStr, status, start, end, work_content, memo);
         attendanceData[dateStr] = day;
         const hn = holidayName(dateStr);
         if (hn) holidaysData[dateStr] = hn;
 
-        localStorage.setItem(LAST_KEY, JSON.stringify({ status, memo, start, end }));
+        localStorage.setItem(LAST_KEY, JSON.stringify({ status, memo, start, end, work_content }));
         renderCalendar(currentYear, currentMonth);
         return true;
       } catch (e) {
@@ -5060,18 +5188,21 @@
       currentEditDate = dateStr;
 
       const dbData = attendanceData[dateStr] || null;
-      let status = '未', memo = '', start = '', end = '';
+      let status = '未', memo = '', start = '', end = '', work_content = '';
       if (dbData) {
-        status = dbData.status || '未';
-        memo   = dbData.memo   || '';
-        start  = dbData.start  || '';
-        end    = dbData.end    || '';
+        status       = dbData.status       || '未';
+        memo         = dbData.memo         || '';
+        start        = dbData.start        || '';
+        end          = dbData.end          || '';
+        work_content = dbData.work_content || '';
       }
 
       document.getElementById('modal-date-label').textContent = formatDateJP(dateStr);
-      document.getElementById('memo-textarea').value  = memo;
-      document.getElementById('start-time').value     = start || '09:00';
-      document.getElementById('end-time').value       = end   || '18:00';
+      document.getElementById('content-textarea').value = work_content;
+      document.getElementById('memo-textarea').value    = memo;
+      document.getElementById('start-time').value       = start || '09:00';
+      document.getElementById('end-time').value         = end   || '18:00';
+      _renderContentChips('modal-content-chips', 'content-textarea');
 
       const row = document.getElementById('status-chip-row');
       row.innerHTML = '';
@@ -5102,9 +5233,10 @@
       if (!t) return;
       document.querySelectorAll('.status-chip')
         .forEach(c => c.classList.toggle('active', c.dataset.value === t.status));
-      document.getElementById('memo-textarea').value = t.memo  || '';
-      document.getElementById('start-time').value    = t.start || '09:00';
-      document.getElementById('end-time').value      = t.end   || '18:00';
+      document.getElementById('content-textarea').value = t.work_content || '';
+      document.getElementById('memo-textarea').value    = t.memo  || '';
+      document.getElementById('start-time').value       = t.start || '09:00';
+      document.getElementById('end-time').value         = t.end   || '18:00';
     }
 
     /* =====================================================
@@ -5855,11 +5987,13 @@
     // Save
     document.getElementById('modal-save').addEventListener('click', () => {
       if (!currentEditDate) return;
-      const status = getModalStatus();
-      const memo   = document.getElementById('memo-textarea').value;
-      const start  = document.getElementById('start-time').value || '';
-      const end    = document.getElementById('end-time').value   || '';
-      const ok = saveAttendance(currentEditDate, status, memo, start, end);
+      const status       = getModalStatus();
+      const memo         = document.getElementById('memo-textarea').value;
+      const start        = document.getElementById('start-time').value || '';
+      const end          = document.getElementById('end-time').value   || '';
+      const work_content = document.getElementById('content-textarea')?.value.trim() || '';
+      if (work_content) _addToContentCache(work_content);
+      const ok = saveAttendance(currentEditDate, status, memo, start, end, work_content);
       if (ok) { closeModal(); toast('保存しました'); }
     });
 
@@ -6954,6 +7088,39 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v44', date: '2026-03-02',
+          title: '📋 報告書タブ 勤怠データ反映 + 作業内容キャッシュ',
+          items: [
+            { tag: 'feature', text: 'kintai日次編集モーダルに「作業内容」欄を新設（報告書に自動反映）' },
+            { tag: 'feature', text: '作業内容キャッシュ (_kintai_content_cache_v1): 最大30件保存、チップ選択UI（kintai/報告書共有）' },
+            { tag: 'feature', text: '報告書タブ: 「🔄 勤怠から反映」ボタン — kintai start/end/work_content を日付マッチして反映' },
+            { tag: 'feature', text: '報告書テーブル: 10列に拡張（開始/終了/休憩/合計/作業内容/備考/編集）、行クリックで編集モーダル' },
+            { tag: 'feature', text: '報告書 日次編集モーダル (#report-day-modal): 区分/時間/休憩/合計自動計算/作業内容/備考を編集保存' },
+            { tag: 'feature', text: '報告書編集データをlocalStorageに中間保存 (_kintai_report_edits_YYYY-MM)、月切替・Excel再読込時に自動復元' },
+            { tag: 'fix',     text: '_parseXlsxSheet: weekday フィールドを追加（バグ修正）。remark フィールド追加（L列備考）' },
+            { tag: 'fix',     text: 'renderReportSummary: location || note の二重対応' },
+          ],
+        },
+        {
+          version: 'v43', date: '2026-03-02',
+          title: '🔧 設定スクロール修正 / 報告書フォルダ選択 / AIプロンプト動的ロード / APIキー永続化 / 仕様タブ改善',
+          items: [
+            { tag: 'fix',     text: '設定モーダル: overflow:hidden→clip でiOS Safariのスクロールブロックを修正。settings-bodyにoverscroll-behavior:contain追加' },
+            { tag: 'fix',     text: 'APIキー永続化: _kintai_apikeys_v1に並行保存→復号失敗時フォールバックで消失を防止' },
+            { tag: 'feature', text: 'AI設定モーダル: APIキーエクスポート(JSON)・インポートボタン追加（クロスデバイス移行対応）' },
+            { tag: 'feature', text: '報告書タブ: showDirectoryPicker(Mac)/input[multiple](iOS)でiCloud Driveフォルダ選択・XLSX一覧表示' },
+            { tag: 'feature', text: 'AIプロンプト: /root/prompts/*.md から動的ロード（GET /api/prompts）。サーバー未接続時はデフォルト表示' },
+            { tag: 'feature', text: '仕様タブ: renderStructure()にminiserve経由フォールバック (Strategy 2) を追加' },
+          ],
+        },
+        {
+          version: 'v42', date: '2026-03-01',
+          title: '🐛 miniserve「ブラウザで開く」localhost:9000 根本修正',
+          items: [
+            { tag: 'fix', text: 'initMiniserveCard: const _cachedIpをlet _resolvedIpに変更。毎回refreshするたびにlocalhostへリセットされていたバグを根本修正。_getUrl()ゲッターで常に最新IPを参照' },
+          ],
+        },
+        {
           version: 'v41', date: '2026-03-01',
           title: '🛠 miniserve IP永続化 + Docker作成モーダルiPhone対応 + AIプロンプトライブラリ',
           items: [
@@ -7317,7 +7484,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v41';
+        const swVer = 'kintai-v44';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -8113,14 +8280,24 @@
         const pre = document.getElementById('spec-structure');
         if (!pre) return;
         pre.textContent = '読み込み中…';
+        // Strategy 1: kintai-server API
         try {
           const r = await fetch(`${_getApi()}/api/structure`, { signal: AbortSignal.timeout(5000) });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const d = await r.json();
           pre.textContent = d.content || '(空)';
-        } catch(_) {
-          pre.textContent = '(サーバー未接続 — サーバー起動後に🔄を押してください)';
-        }
+          return;
+        } catch(_) {}
+        // Strategy 2: miniserve 経由で STRUCTURE.md を直接取得
+        try {
+          const ip = window._resolvedMiniserveIp || 'localhost';
+          const url = `http://${ip}:9000/attendance-pwa/STRUCTURE.md`;
+          const r2 = await fetch(url, { signal: AbortSignal.timeout(5000) });
+          if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
+          pre.textContent = await r2.text();
+          return;
+        } catch(_) {}
+        pre.textContent = '(サーバー未接続 — kintai-server または miniserve を起動後に🔄を押してください)';
       }
 
       function _icon(path) {
@@ -9756,14 +9933,16 @@
       const _MINISERVE_IP_KEY = '_kintai_miniserve_ip_v1';
       const _port = 9000;
 
-      // LS キャッシュから前回解決済みIPを復元（API呼び出し前の初期値として使用）
-      // → ユーザーがボタンをすばやく押してもlocalhostにならない
-      const _cachedIp = (() => {
+      // LS キャッシュから前回解決済みIPを復元（mutable — API取得後も更新される）
+      let _resolvedIp = (() => {
         try { return localStorage.getItem(_MINISERVE_IP_KEY) || ''; } catch(_) { return ''; }
       })();
-      let _miniserveUrl = _cachedIp
-        ? `http://${_cachedIp}:${_port}`
-        : `http://localhost:${_port}`;
+
+      // 常に最新の _resolvedIp を使って URL を返すゲッター
+      // → ボタン click は _getUrl() を呼ぶので API 解決後も正しい URL になる
+      function _getUrl() {
+        return _resolvedIp ? `http://${_resolvedIp}:${_port}` : `http://localhost:${_port}`;
+      }
 
       async function refreshMiniserveStatus() {
         const dotEl  = document.getElementById('miniserve-status-dot');
@@ -9772,12 +9951,6 @@
         if (!dotEl) return;
 
         const base = window._srvBase || 'http://localhost:8899';
-        const baseMatch = base.match(/^https?:\/\/([^:/]+)/);
-        const lanHost   = baseMatch ? baseMatch[1] : 'localhost';
-        // LS キャッシュがなければ _srvBase のホストをフォールバックとして使用
-        if (!_cachedIp || _cachedIp === 'localhost') {
-          _miniserveUrl = `http://${lanHost}:${_port}`;
-        }
 
         try {
           const r = await fetch(`${base}/api/miniserve-url`, {
@@ -9788,8 +9961,8 @@
 
           // host_ip が設定されていれば優先（サーバー側で検出したLAN IP）
           if (d.host_ip) {
-            _miniserveUrl = `http://${d.host_ip}:${d.port}`;
-            // 解決済みIPをLSにキャッシュ（次回ページロード時のlocalhost問題を防ぐ）
+            _resolvedIp = d.host_ip;
+            // 解決済みIPをLSにキャッシュ（次回ページロード時から即座に正しいURLを使用）
             try { localStorage.setItem(_MINISERVE_IP_KEY, d.host_ip); } catch(_) {}
           }
 
@@ -9800,9 +9973,9 @@
             dotEl.innerHTML = '<span style="color:#e57373;">● 停止中</span>';
           }
 
-          // URL表示: IPをマスクして表示（実際のURLは _miniserveUrl に保持）
+          // URL表示: IPをマスクして表示（実際のURLは _getUrl() で取得）
           if (urlEl) {
-            const masked = _miniserveUrl.replace(
+            const masked = _getUrl().replace(
               /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/,
               (_, a, b) => `${a}.${b}.●●●.●●●`
             );
@@ -9811,7 +9984,7 @@
 
           // QRコード (api.qrserver.com — CSP の img-src に追加済み)
           if (qrEl && d.running) {
-            const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&format=png&data=${encodeURIComponent(_miniserveUrl)}`;
+            const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&format=png&data=${encodeURIComponent(_getUrl())}`;
             qrEl.innerHTML = `<img src="${qrSrc}" alt="QR" style="width:100px;height:100px;border-radius:6px;" loading="lazy" onerror="this.parentElement.innerHTML='<span style=\\'font-size:10px;color:var(--text-muted);padding:4px;text-align:center;\\'>QR生成にはインターネット接続が必要です</span>'">`;
           } else if (qrEl) {
             qrEl.innerHTML = '<span style="font-size:10px;color:var(--text-muted);padding:4px;text-align:center;line-height:1.4;">停止中<br>launchd確認してください</span>';
@@ -9824,11 +9997,11 @@
       }
 
       document.getElementById('miniserve-open-btn')?.addEventListener('click', () => {
-        window.open(_miniserveUrl, '_blank', 'noopener');
+        window.open(_getUrl(), '_blank', 'noopener');
       });
 
       document.getElementById('miniserve-copy-btn')?.addEventListener('click', () => {
-        navigator.clipboard.writeText(_miniserveUrl).then(() => {
+        navigator.clipboard.writeText(_getUrl()).then(() => {
           toast('📋 URLをコピーしました');
         }).catch(() => {
           // iOS fallback
@@ -9849,6 +10022,11 @@
 
       // ハブタブ表示時に自動更新
       window._miniserveCardRefresh = refreshMiniserveStatus;
+      // 仕様タブの STRUCTURE.md miniserve フォールバック用に IP を公開
+      Object.defineProperty(window, '_resolvedMiniserveIp', {
+        get: () => _resolvedIp,
+        configurable: true,
+      });
       refreshMiniserveStatus();
     })();
 
@@ -10274,6 +10452,129 @@
     let _reportServerOk   = false;
     let _reportInitDone   = false;
 
+    // ── ヘルパー ──────────────────────────────────────────
+    function _weekdayJa(dateStr) {
+      return ['日','月','火','水','木','金','土'][new Date(dateStr + 'T00:00').getDay()];
+    }
+    function _calcTotal(start, end, brk) {
+      try {
+        const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+        const min = toMin(end) - toMin(start) - toMin(brk || '0:00');
+        if (min <= 0) return '';
+        return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`;
+      } catch { return ''; }
+    }
+    function _saveReportEdits() {
+      if (!_reportData || !_reportMonth) return;
+      try { localStorage.setItem(`_kintai_report_edits_${_reportMonth}`, JSON.stringify(_reportData)); } catch (_) {}
+    }
+    function _loadReportEdits(ym) {
+      try { const r = localStorage.getItem(`_kintai_report_edits_${ym}`); return r ? JSON.parse(r) : null; }
+      catch { return null; }
+    }
+
+    // ── 勤怠から反映 ──────────────────────────────────────
+    async function _mergeKintaiToReport() {
+      if (!_reportMonth) { toast('月を選択してください'); return; }
+      const { data: kdata } = getMonthData(_reportMonth);
+      const WORK = ['出社', '在宅'];
+
+      const allDates = new Set([
+        ...(_reportData?.days || []).map(d => d.date),
+        ...Object.keys(kdata).filter(dk => kdata[dk].status !== '未' || kdata[dk].start),
+      ]);
+      const merged = [...allDates].sort().map(dateStr => {
+        const existing = (_reportData?.days || []).find(d => d.date === dateStr) || {};
+        const kday = kdata[dateStr];
+        if (!kday) return { ...existing, date: dateStr, weekday: _weekdayJa(dateStr) };
+        const location = kday.status !== '未' ? kday.status : (existing.location || '');
+        const isWorking = WORK.includes(location);
+        const start = kday.start || existing.start || '';
+        const end   = kday.end   || existing.end   || '';
+        const brk   = existing.break || (isWorking && start && end ? '1:00' : '');
+        const total = (isWorking && start && end && brk) ? (_calcTotal(start, end, brk) || '') : (existing.total || '');
+        const content = existing._manualContent ? existing.content : (kday.work_content || existing.content || '');
+        return {
+          ...existing,
+          date: dateStr,
+          weekday: _weekdayJa(dateStr),
+          location,
+          start, end,
+          break: brk,
+          total,
+          content,
+          remark: existing.remark || '',
+        };
+      });
+      _reportData = { ...(_reportData || {}), days: merged };
+      _saveReportEdits();
+      renderReportSummary(merged);
+      renderReportTable(merged);
+      toast(`✅ ${merged.filter(d => d.start).length} 日分を勤怠データから反映しました`);
+    }
+
+    // ── 報告書 日次編集モーダル ────────────────────────────
+    let _rdmIndex = -1;
+    function _openReportDayModal(i) {
+      const d = _reportData?.days?.[i];
+      if (!d) return;
+      _rdmIndex = i;
+      document.getElementById('rdm-date-label').textContent =
+        `${d.date}（${d.weekday || _weekdayJa(d.date)}）`;
+      document.getElementById('rdm-location').value = d.location || d.note || '';
+      document.getElementById('rdm-start').value    = d.start  || '';
+      document.getElementById('rdm-end').value      = d.end    || '';
+      document.getElementById('rdm-break').value    = d.break  || '01:00';
+      document.getElementById('rdm-content').value  = d.content || '';
+      document.getElementById('rdm-remark').value   = d.remark  || '';
+      _rdmUpdateTotal();
+      _renderContentChips('rdm-content-chips', 'rdm-content');
+      document.getElementById('report-day-modal').style.display = 'flex';
+    }
+    function _rdmUpdateTotal() {
+      const s  = document.getElementById('rdm-start')?.value;
+      const e  = document.getElementById('rdm-end')?.value;
+      const b  = document.getElementById('rdm-break')?.value || '01:00';
+      const el = document.getElementById('rdm-total');
+      if (el) el.textContent = (s && e) ? (_calcTotal(s, e, b) || '—') : '—';
+    }
+    ['rdm-start', 'rdm-end', 'rdm-break'].forEach(id =>
+      document.getElementById(id)?.addEventListener('input', _rdmUpdateTotal)
+    );
+    document.getElementById('rdm-close')?.addEventListener('click', () =>
+      document.getElementById('report-day-modal').style.display = 'none'
+    );
+    document.getElementById('rdm-cancel')?.addEventListener('click', () =>
+      document.getElementById('report-day-modal').style.display = 'none'
+    );
+    document.getElementById('rdm-save')?.addEventListener('click', () => {
+      if (_rdmIndex < 0 || !_reportData?.days?.[_rdmIndex]) return;
+      const content = document.getElementById('rdm-content')?.value.trim() || '';
+      if (content) _addToContentCache(content);
+      const s = document.getElementById('rdm-start')?.value  || '';
+      const e = document.getElementById('rdm-end')?.value    || '';
+      const b = document.getElementById('rdm-break')?.value  || '';
+      _reportData.days[_rdmIndex] = {
+        ..._reportData.days[_rdmIndex],
+        location: document.getElementById('rdm-location')?.value || '',
+        start: s, end: e, break: b,
+        total: (s && e) ? (_calcTotal(s, e, b) || '') : '',
+        content,
+        _manualContent: !!content,
+        remark: document.getElementById('rdm-remark')?.value.trim() || '',
+      };
+      _saveReportEdits();
+      renderReportSummary(_reportData.days);
+      renderReportTable(_reportData.days);
+      document.getElementById('report-day-modal').style.display = 'none';
+      toast('✅ 保存しました');
+    });
+    // report-day-modal バックドロップクリック
+    document.getElementById('report-day-modal')?.addEventListener('click', e => {
+      if (e.target === document.getElementById('report-day-modal'))
+        document.getElementById('report-day-modal').style.display = 'none';
+    });
+
     async function checkReportServer() {
       try {
         const r = await fetch(`${_getRS()}/api/reports`, { signal: AbortSignal.timeout(2000) });
@@ -10304,6 +10605,8 @@
         await loadReportData(_reportMonth);
       });
 
+      document.getElementById('btn-report-merge')?.addEventListener('click', _mergeKintaiToReport);
+
       document.getElementById('btn-report-sync')?.addEventListener('click', async () => {
         if (!_reportMonth) { toast('月を選択してください'); return; }
         await syncKintaiToReport(_reportMonth);
@@ -10315,25 +10618,106 @@
       });
 
       // Excelを直接開く（サーバー不要 — SheetJS でクライアント側パース）
+      async function _loadXlsxFile(file) {
+        await loadXlsxLib();
+        const ab = await file.arrayBuffer();
+        const wb = XLSX.read(ab, { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        _reportData = _parseXlsxSheet(ws, file.name);
+        // LS に保存済みの編集があれば上書き復元
+        if (_reportMonth) {
+          const saved = _loadReportEdits(_reportMonth);
+          if (saved) _reportData = saved;
+        }
+        renderReportStatusCard(_reportData);
+        renderReportMeta(_reportData.meta);
+        renderReportSummary(_reportData.days);
+        renderReportTable(_reportData.days);
+        toast('📊 Excel を読み込みました');
+      }
+
       document.getElementById('report-local-file')?.addEventListener('change', async e => {
         const file = e.target.files?.[0];
         if (!file) return;
-        try {
-          await loadXlsxLib();
-          const ab = await file.arrayBuffer();
-          const wb = XLSX.read(ab, { type: 'array', cellDates: true });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          _reportData = _parseXlsxSheet(ws, file.name);
-          renderReportStatusCard(_reportData);
-          renderReportMeta(_reportData.meta);
-          renderReportSummary(_reportData.days);
-          renderReportTable(_reportData.days);
-          toast('📊 Excel を読み込みました');
-        } catch(err) {
-          toast(`⚠️ Excel読み込み失敗: ${err.message}`);
-        }
-        e.target.value = ''; // 再選択できるようにリセット
+        try { await _loadXlsxFile(file); } catch(err) { toast(`⚠️ Excel読み込み失敗: ${err.message}`); }
+        e.target.value = '';
       });
+
+      // ── フォルダ選択 (Mac: File System Access API / iOS: input[multiple]) ─────
+      async function _openReportFolder() {
+        // Mac Chrome/Safari 15.2+: showDirectoryPicker
+        if (typeof showDirectoryPicker === 'function') {
+          try {
+            const handle = await showDirectoryPicker({ mode: 'read' });
+            await _listReportFiles(handle);
+            // IDB に永続化（次回再接続用）
+            try { await idbSaveConfig({ report_dir_handle: handle }); } catch(_) {}
+            return;
+          } catch(e) {
+            if (e.name !== 'AbortError') console.warn('showDirectoryPicker:', e);
+          }
+        }
+        // iOS/その他: input[multiple] にフォールバック
+        document.getElementById('report-local-multi')?.click();
+      }
+
+      async function _listReportFiles(handle) {
+        const section = document.getElementById('report-folder-section');
+        const listEl  = document.getElementById('report-folder-list');
+        if (!section || !listEl) return;
+        const files = [];
+        for await (const [name, entry] of handle.entries()) {
+          if (entry.kind === 'file' && /\.(xlsx|xls)$/i.test(name)) {
+            files.push({ name, entry });
+          }
+        }
+        files.sort((a, b) => b.name.localeCompare(a.name));
+        if (files.length === 0) {
+          listEl.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">XLSXファイルが見つかりません</span>';
+        } else {
+          listEl.innerHTML = files.map(f =>
+            `<button class="btn-secondary report-folder-file" data-name="${f.name}"
+              style="font-size:12px;padding:5px 10px;text-align:left;">
+              📄 ${f.name}
+            </button>`
+          ).join('');
+          listEl.querySelectorAll('.report-folder-file').forEach((btn, i) => {
+            btn.addEventListener('click', async () => {
+              try {
+                const fh = await files[i].entry.getFile();
+                await _loadXlsxFile(fh);
+                section.style.display = 'none';
+              } catch(e) { toast(`⚠️ ${e.message}`); }
+            });
+          });
+        }
+        section.style.display = 'block';
+      }
+
+      // iOS: input[multiple] からの複数ファイル選択 → 一覧表示
+      document.getElementById('report-local-multi')?.addEventListener('change', async e => {
+        const files = Array.from(e.target.files || []).filter(f => /\.(xlsx|xls)$/i.test(f.name));
+        if (files.length === 0) return;
+        const section = document.getElementById('report-folder-section');
+        const listEl  = document.getElementById('report-folder-list');
+        files.sort((a, b) => b.name.localeCompare(a.name));
+        listEl.innerHTML = files.map((f, i) =>
+          `<button class="btn-secondary report-folder-file" data-idx="${i}"
+            style="font-size:12px;padding:5px 10px;text-align:left;">
+            📄 ${f.name}
+          </button>`
+        ).join('');
+        listEl.querySelectorAll('.report-folder-file').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const f = files[Number(btn.dataset.idx)];
+            try { await _loadXlsxFile(f); section.style.display = 'none'; } catch(err) { toast(`⚠️ ${err.message}`); }
+          });
+        });
+        section.style.display = 'block';
+        e.target.value = '';
+      });
+
+      document.getElementById('report-folder-btn')?.addEventListener('click', _openReportFolder);
 
       await checkReportServer();
       const banner = document.getElementById('report-server-banner');
@@ -10375,12 +10759,14 @@
         if (!start && !end) continue; // 空行スキップ
         days.push({
           date:    dateStr,
+          weekday: _weekdayJa(dateStr),
           start,
           end,
           break:   String(g(`E${r}`) || ''),
           total:   String(g(`F${r}`) || ''),
           content: String(g(`G${r}`) || ''),
-          note:    String(g(`L${r}`) || ''),
+          remark:  String(g(`L${r}`) || ''),
+          note:    String(g(`L${r}`) || ''),  // 後方互換
         });
       }
       return { status: 'draft', filename, meta, days };
@@ -10464,12 +10850,23 @@
         const r = await fetch(`${_getRS()}/api/reports/read?year=${year}&month=${mon}`);
         if (!r.ok) throw new Error(await r.text());
         _reportData = await r.json();
+        // LS に保存済みの編集があれば上書き復元
+        const saved = _loadReportEdits(_reportMonth);
+        if (saved) _reportData = saved;
         renderReportStatusCard(_reportData);
         renderReportMeta(_reportData.meta);
         renderReportSummary(_reportData.days);
         renderReportTable(_reportData.days);
       } catch (e) {
-        tableArea.innerHTML = `<div class="report-empty">⚠️ 読み込み失敗<br><span style="font-size:11px;">${e.message}</span></div>`;
+        // サーバー未接続でも LS に保存済みがあれば表示
+        const saved = _loadReportEdits(_reportMonth);
+        if (saved) {
+          _reportData = saved;
+          renderReportSummary(saved.days);
+          renderReportTable(saved.days);
+        } else {
+          tableArea.innerHTML = `<div class="report-empty">⚠️ 読み込み失敗<br><span style="font-size:11px;">${e.message}</span></div>`;
+        }
       }
     }
 
@@ -10511,9 +10908,10 @@
 
       let home = 0, office = 0, vacation = 0, totalMin = 0;
       days.forEach(d => {
-        if (d.note === '在宅') home++;
-        else if (d.note === '出社') office++;
-        else if (d.note === '有給') vacation++;
+        const loc = d.location || d.note || '';
+        if (loc === '在宅') home++;
+        else if (loc === '出社') office++;
+        else if (loc === '有給') vacation++;
         if (d.total) {
           const [h, m] = d.total.split(':').map(Number);
           if (!isNaN(h)) totalMin += h * 60 + (m || 0);
@@ -10538,23 +10936,27 @@
         return;
       }
 
-      const noteToRowClass = { '在宅': 'report-row-home', '出社': 'report-row-office', '有給': 'report-row-vacation', '祝日': 'report-row-holiday' };
-      const noteToNoteClass = { '在宅': 'report-note-在宅', '出社': 'report-note-出社', '有給': 'report-note-有給', '祝日': 'report-note-祝日', '休日': 'report-note-休日' };
+      const locToRowClass  = { '在宅': 'report-row-home', '出社': 'report-row-office', '有給': 'report-row-vacation', '祝日': 'report-row-holiday' };
+      const locToNoteClass = { '在宅': 'report-note-在宅', '出社': 'report-note-出社', '有給': 'report-note-有給', '祝日': 'report-note-祝日', '休日': 'report-note-休日' };
 
-      const rows = days.map(d => {
-        const wd = d.weekday;
+      const rows = days.map((d, i) => {
+        const wd  = d.weekday || _weekdayJa(d.date);
+        const loc = d.location || d.note || '';
         const isWeekend = wd === '土' || wd === '日';
-        const noteClass = noteToNoteClass[d.note] || '';
-        const rowClass  = isWeekend ? 'report-row-weekend' : (noteToRowClass[d.note] || '');
-        const noteHTML  = d.note ? `<span class="report-note-badge ${noteClass}">${d.note}</span>` : '';
-        const timeStr   = d.start ? `${d.start}–${d.end}` : '';
-        return `<tr class="${rowClass}">
+        const locClass  = locToNoteClass[loc] || '';
+        const rowClass  = isWeekend ? 'report-row-weekend' : (locToRowClass[loc] || '');
+        const locHTML   = loc ? `<span class="report-note-badge ${locClass}">${loc}</span>` : '';
+        return `<tr class="${rowClass}" data-day-index="${i}" style="cursor:pointer;" title="クリックして編集">
           <td style="text-align:center;font-weight:700;">${d.date.slice(5)}</td>
           <td style="text-align:center;color:${wd==='日'?'#c62828':wd==='土'?'#1565c0':'inherit'};font-weight:700;">${wd}</td>
-          <td style="text-align:center;">${noteHTML}</td>
-          <td style="text-align:center;white-space:nowrap;">${timeStr}</td>
-          <td style="text-align:center;">${d.total || ''}</td>
+          <td style="text-align:center;">${locHTML}</td>
+          <td style="text-align:center;white-space:nowrap;">${d.start ? `${d.start}` : ''}</td>
+          <td style="text-align:center;white-space:nowrap;">${d.end   ? `${d.end}`   : ''}</td>
+          <td style="text-align:center;">${d.break || ''}</td>
+          <td style="text-align:center;font-weight:700;">${d.total || ''}</td>
           <td style="font-size:11px;max-width:200px;">${d.content || ''}</td>
+          <td style="font-size:11px;max-width:120px;color:var(--text-muted);">${d.remark || ''}</td>
+          <td style="text-align:center;font-size:13px;">✏️</td>
         </tr>`;
       }).join('');
 
@@ -10564,12 +10966,18 @@
             <thead>
               <tr>
                 <th>日付</th><th>曜</th><th>区分</th>
-                <th>時間</th><th>合計</th><th>作業内容</th>
+                <th>開始</th><th>終了</th><th>休憩</th><th>合計</th>
+                <th>作業内容</th><th>備考</th><th></th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
         </div>`;
+
+      // クリックで編集モーダル
+      area.querySelectorAll('tr[data-day-index]').forEach(tr => {
+        tr.addEventListener('click', () => _openReportDayModal(Number(tr.dataset.dayIndex)));
+      });
     }
 
     async function syncKintaiToReport(label) {
@@ -12963,7 +13371,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           window.initAiTab();
         });
         // ── AI プロンプトライブラリ ───────────────────────────────
-        const _PROMPT_LIBRARY = [
+        let _PROMPT_LIBRARY = [
           {
             category: '🗓 kintai・勤怠管理',
             items: [
@@ -13020,6 +13428,25 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
             ],
           },
         ];
+
+        // ── /api/prompts から動的ロード（sessionStorage キャッシュ付き） ──────
+        (async function _loadDynamicPrompts() {
+          const CACHE_KEY = '_kintai_prompts_cache_v1';
+          try {
+            const cached = sessionStorage.getItem(CACHE_KEY);
+            if (cached) { _PROMPT_LIBRARY = JSON.parse(cached); return; }
+          } catch(_) {}
+          try {
+            const r = await fetch(`${_getApi()}/api/prompts`, { signal: AbortSignal.timeout(3000) });
+            if (r.ok) {
+              const data = await r.json();
+              if (Array.isArray(data) && data.length > 0) {
+                _PROMPT_LIBRARY = data;
+                try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch(_) {}
+              }
+            }
+          } catch(_) { /* サーバー未接続 → デフォルトをそのまま使用 */ }
+        })();
 
         // クイックチップ（上部横スクロール）— カテゴリ代表1件ずつ
         (function _renderPromptChips() {
@@ -13089,6 +13516,46 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
             const inp = document.getElementById(`ai-key-${p}`);
             if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
           });
+        });
+
+        // ── APIキー エクスポート ─────────────────────────────────
+        document.getElementById('ai-keys-export-btn')?.addEventListener('click', async () => {
+          const s = await loadSensitiveData();
+          const payload = {
+            exported_at: new Date().toISOString(),
+            aiKeyClaude: s.aiKeyClaude || '',
+            aiKeyOpenAI: s.aiKeyOpenAI || '',
+            aiKeyGemini: s.aiKeyGemini || '',
+          };
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `kintai-apikeys-${new Date().toISOString().slice(0,10)}.json`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+          toast('📤 APIキーをエクスポートしました');
+        });
+
+        // ── APIキー インポート ─────────────────────────────────
+        document.getElementById('ai-keys-import-file')?.addEventListener('change', async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const obj = JSON.parse(text);
+            const cur = await loadSensitiveData();
+            await saveSensitiveData({
+              ...cur,
+              aiKeyClaude: obj.aiKeyClaude || cur.aiKeyClaude || '',
+              aiKeyOpenAI: obj.aiKeyOpenAI || cur.aiKeyOpenAI || '',
+              aiKeyGemini: obj.aiKeyGemini || cur.aiKeyGemini || '',
+            });
+            await _loadKeys();
+            toast('📥 APIキーをインポートしました');
+          } catch(err) {
+            toast(`⚠️ インポート失敗: ${err.message}`);
+          }
+          e.target.value = '';
         });
       });
     })();
