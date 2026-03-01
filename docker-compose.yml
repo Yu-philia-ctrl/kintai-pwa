@@ -6,6 +6,7 @@
 #   docker compose down           # 停止
 #   docker compose logs -f        # ログ追跡
 #   docker compose pull && docker compose up -d  # アップデート
+#   docker compose build --no-cache && docker compose up -d  # イメージ再ビルド
 #
 # 注意:
 #   - launchd の com.kintai.server を先に停止してからこちらを起動する
@@ -29,6 +30,9 @@ services:
       # - ./.env:/app/.env:ro
       # iCloud バックアップフォルダ (Mac のみ)
       - ~/Library/Mobile Documents/com~apple~CloudDocs/kintai:/app/icloud_kintai:ro
+      # Docker ソケット — コンテナ内から Docker を操作するために必要
+      # PWAの「Dockerタブ」がコンテナ管理に使用する (Docker-in-Docker)
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PYTHONUNBUFFERED=1
       - KINTAI_MANAGED=1

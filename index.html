@@ -14,7 +14,7 @@
   <!-- Android / General PWA -->
   <meta name="theme-color" content="#7c5fe6">
   <link rel="manifest" href="manifest.json">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com http:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://api.github.com http:;">
   <!-- リソースヒント: xlsx遅延ロード時のDNS/TCP待機を事前に解消 -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -2124,8 +2124,9 @@
 
   <!-- ===== TAB: ハブ / クイックランチャー ===== -->
   <div id="page-hub" class="tab-page">
-    <div style="text-align:right;margin-bottom:4px;">
-      <button id="hub-sort-btn" class="btn-secondary" style="font-size:12px;padding:4px 10px;">🔀 カード並び替え</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <p style="font-size:11px;color:var(--text-muted);margin:0;">カード表示順は右の 🔀 ボタンで自由に変更できます</p>
+      <button id="hub-sort-btn" class="btn-secondary" style="font-size:12px;padding:5px 12px;flex-shrink:0;">🔀 並び替え</button>
     </div>
 
     <!-- 天気予報カード -->
@@ -2270,19 +2271,40 @@
 
     <!-- Bolt.new 統合カード -->
     <div class="card" id="bolt-card">
-      <div class="card-title">⚡ Bolt.new — AI コーディング環境</div>
-      <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
-        AIがコードを自動生成するブラウザ開発環境。新機能プロトタイプや新規プロジェクトを即作成できます。
-      </p>
-      <textarea id="bolt-prompt" class="bolt-prompt-input" rows="2"
-        placeholder="作りたいものを説明（例: ダークモード対応の家計簿アプリ）"></textarea>
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button id="bolt-new-btn" class="btn-primary" style="flex:1;font-size:12px;">⚡ 新規プロジェクト</button>
-        <button id="bolt-kintai-btn" class="btn-secondary" style="flex:1;font-size:12px;">📦 kintai を開く</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div class="card-title" style="margin-bottom:0;">⚡ Bolt.new — AI コーディング連携</div>
+        <div id="bolt-deploy-status" style="font-size:10px;color:var(--text-muted);">🔄 確認中…</div>
       </div>
-      <p style="font-size:10px;color:var(--text-muted);margin:0;">
-        💡 「kintai を開く」は GitHub リポジトリを Bolt.new にインポートします
-      </p>
+
+      <!-- デプロイフロー説明 -->
+      <div style="background:rgba(79,141,253,0.07);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.8;">
+        <strong style="color:var(--accent-blue);">🔗 kintai連携フロー:</strong><br>
+        Bolt.new で編集 → GitHub <code style="font-size:10px;">yu-philia-ctrl/kintai-pwa</code> に Push →<br>
+        GitHub Pages が自動デプロイ → kintai PWA に即反映 ✅
+      </div>
+
+      <!-- プロンプト入力 -->
+      <textarea id="bolt-prompt" class="bolt-prompt-input" rows="2"
+        placeholder="作りたい機能を説明（例: 勤怠データを棒グラフで可視化する機能）"></textarea>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button id="bolt-new-btn" class="btn-primary" style="flex:1;font-size:12px;">⚡ 新規プロジェクト</button>
+        <button id="bolt-kintai-btn" class="btn-secondary" style="flex:1;font-size:12px;">📦 kintai をインポート</button>
+      </div>
+
+      <!-- メモ帳（Bolt.new出力を保存） -->
+      <details style="margin-bottom:0;">
+        <summary style="font-size:12px;font-weight:700;cursor:pointer;margin-bottom:6px;color:var(--text-primary);">
+          📝 Bolt.new メモ帳（出力コード・アイデアを保存）
+        </summary>
+        <textarea id="bolt-memo" class="bolt-prompt-input" rows="5"
+          placeholder="Bolt.newで生成したコードやアイデアをここに貼り付けて保存できます…"
+          style="margin-top:6px;font-family:monospace;font-size:11px;"></textarea>
+        <div style="display:flex;gap:8px;">
+          <button id="bolt-memo-save" class="btn-primary" style="flex:1;font-size:12px;">💾 保存</button>
+          <button id="bolt-memo-clear" class="btn-secondary" style="font-size:12px;padding:5px 12px;">🗑</button>
+        </div>
+        <p style="font-size:10px;color:var(--text-muted);margin:4px 0 0;">ブラウザのローカルに保存されます（サーバー不要）</p>
+      </details>
     </div>
 
     <!-- 株価画像分析カード -->
@@ -6596,6 +6618,18 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v36', date: '2026-03-01',
+          title: '🐳 Docker-in-Docker修正 + Bolt.new連携強化 + ハブ並び替えUI改善',
+          items: [
+            { tag: 'fix',  text: 'Docker-in-Docker対応: Dockerfileに静的CLIバイナリを追加、docker-compose.ymlに /var/run/docker.sock マウントを追加。コンテナ起動時もDockerタブの全機能が使用可能に' },
+            { tag: 'fix',  text: '_kill_port()をLinux対応に修正: lsof未検出時にfuser→ssコマンドにフォールバック。python:3.11-slimコンテナでのERRNO2エラーを解消' },
+            { tag: 'fix',  text: '_DOCKER_BIN検出をshutil.whichで動的化: /usr/local/bin, /usr/bin, /opt/homebrew/binを自動探索' },
+            { tag: 'fix',  text: 'Dockerfileにgenerate_structure.pyを追加。STRUCTURE.md更新機能がコンテナ内でも動作' },
+            { tag: 'feat', text: 'Bolt.newカード強化: GitHub Actions最新デプロイ状態をリアルタイム表示（api.github.com）。メモ帳機能でBolt.new出力コードをlocalStorageに保存可能に' },
+            { tag: 'feat', text: 'ハブ並び替えボタンをヒントテキスト付きで見やすく改善。CSPにapi.github.comを追加' },
+          ],
+        },
+        {
           version: 'v35', date: '2026-03-01',
           title: '📐 設計書ビューワー + AIプロンプト例 + Bolt.new統合',
           items: [
@@ -6892,7 +6926,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v35';
+        const swVer = 'kintai-v36';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -9154,8 +9188,34 @@
        BOLT.NEW 統合
        ===================================================== */
     (function initBoltIntegration() {
-      const KINTAI_GITHUB = 'yu-philia-ctrl/kintai-pwa';
+      const KINTAI_GITHUB  = 'yu-philia-ctrl/kintai-pwa';
+      const BOLT_MEMO_KEY  = '_kintai_bolt_memo_v1';
 
+      // ── デプロイ状態: GitHub Actions の最新ワークフロー実行を取得 ──────────
+      async function _checkDeployStatus() {
+        const el = document.getElementById('bolt-deploy-status');
+        if (!el) return;
+        try {
+          const r = await fetch(
+            `https://api.github.com/repos/${KINTAI_GITHUB}/actions/runs?per_page=1`,
+            { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(6000) }
+          );
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const d = await r.json();
+          const run = d.workflow_runs?.[0];
+          if (!run) { el.textContent = '— デプロイ履歴なし'; return; }
+          const icon = run.status === 'completed'
+            ? (run.conclusion === 'success' ? '✅' : '❌')
+            : '⏳';
+          const ago = Math.round((Date.now() - new Date(run.updated_at)) / 60000);
+          const agoStr = ago < 60 ? `${ago}分前` : `${Math.round(ago/60)}時間前`;
+          el.textContent = `${icon} ${run.conclusion || run.status} (${agoStr})`;
+          el.title = `ワークフロー: ${run.name}\n更新: ${run.updated_at}`;
+        } catch { el.textContent = '— オフライン'; }
+      }
+      _checkDeployStatus();
+
+      // ── Bolt.new 起動ボタン ───────────────────────────────────────────────
       document.getElementById('bolt-new-btn')?.addEventListener('click', () => {
         const prompt = document.getElementById('bolt-prompt')?.value.trim();
         const url = prompt
@@ -9166,6 +9226,24 @@
 
       document.getElementById('bolt-kintai-btn')?.addEventListener('click', () => {
         window.open('https://bolt.new/github/' + KINTAI_GITHUB, '_blank', 'noopener');
+      });
+
+      // ── メモ帳: localStorage に保存 ─────────────────────────────────────
+      const _memoEl = document.getElementById('bolt-memo');
+      if (_memoEl) {
+        // 起動時に復元
+        try { _memoEl.value = localStorage.getItem(BOLT_MEMO_KEY) || ''; } catch(_) {}
+      }
+      document.getElementById('bolt-memo-save')?.addEventListener('click', () => {
+        try {
+          localStorage.setItem(BOLT_MEMO_KEY, _memoEl?.value || '');
+          if (window.toast) toast('💾 Bolt.new メモを保存しました');
+        } catch(_) {}
+      });
+      document.getElementById('bolt-memo-clear')?.addEventListener('click', () => {
+        if (!confirm('メモを削除しますか？')) return;
+        if (_memoEl) _memoEl.value = '';
+        try { localStorage.removeItem(BOLT_MEMO_KEY); } catch(_) {}
       });
     })();
 

@@ -808,7 +808,13 @@ class JinjerHandler(BaseHTTPRequestHandler):
 
     # ===== Docker 管理 =========================================================
 
-    _DOCKER_BIN = '/usr/local/bin/docker'
+    # Docker CLI を動的に検出 (macOS: /usr/local/bin, Linux: /usr/bin, Homebrew: /opt/homebrew/bin)
+    _DOCKER_BIN: str = (
+        shutil.which('docker') or
+        next((p for p in ['/usr/local/bin/docker', '/usr/bin/docker',
+                          '/opt/homebrew/bin/docker', '/run/host-services/docker']
+              if os.path.exists(p)), 'docker')
+    )
 
     def _run_docker(self, args: list, timeout: int = 10) -> tuple[int, str, str]:
         """docker コマンドを実行して (returncode, stdout, stderr) を返す。"""
@@ -819,7 +825,7 @@ class JinjerHandler(BaseHTTPRequestHandler):
             )
             return r.returncode, r.stdout, r.stderr
         except FileNotFoundError:
-            return -1, '', 'docker command not found'
+            return -1, '', f'docker コマンドが見つかりません (探索パス: {self._DOCKER_BIN})'
         except subprocess.TimeoutExpired:
             return -1, '', 'docker command timed out'
 
@@ -1147,19 +1153,50 @@ def _server_is_alive(port: int) -> bool:
 
 
 def _kill_port(port: int) -> bool:
-    """指定ポートを使用している全プロセスに SIGTERM を送る。成功したら True を返す"""
+    """指定ポートを使用している全プロセスに SIGTERM を送る。macOS/Linux 両対応。"""
     try:
-        r = subprocess.run(['lsof', '-ti', f':{port}'], capture_output=True, text=True)
-        pids = [p.strip() for p in r.stdout.strip().splitlines() if p.strip()]
+        pids: list[str] = []
+
+        # 方法1: lsof (macOS + 一部 Linux)
+        try:
+            r = subprocess.run(['lsof', '-ti', f':{port}'],
+                               capture_output=True, text=True, timeout=5)
+            if r.returncode == 0:
+                pids = [p.strip() for p in r.stdout.strip().splitlines() if p.strip()]
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+
+        # 方法2: fuser (Linux 標準)
+        if not pids:
+            try:
+                r = subprocess.run(['fuser', f'{port}/tcp'],
+                                   capture_output=True, text=True, timeout=5)
+                if r.returncode == 0:
+                    pids = [p.strip() for p in r.stdout.strip().split()
+                            if p.strip().lstrip('-').isdigit()]
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass
+
+        # 方法3: ss コマンド (Linux コンテナ向けフォールバック)
+        if not pids:
+            try:
+                r = subprocess.run(['ss', '-tlnp', f'sport = :{port}'],
+                                   capture_output=True, text=True, timeout=5)
+                if r.returncode == 0:
+                    for m in re.finditer(r'pid=(\d+)', r.stdout):
+                        pids.append(m.group(1))
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass
+
         if not pids:
             return False
         for pid in pids:
             try:
                 os.kill(int(pid), _signal.SIGTERM)
                 print(f'  既存プロセス (PID {pid}) を終了しました')
-            except ProcessLookupError:
+            except (ProcessLookupError, ValueError):
                 pass
-        time.sleep(2.0)  # プロセス終了を待つ
+        time.sleep(2.0)
         return True
     except Exception as ex:
         print(f'  プロセス終了エラー: {ex}')
