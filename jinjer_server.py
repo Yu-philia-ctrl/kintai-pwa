@@ -443,6 +443,13 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/backup/read':
             self._handle_backup_read(params)
 
+        elif path == '/api/obsidian/config':
+            self._handle_obsidian_config_get()
+        elif path == '/api/obsidian/list':
+            self._handle_obsidian_list(params)
+        elif path == '/api/obsidian/read':
+            self._handle_obsidian_read(params)
+
         # ===== 静的ファイル配信 — http://localhost:8899/ で PWA を直接表示 =====
         # Safari は HTTPS(GitHub Pages) → HTTP(localhost) の混在コンテンツをブロックするため、
         # Mac では http://localhost:8899/ を直接開くことで同一オリジンになりブロックを回避できる。
@@ -525,6 +532,23 @@ class JinjerHandler(BaseHTTPRequestHandler):
         # ===== /api/backup/restore — バックアップから kintai データを復元 =====
         elif path == '/api/backup/restore':
             self._handle_backup_restore()
+
+        # ===== /api/memo-log — 勤怠メモをサーバーログに保存 =====
+        elif path == '/api/memo-log':
+            self._handle_memo_log()
+
+        # ===== /api/ssh/add-pubkey — SSH 公開鍵を authorized_keys に追加 =====
+        elif path == '/api/ssh/add-pubkey':
+            self._handle_ssh_add_pubkey()
+
+        elif path == '/api/obsidian/config':
+            self._handle_obsidian_config_post()
+        elif path == '/api/obsidian/write':
+            self._handle_obsidian_write()
+        elif path == '/api/obsidian/delete':
+            self._handle_obsidian_delete()
+        elif path == '/api/obsidian/mkdir':
+            self._handle_obsidian_mkdir()
 
         else:
             self._send_json({'error': 'Not found'}, 404)
@@ -963,18 +987,214 @@ class JinjerHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
-        if https_url:
+        # ── 方法3: tailscale ip -4 でIPアドレスを直接取得 ──────────────────
+        tailscale_ip = None
+        try:
+            r3 = subprocess.run(
+                ['tailscale', 'ip', '-4'],
+                capture_output=True, text=True, timeout=5
+            )
+            if r3.returncode == 0:
+                ip = r3.stdout.strip().splitlines()[0].strip()
+                if ip:
+                    tailscale_ip = ip
+        except Exception:
+            pass
+
+        http_url = f'http://{tailscale_ip}:8899' if tailscale_ip else None
+
+        if https_url or http_url:
             self._send_json({
                 'https_url': https_url,
-                'method': method,
-                'note': 'Mac で "tailscale serve --bg 8899" を実行すると、このURLでPWAに接続できます',
+                'http_url':  http_url,
+                'tailscale_ip': tailscale_ip,
+                'method': method if https_url else 'ip-only',
+                'note': 'Tailscale VPN 経由で接続できます',
             })
         else:
             self._send_json({
                 'https_url': None,
+                'http_url':  None,
+                'tailscale_ip': None,
                 'method': 'not-found',
                 'note': 'Tailscale がインストールされていないか、起動していません',
             })
+
+    def _handle_memo_log(self):
+        """勤怠モーダルのメモ・作業内容をサーバー側 memo.log に記録する。"""
+        try:
+            body         = self._read_body()
+            date_str     = str(body.get('dateStr', ''))
+            work_content = str(body.get('work_content', '') or '').strip()
+            memo_list    = body.get('memo_list', [])
+            if not isinstance(memo_list, list):
+                memo_list = []
+            ts = _dt.now().strftime('%Y-%m-%d %H:%M:%S')
+            log_path = _HERE / 'logs' / 'memo.log'
+            log_path.parent.mkdir(exist_ok=True)
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(f'[{ts}] {date_str}\n')
+                if work_content:
+                    f.write(f'  作業内容: {work_content}\n')
+                for m in memo_list:
+                    cat  = str(m.get('cat', '備考') or '備考')
+                    text = str(m.get('text', '') or '').strip().replace('\n', '\n    ')
+                    if text:
+                        f.write(f'  [{cat}] {text}\n')
+                f.write('\n')
+            self._send_json({'ok': True})
+        except Exception as ex:
+            self._send_json({'ok': False, 'error': str(ex)})
+
+    # ===== Obsidian Vault API ====================================================
+
+    _OBS_CONFIG_FILE = _HERE / 'data' / 'obsidian_config.json'
+
+    def _obs_load_config(self):
+        try:
+            if self._OBS_CONFIG_FILE.exists():
+                return json.loads(self._OBS_CONFIG_FILE.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+        # デフォルトパス候補
+        candidates = [
+            Path.home() / 'Documents' / 'Obsidian',
+            Path.home() / 'Library' / 'Mobile Documents' / 'iCloud~md~obsidian' / 'Documents',
+        ]
+        for c in candidates:
+            if c.exists():
+                return {'vault_path': str(c)}
+        return {'vault_path': str(Path.home() / 'Documents' / 'Obsidian')}
+
+    def _obs_resolve(self, subpath=''):
+        """Vault root または vault内パスを返す（パストラバーサル防止済み）"""
+        cfg = self._obs_load_config()
+        vault = Path(cfg.get('vault_path', '')).expanduser().resolve()
+        if not subpath:
+            return vault
+        target = (vault / subpath).resolve()
+        if not str(target).startswith(str(vault)):
+            raise ValueError('パストラバーサルが検出されました')
+        return target
+
+    def _handle_obsidian_config_get(self):
+        cfg = self._obs_load_config()
+        vault = Path(cfg.get('vault_path', '')).expanduser()
+        self._send_json({'vault_path': cfg.get('vault_path', ''), 'exists': vault.exists()})
+
+    def _handle_obsidian_config_post(self):
+        body = self._read_body()
+        vault_path = str(body.get('vault_path', '')).strip()
+        if not vault_path:
+            self._send_json({'ok': False, 'error': 'vault_path が必要です'}); return
+        self._OBS_CONFIG_FILE.parent.mkdir(exist_ok=True)
+        self._OBS_CONFIG_FILE.write_text(json.dumps({'vault_path': vault_path}, ensure_ascii=False))
+        self._send_json({'ok': True})
+
+    def _handle_obsidian_list(self, params):
+        subpath = (params.get('path', [''])[0] or '').lstrip('/')
+        try:
+            target = self._obs_resolve(subpath)
+            if not target.exists():
+                self._send_json({'items': [], 'error': 'パスが存在しません'}); return
+            items = []
+            for p in sorted(target.iterdir()):
+                if p.name.startswith('.'):
+                    continue
+                items.append({
+                    'name': p.name,
+                    'path': str(p.relative_to(self._obs_resolve())).replace('\\', '/'),
+                    'type': 'dir' if p.is_dir() else 'file',
+                    'ext':  p.suffix.lower() if p.is_file() else '',
+                })
+            # ディレクトリを先に、その中でソート
+            items.sort(key=lambda x: (0 if x['type'] == 'dir' else 1, x['name'].lower()))
+            self._send_json({'items': items})
+        except Exception as ex:
+            self._send_json({'items': [], 'error': str(ex)})
+
+    def _handle_obsidian_read(self, params):
+        subpath = (params.get('path', [''])[0] or '').lstrip('/')
+        if not subpath:
+            self._send_json({'content': '', 'error': 'path が必要です'}); return
+        try:
+            target = self._obs_resolve(subpath)
+            if not target.is_file():
+                self._send_json({'content': '', 'error': 'ファイルが見つかりません'}); return
+            content = target.read_text(encoding='utf-8')
+            self._send_json({'content': content, 'path': subpath})
+        except Exception as ex:
+            self._send_json({'content': '', 'error': str(ex)})
+
+    def _handle_obsidian_write(self):
+        try:
+            body    = self._read_body()
+            subpath = str(body.get('path', '') or '').lstrip('/')
+            content = str(body.get('content', '') or '')
+            if not subpath:
+                self._send_json({'ok': False, 'error': 'path が必要です'}); return
+            target = self._obs_resolve(subpath)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding='utf-8')
+            self._send_json({'ok': True})
+        except Exception as ex:
+            self._send_json({'ok': False, 'error': str(ex)})
+
+    def _handle_obsidian_delete(self):
+        try:
+            body    = self._read_body()
+            subpath = str(body.get('path', '') or '').lstrip('/')
+            if not subpath:
+                self._send_json({'ok': False, 'error': 'path が必要です'}); return
+            target = self._obs_resolve(subpath)
+            if target.is_file():
+                target.unlink()
+            elif target.is_dir():
+                import shutil
+                shutil.rmtree(target)
+            self._send_json({'ok': True})
+        except Exception as ex:
+            self._send_json({'ok': False, 'error': str(ex)})
+
+    def _handle_obsidian_mkdir(self):
+        try:
+            body    = self._read_body()
+            subpath = str(body.get('path', '') or '').lstrip('/')
+            if not subpath:
+                self._send_json({'ok': False, 'error': 'path が必要です'}); return
+            target = self._obs_resolve(subpath)
+            target.mkdir(parents=True, exist_ok=True)
+            self._send_json({'ok': True})
+        except Exception as ex:
+            self._send_json({'ok': False, 'error': str(ex)})
+
+    def _handle_ssh_add_pubkey(self):
+        """iPhone (iSH 等) の SSH 公開鍵を authorized_keys に追加する。"""
+        try:
+            body   = self._read_body()
+            pubkey = str(body.get('pubkey') or '').strip()
+            label  = str(body.get('label') or 'kintai-client').strip()
+            if not pubkey or not pubkey.split()[0].startswith('ssh-'):
+                self._send_json({'ok': False, 'error': '無効な公開鍵です（ssh-ed25519 / ssh-rsa で始まる文字列を貼り付けてください）'})
+                return
+            auth_path = Path.home() / '.ssh' / 'authorized_keys'
+            auth_path.parent.mkdir(mode=0o700, exist_ok=True)
+            existing = auth_path.read_text(encoding='utf-8') if auth_path.exists() else ''
+            # base64 部分で重複チェック
+            parts = pubkey.split()
+            key_b64 = parts[1] if len(parts) >= 2 else pubkey
+            if key_b64 in existing:
+                self._send_json({'ok': True, 'note': 'すでに登録済みです'})
+                return
+            # ラベルを付与して追記
+            entry = f'{pubkey} {label}\n' if len(parts) < 3 else f'{pubkey}\n'
+            with open(auth_path, 'a', encoding='utf-8') as f:
+                f.write(entry)
+            auth_path.chmod(0o600)
+            print(f'[INFO] SSH 公開鍵追加: {label}', flush=True)
+            self._send_json({'ok': True, 'note': f'公開鍵 "{label}" を追加しました'})
+        except Exception as ex:
+            self._send_json({'ok': False, 'error': str(ex)})
 
     def _handle_tunnel_url(self):
         """Cloudflare Quick Tunnel の現在 URL を返す。"""
@@ -1484,7 +1704,7 @@ if __name__ == '__main__':
     def _rotate_logs():
         """全ログファイルをローテーション"""
         for name in ('server.log', 'server_err.log', 'watchdog.log', 'watchdog_err.log',
-                     'jinjer_end.log', 'jinjer_end_err.log'):
+                     'jinjer_end.log', 'jinjer_end_err.log', 'memo.log'):
             _rotate_one(_LOG_DIR / name)
 
     def _rotate_loop():

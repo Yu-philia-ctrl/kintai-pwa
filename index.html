@@ -431,9 +431,9 @@
       font-size:14px; font-family:inherit; background:#fff;
     }
     .memo-textarea {
-      width:100%; min-height:80px; resize:vertical;
+      width:100%; min-height:120px; resize:vertical;
       border-radius:12px; border:1px solid var(--border-soft);
-      padding:10px; font-size:13px; font-family:inherit;
+      padding:12px; font-size:14px; font-family:inherit; line-height:1.6;
     }
     .dup-row { display:flex; gap:8px; margin:4px 0 10px; }
     .dup-row .btn-secondary { flex:1; }
@@ -1205,7 +1205,36 @@
     }
     .memo-list-item {
       background:var(--bg-glass); border:1px solid var(--border-soft);
-      border-radius:10px; padding:8px 10px; margin-bottom:6px;
+      border-radius:12px; padding:12px 14px; margin-bottom:8px;
+    }
+    /* ======= Obsidian DB Tab ======= */
+    .obs-layout { display:flex; gap:0; height:calc(100vh - 120px); min-height:400px; overflow:hidden; }
+    .obs-sidebar { width:220px; flex-shrink:0; border-right:1px solid var(--border-soft); overflow-y:auto; background:var(--bg-glass); border-radius:12px 0 0 12px; }
+    .obs-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .obs-toolbar { display:flex; gap:6px; padding:8px 10px; border-bottom:1px solid var(--border-soft); flex-shrink:0; flex-wrap:wrap; align-items:center; }
+    .obs-editor-wrap { flex:1; display:flex; overflow:hidden; }
+    .obs-editor { flex:1; resize:none; border:none; outline:none; padding:14px; font-size:14px; font-family:'SF Mono',monospace; line-height:1.7; background:var(--bg-base); color:var(--text-primary); }
+    .obs-preview { flex:1; overflow-y:auto; padding:14px 20px; font-size:14px; line-height:1.8; border-left:1px solid var(--border-soft); background:var(--bg-base); }
+    .obs-preview h1,.obs-preview h2,.obs-preview h3 { color:var(--text-primary); font-weight:700; margin:16px 0 8px; }
+    .obs-preview h1 { font-size:20px; } .obs-preview h2 { font-size:17px; } .obs-preview h3 { font-size:15px; }
+    .obs-preview p { margin:0 0 10px; } .obs-preview code { background:var(--bg-glass); padding:1px 5px; border-radius:4px; font-family:monospace; font-size:12px; }
+    .obs-preview pre { background:var(--bg-glass); padding:10px; border-radius:8px; overflow-x:auto; }
+    .obs-preview pre code { background:none; padding:0; }
+    .obs-preview blockquote { border-left:3px solid var(--accent-blue); padding-left:12px; margin:8px 0; color:var(--text-muted); }
+    .obs-preview ul,.obs-preview ol { padding-left:20px; margin:0 0 10px; }
+    .obs-preview a { color:var(--accent-blue); }
+    .obs-preview table { border-collapse:collapse; width:100%; margin:10px 0; }
+    .obs-preview th,.obs-preview td { border:1px solid var(--border-soft); padding:4px 8px; font-size:13px; }
+    .obs-file-item { display:flex; align-items:center; gap:6px; padding:6px 10px; font-size:12px; cursor:pointer; border-radius:6px; margin:1px 4px; user-select:none; }
+    .obs-file-item:hover { background:var(--bg-card); }
+    .obs-file-item.active { background:var(--accent-blue); color:#fff; }
+    .obs-file-item.is-dir { font-weight:700; color:var(--text-muted); }
+    .obs-breadcrumb { font-size:11px; color:var(--text-muted); padding:6px 10px; border-bottom:1px solid var(--border-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    @media (max-width: 600px) {
+      .obs-layout { flex-direction:column; height:auto; }
+      .obs-sidebar { width:100%; max-height:180px; border-right:none; border-bottom:1px solid var(--border-soft); border-radius:12px 12px 0 0; }
+      .obs-editor-wrap { flex-direction:column; }
+      .obs-preview { border-left:none; border-top:1px solid var(--border-soft); max-height:300px; }
     }
     .report-actions {
       display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
@@ -2457,6 +2486,7 @@
       <div class="report-actions">
         <button class="data-btn" id="btn-report-load">📥 Excel 読み込み</button>
         <button class="data-btn" id="btn-report-merge">🔄 勤怠から反映</button>
+        <button class="data-btn" id="btn-report-writeback" disabled>💾 Excelに保存</button>
         <button class="data-btn" id="btn-report-sync">📤 kintai から同期</button>
         <button class="data-btn" id="btn-report-generate">➕ 翌月を自動生成</button>
       </div>
@@ -3729,8 +3759,78 @@
       <div id="tailscale-terminal-status" style="font-size:12px;color:var(--text-muted);line-height:1.8;">
         確認中...
       </div>
-      <div style="margin-top:8px;font-size:11px;color:var(--text-muted);">
-        外部から接続するには: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">sudo tailscaled &amp;&amp; tailscale up</code> を実行してください
+    </div>
+    <!-- SSH接続カード -->
+    <div class="card">
+      <div class="card-title">🔑 SSH接続 (iSH / 外部クライアント)</div>
+      <div id="ssh-info-area" style="font-size:12px;color:var(--text-muted);line-height:2;margin-bottom:10px;">確認中...</div>
+      <!-- iPhone 公開鍵登録 -->
+      <details style="margin-top:6px;">
+        <summary style="font-size:12px;font-weight:700;cursor:pointer;padding:6px 0;">
+          📱 iSH の公開鍵を登録する
+        </summary>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-muted);line-height:1.7;margin-bottom:6px;">
+          iSH で <code style="background:var(--bg-glass);padding:1px 5px;border-radius:4px;">ssh-keygen -t ed25519</code> を実行し、<br>
+          <code style="background:var(--bg-glass);padding:1px 5px;border-radius:4px;">cat ~/.ssh/id_ed25519.pub</code> の出力を貼り付けてください。
+        </div>
+        <textarea id="ssh-pubkey-input" class="memo-textarea" style="min-height:70px;font-size:11px;font-family:monospace;" placeholder="ssh-ed25519 AAAA... label"></textarea>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <input type="text" id="ssh-pubkey-label" class="settings-input" placeholder="ラベル (例: iPhone-iSH)" style="flex:1;font-size:12px;">
+          <button id="ssh-pubkey-add-btn" class="btn-primary" style="font-size:12px;padding:8px 14px;">追加</button>
+        </div>
+        <div id="ssh-pubkey-result" style="font-size:11px;margin-top:6px;color:var(--accent-green);"></div>
+      </details>
+    </div>
+  </div>
+
+  <div id="page-obsidian" class="tab-page">
+    <!-- ヘッダー -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+      <div style="font-size:16px;font-weight:800;">📓 Obsidian DB</div>
+      <span id="obs-vault-label" style="font-size:11px;color:var(--text-muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+      <button id="obs-settings-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;">⚙️ Vault設定</button>
+    </div>
+    <!-- Vault設定パネル (折りたたみ) -->
+    <div id="obs-settings-panel" style="display:none;margin-bottom:10px;">
+      <div class="card" style="margin-bottom:0;">
+        <div class="settings-label">Obsidian Vault パス</div>
+        <div style="display:flex;gap:6px;margin-top:4px;">
+          <input type="text" id="obs-vault-path-input" class="settings-input" placeholder="~/Documents/Obsidian" style="flex:1;font-size:12px;">
+          <button id="obs-vault-save-btn" class="btn-primary" style="font-size:12px;padding:8px 14px;">保存</button>
+        </div>
+        <div id="obs-vault-status" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
+      </div>
+    </div>
+    <!-- メインレイアウト -->
+    <div class="obs-layout card" style="padding:0;">
+      <!-- サイドバー (ファイルツリー) -->
+      <div class="obs-sidebar">
+        <div style="display:flex;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border-soft);">
+          <span style="font-size:12px;font-weight:700;flex:1;">ファイル</span>
+          <button id="obs-new-note-btn" title="新規ノート" style="border:none;background:none;cursor:pointer;font-size:16px;padding:2px;">📝</button>
+          <button id="obs-new-folder-btn" title="新規フォルダ" style="border:none;background:none;cursor:pointer;font-size:16px;padding:2px;">📁</button>
+          <button id="obs-refresh-btn" title="更新" style="border:none;background:none;cursor:pointer;font-size:16px;padding:2px;">🔄</button>
+        </div>
+        <div id="obs-file-tree" style="padding:4px 0;"></div>
+      </div>
+      <!-- メインエリア -->
+      <div class="obs-main">
+        <div class="obs-toolbar">
+          <span id="obs-current-path" style="font-size:11px;color:var(--text-muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— ファイルを選択 —</span>
+          <button id="obs-toggle-preview" class="btn-secondary" style="font-size:11px;padding:4px 10px;">👁 プレビュー</button>
+          <button id="obs-save-btn" class="btn-primary" style="font-size:11px;padding:4px 12px;">💾 保存</button>
+          <button id="obs-delete-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;color:#e57373;">🗑</button>
+        </div>
+        <div id="obs-autosave-indicator" style="font-size:10px;color:var(--accent-green);padding:2px 10px;display:none;">自動保存中...</div>
+        <div class="obs-editor-wrap" id="obs-editor-wrap">
+          <textarea id="obs-editor" class="obs-editor" placeholder="ファイルを選択するか、新規ノートを作成してください..."></textarea>
+          <div id="obs-preview-pane" class="obs-preview" style="display:none;"></div>
+        </div>
+        <div id="obs-no-server" style="display:none;padding:20px;text-align:center;color:var(--text-muted);font-size:12px;">
+          ⚠️ ローカルサーバーに接続できません。<br>
+          <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">http://localhost:8899/</code> からアクセスするか、<br>
+          Tailscale 経由でサーバーに接続してください。
+        </div>
       </div>
     </div>
   </div>
@@ -4415,7 +4515,7 @@
         el.innerHTML = `
           <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">${chips}</div>
           <div style="display:flex;gap:6px;align-items:flex-start;">
-            <textarea class="memo-textarea memo-list-ta" data-idx="${i}" style="flex:1;min-height:52px;" placeholder="メモを入力">${item.text || ''}</textarea>
+            <textarea class="memo-textarea memo-list-ta" data-idx="${i}" style="flex:1;min-height:100px;" placeholder="メモを入力">${item.text || ''}</textarea>
             <button class="btn-secondary memo-list-del" data-idx="${i}" type="button" style="padding:4px 8px;flex-shrink:0;font-size:15px;line-height:1;" title="削除">×</button>
           </div>`;
         wrap.appendChild(el);
@@ -6032,7 +6132,7 @@
 
     // 設定モーダルが開くたびに Tunnel 状態を更新（btn-settings click handler 内で直接呼び出し）
 
-    // 外部HTTPS URL 自動検出ボタン
+    // 外部URL 自動検出ボタン (Tailscale HTTPS Serve または Tailscale IP)
     document.getElementById('settings-ext-url-detect')?.addEventListener('click', async () => {
       const btn = document.getElementById('settings-ext-url-detect');
       btn.textContent = '⏳…';
@@ -6041,11 +6141,13 @@
         const r = await fetch('http://localhost:8899/api/tailscale-url', { signal: AbortSignal.timeout(6000) });
         if (r.ok) {
           const data = await r.json();
-          if (data.https_url) {
-            document.getElementById('settings-ext-url').value = data.https_url;
-            toast(`✅ 検出: ${data.https_url}`);
+          const url = data.https_url || data.http_url;
+          if (url) {
+            document.getElementById('settings-ext-url').value = url;
+            const type = data.https_url ? 'HTTPS Serve' : `Tailscale IP (${data.tailscale_ip})`;
+            toast(`✅ 検出 [${type}]: ${url}`);
           } else {
-            toast('⚠ Tailscale URL が見つかりません。先に "tailscale serve --bg 8899" を実行してください。');
+            toast('⚠ Tailscale が検出できません。"tailscale up" を実行してVPNに接続してください。');
           }
         } else {
           throw new Error(`HTTP ${r.status}`);
@@ -6107,7 +6209,18 @@
       // テキストが空のエントリは除去
       const memo_list = _memoList.filter(m => m.text.trim());
       const ok = saveAttendance(currentEditDate, status, memo_list, start, end, work_content);
-      if (ok) { closeModal(); toast('保存しました'); }
+      if (ok) {
+        closeModal(); toast('保存しました');
+        // サーバーにメモをログ保存（fire-and-forget）
+        if (memo_list.length > 0 || work_content) {
+          const srv = window._srvBase || 'http://localhost:8899';
+          fetch(`${srv}/api/memo-log`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ dateStr: currentEditDate, memo_list, work_content })
+          }).catch(() => {});
+        }
+      }
     });
 
     // Duplicate: last template
@@ -7207,6 +7320,31 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v48', date: '2026-03-02',
+          title: '🛠 ターミナル修正 + 報告書Excel書き戻し + Obsidian DBタブ',
+          items: [
+            { tag: 'fix',     text: 'ターミナルタブ: Safari popupブロック修正 (window.open同期化)、inline HTTP→HTTPS混在警告追加' },
+            { tag: 'fix',     text: 'refreshTtydStatus: d変数スコープバグ修正 (_ttydData変数に変更)' },
+            { tag: 'feature', text: '報告書タブ: 「💾 Excelに保存」ボタン追加。showDirectoryPicker(readwrite)で開いたファイルに直接書き戻し' },
+            { tag: 'feature', text: 'Obsidian DBタブ: Vault内の.mdファイルをサーバー経由で読み書き。ファイルツリー+マークダウンエディタ+プレビュー' },
+            { tag: 'feature', text: 'Obsidian自動保存: 2秒デバウンス。編集した内容がVaultファイルに即時反映されObsidianと同期' },
+            { tag: 'feature', text: 'Obsidian API: GET /api/obsidian/list|read, POST /api/obsidian/write|delete|mkdir|config' },
+          ],
+        },
+        {
+          version: 'v47', date: '2026-03-02',
+          title: '📝 メモUI拡大 + メモサーバーログ + Tailscale IP自動適用 + SSH公開鍵登録',
+          items: [
+            { tag: 'feature', text: 'メモ枠を大型化: textarea min-height 52→100px、フォントサイズ13→14px、行間1.6で読みやすく' },
+            { tag: 'feature', text: 'メモ保存時にサーバーへ自動POST (fire-and-forget): logs/memo.log に日付・カテゴリ・内容を記録。ローテーション対象に追加' },
+            { tag: 'feature', text: 'POST /api/memo-log: 勤怠メモをサーバーログに保存 (work_content + memo_list[{cat,text}])' },
+            { tag: 'feature', text: 'GET /api/tailscale-url: tailscale ip -4 も試行し http_url (http://100.65.221.66:8899) を追加返却' },
+            { tag: 'feature', text: '設定「自動検出」: https_url がなければ Tailscale IP の http_url を外部URLとして設定' },
+            { tag: 'feature', text: 'ターミナルタブ: SSH接続カード追加。Tailscale IP / LAN IP で ssh コマンドをコピー表示' },
+            { tag: 'feature', text: '公開鍵登録UI: iSHで生成した公開鍵を貼り付けて「追加」→ POST /api/ssh/add-pubkey → authorized_keysに追記' },
+          ],
+        },
+        {
           version: 'v46', date: '2026-03-02',
           title: '🖥 ターミナルタブ追加 (ttyd) + 公開鍵SSH認証',
           items: [
@@ -7624,7 +7762,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v46';
+        const swVer = 'kintai-v48';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -10594,6 +10732,7 @@
        REPORT TAB — 業務報告書管理
        ===================================================== */
     const _getRS = () => window._srvBase || 'http://localhost:8899';
+    let _reportCurrentFileEntry = null; // FileSystemFileHandle for write-back
     let _reportList       = [];   // ファイル一覧キャッシュ
     let _reportData       = null; // 現在表示中の月データ
     let _reportMonth      = null; // 'YYYY-MM'
@@ -10755,6 +10894,58 @@
 
       document.getElementById('btn-report-merge')?.addEventListener('click', _mergeKintaiToReport);
 
+      // Excelに書き戻し
+      async function _writeBackExcel() {
+        if (!_reportCurrentFileEntry) { toast('⚠️ ファイルが選択されていません'); return; }
+        if (!_reportData?.days?.length) { toast('⚠️ データがありません'); return; }
+        try {
+          await loadXlsxLib();
+          // 元のファイルを読み込んで修正
+          const origFile = await _reportCurrentFileEntry.getFile();
+          const ab = await origFile.arrayBuffer();
+          const wb = XLSX.read(ab, { type: 'array', cellDates: true });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          // days データをシートに書き込み
+          // Excel構造: col A=日付, C=開始, D=終了, E=休憩, F=合計, G=作業内容, L=備考 (row 12以降)
+          for (let r = 12; r <= 43; r++) {
+            const dateVal = ws[`A${r}`]?.v;
+            if (!dateVal) continue;
+            let dateStr;
+            if (dateVal instanceof Date) {
+              dateStr = dateVal.toISOString().slice(0, 10);
+            } else if (typeof dateVal === 'number') {
+              const d = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
+              dateStr = d.toISOString().slice(0, 10);
+            } else continue;
+            const day = _reportData.days.find(d => d.date === dateStr);
+            if (!day) continue;
+            const safe = (addr, val) => {
+              if (!val && val !== 0) return;
+              if (!ws[addr]) ws[addr] = {};
+              if (ws[addr].t === 'z') return; // merged cell skip
+              ws[addr].v = val;
+              ws[addr].t = 's';
+            };
+            safe(`C${r}`, day.start || '');
+            safe(`D${r}`, day.end   || '');
+            safe(`E${r}`, day.break || '');
+            safe(`F${r}`, day.total || '');
+            safe(`G${r}`, day.content || '');
+            safe(`L${r}`, day.remark  || '');
+          }
+          // ファイルに書き込み
+          const writable = await _reportCurrentFileEntry.createWritable();
+          const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+          await writable.write(new Uint8Array(buf));
+          await writable.close();
+          toast('✅ Excel ファイルに保存しました');
+        } catch(e) {
+          toast(`❌ 保存失敗: ${e.message}`);
+          console.error(e);
+        }
+      }
+      document.getElementById('btn-report-writeback')?.addEventListener('click', _writeBackExcel);
+
       document.getElementById('btn-report-sync')?.addEventListener('click', async () => {
         if (!_reportMonth) { toast('月を選択してください'); return; }
         await syncKintaiToReport(_reportMonth);
@@ -10796,7 +10987,7 @@
         // Mac Chrome/Safari 15.2+: showDirectoryPicker
         if (typeof showDirectoryPicker === 'function') {
           try {
-            const handle = await showDirectoryPicker({ mode: 'read' });
+            const handle = await showDirectoryPicker({ mode: 'readwrite' });
             await _listReportFiles(handle);
             // IDB に永続化（次回再接続用）
             try { await idbSaveConfig({ report_dir_handle: handle }); } catch(_) {}
@@ -10832,9 +11023,11 @@
           listEl.querySelectorAll('.report-folder-file').forEach((btn, i) => {
             btn.addEventListener('click', async () => {
               try {
-                const fh = await files[i].entry.getFile();
+                _reportCurrentFileEntry = files[i].entry; // store FileSystemFileHandle
+                const fh = await _reportCurrentFileEntry.getFile();
                 await _loadXlsxFile(fh);
                 section.style.display = 'none';
+                document.getElementById('btn-report-writeback')?.removeAttribute('disabled');
               } catch(e) { toast(`⚠️ ${e.message}`); }
             });
           });
@@ -13762,6 +13955,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         { id: 'bizai',     icon: '🗂', label: '業務AI',      defaultVisible: true  },
         { id: 'docker',    icon: '🐳', label: 'Docker',      defaultVisible: true  },
         { id: 'terminal',  icon: '🖥', label: 'ターミナル',  defaultVisible: true  },
+        { id: 'obsidian',  icon: '📓', label: 'Obsidian',     defaultVisible: true  },
       ];
 
       // ── カスタムタブ CRUD ──────────────────────────────────────────────────
@@ -13865,6 +14059,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         if (tabName === 'perf')     { if (window._initPerfTab) window._initPerfTab(); }
         if (tabName === 'docker')   { if (window._initDockerTab) window._initDockerTab(); }
         if (tabName === 'terminal') { if (window._initTerminalTab) window._initTerminalTab(); }
+        if (tabName === 'obsidian') { if (window._initObsidianTab) window._initObsidianTab(); }
       }
       window._switchTab = switchTab;
 
@@ -15149,30 +15344,53 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         const tsEl  = document.getElementById('tailscale-terminal-status');
         if (!dotEl) return;
         const base = window._srvBase || 'http://localhost:8899';
+        let _ttydData = null;
         try {
           const r = await fetch(`${base}/api/ttyd-url`, { signal: AbortSignal.timeout(4000) });
           if (!r.ok) throw new Error();
-          const d = await r.json();
-          if (d.host_ip) {
-            _ttydIp = d.host_ip;
-            try { localStorage.setItem(_TTYD_IP_KEY, d.host_ip); } catch(_) {}
+          _ttydData = await r.json();
+          if (_ttydData.host_ip) {
+            _ttydIp = _ttydData.host_ip;
+            try { localStorage.setItem(_TTYD_IP_KEY, _ttydData.host_ip); } catch(_) {}
           }
-          dotEl.innerHTML = d.running
+          dotEl.innerHTML = _ttydData.running
             ? '<span style="color:var(--accent-green);">● 稼働中</span>'
             : '<span style="color:#e57373;">● 停止中</span>';
           if (urlEl) urlEl.textContent = _getTtydUrl();
         } catch {
           dotEl.innerHTML = '<span style="color:var(--text-muted);">— サーバー未接続</span>';
         }
-        // Tailscale状態
+        // Tailscale状態 + SSH情報
+        const sshEl = document.getElementById('ssh-info-area');
         try {
           const tr = await fetch(`${base}/api/tailscale-url`, { signal: AbortSignal.timeout(3000) });
           const td = await tr.json();
           if (tsEl) {
-            if (td.https_url) {
-              tsEl.innerHTML = `✅ 接続中: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${td.https_url}</code><br>外部からも <a href="http://${new URL(td.https_url).hostname}:${_ttydPort}" target="_blank" rel="noopener" style="color:var(--accent-blue);">ttyd アクセス</a> できます`;
+            if (td.https_url || td.http_url) {
+              const showUrl = td.https_url || td.http_url;
+              const tsIp = td.tailscale_ip || '';
+              const ttydLink = tsIp ? `http://${tsIp}:${_ttydPort}` : '';
+              tsEl.innerHTML =
+                `✅ 接続中 — Tailscale IP: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${tsIp}</code><br>` +
+                (td.https_url ? `🔒 HTTPS Serve: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${td.https_url}</code><br>` : '') +
+                `🔌 API (HTTP): <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${td.http_url || ''}</code>` +
+                (ttydLink ? `<br>🖥 ttyd 外部: <a href="${ttydLink}" target="_blank" rel="noopener" style="color:var(--accent-blue);">${ttydLink}</a>` : '');
+              // Tailscale IPをキャッシュして ttyd URL も更新
+              if (tsIp && !_ttydIp) {
+                _ttydIp = tsIp;
+                try { localStorage.setItem(_TTYD_IP_KEY, tsIp); } catch(_) {}
+                if (urlEl) urlEl.textContent = _getTtydUrl();
+              }
+              if (sshEl) {
+                const sshCmd = tsIp ? `ssh crystallization@${tsIp}` : '';
+                const lanIp = _ttydData?.host_ip || '';
+                sshEl.innerHTML =
+                  (sshCmd ? `🌐 外部 (Tailscale): <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;user-select:all;">${sshCmd}</code><br>` : '') +
+                  (lanIp  ? `🏠 LAN: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;user-select:all;">ssh crystallization@${lanIp}</code>` : '');
+              }
             } else {
               tsEl.innerHTML = '⚠️ 未接続 — <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">tailscale up</code> を実行して VPN に接続してください';
+              if (sshEl && _ttydData?.host_ip) sshEl.innerHTML = `🏠 LAN のみ: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;user-select:all;">ssh crystallization@${_ttydData.host_ip}</code>`;
             }
           }
         } catch {
@@ -15181,17 +15399,27 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       }
 
       document.getElementById('ttyd-open-btn')?.addEventListener('click', async () => {
+        // Open immediately (synchronous) to avoid Safari popup blocking, then redirect
+        const win = window.open('about:blank', '_blank', 'noopener');
         if (!_ttydIp) await refreshTtydStatus();
-        window.open(_getTtydUrl(), '_blank', 'noopener');
+        const url = _getTtydUrl();
+        if (win) win.location.href = url;
+        else window.open(url, '_blank', 'noopener');
       });
 
       document.getElementById('ttyd-open-inline-btn')?.addEventListener('click', async () => {
         if (!_ttydIp) await refreshTtydStatus();
+        const url = _getTtydUrl();
+        // Check if we're on HTTPS (GitHub Pages) - iframe to HTTP would be blocked
+        if (location.protocol === 'https:' && url.startsWith('http:')) {
+          toast('💡 HTTPS ページからHTTP埋め込みはブラウザがブロックします。「ターミナルを開く」をご利用ください。');
+          return;
+        }
         const wrap = document.getElementById('ttyd-inline-wrap');
         const iframe = document.getElementById('ttyd-iframe');
         if (!wrap || !iframe) return;
         if (wrap.style.display === 'none') {
-          iframe.src = _getTtydUrl();
+          iframe.src = url;
           wrap.style.display = 'block';
         } else {
           wrap.style.display = 'none';
@@ -15206,7 +15434,285 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
 
       document.getElementById('ttyd-refresh-btn')?.addEventListener('click', refreshTtydStatus);
 
+      // SSH 公開鍵登録
+      document.getElementById('ssh-pubkey-add-btn')?.addEventListener('click', async () => {
+        const pubkey = (document.getElementById('ssh-pubkey-input')?.value || '').trim();
+        const label  = (document.getElementById('ssh-pubkey-label')?.value || 'kintai-client').trim();
+        const resEl  = document.getElementById('ssh-pubkey-result');
+        if (!pubkey) { if (resEl) resEl.textContent = '公開鍵を入力してください'; return; }
+        if (!pubkey.startsWith('ssh-')) { if (resEl) resEl.textContent = '❌ ssh-ed25519 または ssh-rsa で始まる鍵を貼り付けてください'; return; }
+        if (resEl) resEl.textContent = '⏳ 追加中...';
+        const base = window._srvBase || 'http://localhost:8899';
+        try {
+          const r = await fetch(`${base}/api/ssh/add-pubkey`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ pubkey, label })
+          });
+          const d = await r.json();
+          if (resEl) resEl.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error}`;
+          if (d.ok) { document.getElementById('ssh-pubkey-input').value = ''; }
+        } catch(e) {
+          if (resEl) resEl.textContent = '❌ サーバーに接続できません。ローカルサーバーが起動中か確認してください。';
+        }
+      });
+
       window._initTerminalTab = refreshTtydStatus;
+    })();
+
+    /* =====================================================
+       OBSIDIAN DB TAB
+       ===================================================== */
+    (function initObsidianTab() {
+      const MARKED_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js';
+      let _obsInited = false;
+      let _obsCurrentPath = '';
+      let _obsShowPreview = false;
+      let _obsAutoSaveTimer = null;
+      let _obsDirStack = ['']; // breadcrumb stack
+
+      function _obsBase() { return window._srvBase || 'http://localhost:8899'; }
+
+      async function _loadMarked() {
+        if (typeof marked !== 'undefined') return;
+        return new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = MARKED_CDN;
+          s.onload = res;
+          s.onerror = () => rej(new Error('marked.js の読み込みに失敗'));
+          document.head.appendChild(s);
+        });
+      }
+
+      async function _obsInit() {
+        if (_obsInited) return;
+        _obsInited = true;
+        try {
+          const r = await fetch(`${_obsBase()}/api/obsidian/config`, { signal: AbortSignal.timeout(3000) });
+          if (!r.ok) throw new Error();
+          const cfg = await r.json();
+          const label = document.getElementById('obs-vault-label');
+          const inp = document.getElementById('obs-vault-path-input');
+          if (label) label.textContent = cfg.vault_path || '未設定';
+          if (inp) inp.value = cfg.vault_path || '';
+          if (!cfg.vault_path || !cfg.exists) {
+            document.getElementById('obs-settings-panel').style.display = 'block';
+            document.getElementById('obs-vault-status').textContent = '⚠️ Vault パスが存在しません。パスを設定してください。';
+          }
+          document.getElementById('obs-no-server').style.display = 'none';
+          await _obsLoadTree('');
+        } catch {
+          document.getElementById('obs-no-server').style.display = 'block';
+        }
+      }
+
+      async function _obsLoadTree(subpath) {
+        const treeEl = document.getElementById('obs-file-tree');
+        if (!treeEl) return;
+        treeEl.innerHTML = '<div style="padding:8px 14px;font-size:11px;color:var(--text-muted);">読み込み中...</div>';
+        try {
+          const r = await fetch(`${_obsBase()}/api/obsidian/list?path=${encodeURIComponent(subpath)}`, { signal: AbortSignal.timeout(5000) });
+          const d = await r.json();
+          if (d.error) { treeEl.innerHTML = `<div style="padding:8px;font-size:11px;color:#e57373;">${d.error}</div>`; return; }
+          treeEl.innerHTML = '';
+          // 親ディレクトリへ戻るボタン
+          if (subpath) {
+            const back = document.createElement('div');
+            back.className = 'obs-file-item is-dir';
+            back.innerHTML = '⬆️ ..';
+            back.addEventListener('click', () => {
+              const parts = subpath.split('/');
+              parts.pop();
+              _obsLoadTree(parts.join('/'));
+            });
+            treeEl.appendChild(back);
+          }
+          d.items.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'obs-file-item' + (item.type === 'dir' ? ' is-dir' : '');
+            if (item.path === _obsCurrentPath) el.classList.add('active');
+            const icon = item.type === 'dir' ? '📁' : (item.ext === '.md' ? '📝' : '📄');
+            el.innerHTML = `${icon} ${item.name}`;
+            el.addEventListener('click', async () => {
+              if (item.type === 'dir') {
+                await _obsLoadTree(item.path);
+              } else {
+                await _obsOpenFile(item.path);
+                treeEl.querySelectorAll('.obs-file-item').forEach(e => e.classList.remove('active'));
+                el.classList.add('active');
+              }
+            });
+            treeEl.appendChild(el);
+          });
+          if (d.items.length === 0 && !subpath) {
+            treeEl.innerHTML = '<div style="padding:10px;font-size:11px;color:var(--text-muted);text-align:center;">ノートがありません<br>📝 ボタンで新規作成</div>';
+          }
+        } catch(e) {
+          treeEl.innerHTML = `<div style="padding:8px;font-size:11px;color:#e57373;">読み込み失敗: ${e.message}</div>`;
+        }
+      }
+
+      async function _obsOpenFile(path) {
+        try {
+          const r = await fetch(`${_obsBase()}/api/obsidian/read?path=${encodeURIComponent(path)}`, { signal: AbortSignal.timeout(5000) });
+          const d = await r.json();
+          if (d.error) { toast(`❌ ${d.error}`); return; }
+          _obsCurrentPath = path;
+          const editor = document.getElementById('obs-editor');
+          const pathEl = document.getElementById('obs-current-path');
+          if (editor) { editor.value = d.content; editor.disabled = false; }
+          if (pathEl) pathEl.textContent = path;
+          _obsUpdatePreview();
+          document.getElementById('obs-delete-btn').style.opacity = '1';
+          document.getElementById('obs-delete-btn').disabled = false;
+        } catch(e) {
+          toast(`❌ 読み込み失敗: ${e.message}`);
+        }
+      }
+
+      async function _obsSave() {
+        if (!_obsCurrentPath) { toast('保存するファイルが選択されていません'); return; }
+        const content = document.getElementById('obs-editor')?.value || '';
+        try {
+          const r = await fetch(`${_obsBase()}/api/obsidian/write`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ path: _obsCurrentPath, content })
+          });
+          const d = await r.json();
+          if (d.ok) { toast('💾 Obsidianに保存しました'); }
+          else toast(`❌ ${d.error}`);
+        } catch(e) { toast(`❌ 保存失敗: ${e.message}`); }
+      }
+
+      async function _obsUpdatePreview() {
+        if (!_obsShowPreview) return;
+        try {
+          await _loadMarked();
+          const content = document.getElementById('obs-editor')?.value || '';
+          const prev = document.getElementById('obs-preview-pane');
+          if (prev) prev.innerHTML = marked.parse(content);
+        } catch(_) {}
+      }
+
+      function _obsScheduleAutoSave() {
+        clearTimeout(_obsAutoSaveTimer);
+        if (!_obsCurrentPath) return;
+        const ind = document.getElementById('obs-autosave-indicator');
+        if (ind) ind.style.display = 'block';
+        _obsAutoSaveTimer = setTimeout(async () => {
+          await _obsSave();
+          if (ind) ind.style.display = 'none';
+        }, 2000);
+      }
+
+      // ── イベント登録 ──────────────────────────────────────────
+      document.getElementById('obs-settings-btn')?.addEventListener('click', () => {
+        const p = document.getElementById('obs-settings-panel');
+        if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
+      });
+
+      document.getElementById('obs-vault-save-btn')?.addEventListener('click', async () => {
+        const val = document.getElementById('obs-vault-path-input')?.value.trim();
+        if (!val) { toast('パスを入力してください'); return; }
+        try {
+          const r = await fetch(`${_obsBase()}/api/obsidian/config`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ vault_path: val })
+          });
+          const d = await r.json();
+          if (d.ok) {
+            toast(`✅ Vault パスを保存しました: ${val}`);
+            document.getElementById('obs-vault-label').textContent = val;
+            document.getElementById('obs-settings-panel').style.display = 'none';
+            _obsInited = false;
+            await _obsInit();
+          } else toast(`❌ ${d.error}`);
+        } catch(e) { toast(`❌ ${e.message}`); }
+      });
+
+      document.getElementById('obs-refresh-btn')?.addEventListener('click', async () => {
+        await _obsLoadTree(_obsDirStack[_obsDirStack.length - 1] || '');
+      });
+
+      document.getElementById('obs-new-note-btn')?.addEventListener('click', async () => {
+        const name = prompt('新規ノート名 (.md):');
+        if (!name) return;
+        const fname = name.endsWith('.md') ? name : name + '.md';
+        const curDir = _obsDirStack[_obsDirStack.length - 1] || '';
+        const path = curDir ? `${curDir}/${fname}` : fname;
+        try {
+          const r = await fetch(`${_obsBase()}/api/obsidian/write`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ path, content: `# ${name.replace('.md','')}\n\n` })
+          });
+          const d = await r.json();
+          if (d.ok) {
+            await _obsLoadTree(curDir);
+            await _obsOpenFile(path);
+            toast(`📝 ${fname} を作成しました`);
+          } else toast(`❌ ${d.error}`);
+        } catch(e) { toast(`❌ ${e.message}`); }
+      });
+
+      document.getElementById('obs-new-folder-btn')?.addEventListener('click', async () => {
+        const name = prompt('新規フォルダ名:');
+        if (!name) return;
+        const curDir = _obsDirStack[_obsDirStack.length - 1] || '';
+        const path = curDir ? `${curDir}/${name}` : name;
+        try {
+          const r = await fetch(`${_obsBase()}/api/obsidian/mkdir`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ path })
+          });
+          const d = await r.json();
+          if (d.ok) { await _obsLoadTree(curDir); toast(`📁 ${name} を作成しました`); }
+          else toast(`❌ ${d.error}`);
+        } catch(e) { toast(`❌ ${e.message}`); }
+      });
+
+      document.getElementById('obs-save-btn')?.addEventListener('click', _obsSave);
+
+      document.getElementById('obs-delete-btn')?.addEventListener('click', async () => {
+        if (!_obsCurrentPath) return;
+        if (!confirm(`「${_obsCurrentPath}」を削除しますか？`)) return;
+        try {
+          const r = await fetch(`${_obsBase()}/api/obsidian/delete`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ path: _obsCurrentPath })
+          });
+          const d = await r.json();
+          if (d.ok) {
+            toast(`🗑 削除しました`);
+            _obsCurrentPath = '';
+            document.getElementById('obs-editor').value = '';
+            document.getElementById('obs-current-path').textContent = '— ファイルを選択 —';
+            const curDir = _obsDirStack[_obsDirStack.length - 1] || '';
+            await _obsLoadTree(curDir);
+          } else toast(`❌ ${d.error}`);
+        } catch(e) { toast(`❌ ${e.message}`); }
+      });
+
+      document.getElementById('obs-toggle-preview')?.addEventListener('click', async () => {
+        _obsShowPreview = !_obsShowPreview;
+        const prev = document.getElementById('obs-preview-pane');
+        const btn = document.getElementById('obs-toggle-preview');
+        if (prev) prev.style.display = _obsShowPreview ? 'block' : 'none';
+        if (btn) btn.textContent = _obsShowPreview ? '✏️ 編集' : '👁 プレビュー';
+        if (_obsShowPreview) await _obsUpdatePreview();
+      });
+
+      document.getElementById('obs-editor')?.addEventListener('input', () => {
+        _obsUpdatePreview();
+        _obsScheduleAutoSave();
+      });
+
+      window._initObsidianTab = async () => {
+        await _obsInit();
+      };
     })();
 
     /* =====================================================
