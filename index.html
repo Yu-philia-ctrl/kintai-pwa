@@ -2403,6 +2403,15 @@
     </div>
 
     <!-- 株価画像分析カード -->
+    <!-- ===== SNS Intel ウィジェット ===== -->
+    <div class="card" id="hub-sns-widget">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin-bottom:0;">📡 SNS Intel</div>
+        <button class="btn-secondary" style="font-size:11px;padding:4px 10px;" onclick="window._switchTab('sns')">詳細 →</button>
+      </div>
+      <div id="hub-sns-latest" style="font-size:12px;color:var(--text-muted);">読み込み中...</div>
+    </div>
+
     <div class="card" id="stock-analysis-card">
       <div class="card-title">📈 株価画像分析 (AI)</div>
       <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">HEIC / JPG / PNG のチャート画像を選択して Claude AI にテクニカル分析させます</p>
@@ -3831,6 +3840,71 @@
           <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">http://localhost:8899/</code> からアクセスするか、<br>
           Tailscale 経由でサーバーに接続してください。
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: SNS Intel ===== -->
+  <div id="page-sns" class="tab-page">
+    <!-- ヘッダー + 統計チップ -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <div style="font-size:16px;font-weight:800;">📡 SNS Intel</div>
+      <span id="sns-status-dot" style="font-size:11px;color:var(--text-muted);">— 確認中</span>
+      <button id="sns-collect-btn" class="btn-primary" style="margin-left:auto;font-size:12px;padding:6px 14px;">⚡ 収集</button>
+    </div>
+    <!-- 統計バー -->
+    <div id="sns-stats-bar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="chip" id="sns-chip-total" style="background:var(--bg-glass);border:1px solid var(--border-soft);border-radius:20px;padding:4px 12px;font-size:12px;">総件数: —</span>
+      <span class="chip" id="sns-chip-unread" style="background:var(--bg-glass);border:1px solid var(--border-soft);border-radius:20px;padding:4px 12px;font-size:12px;">未読: —</span>
+      <span class="chip" id="sns-chip-platforms" style="background:var(--bg-glass);border:1px solid var(--border-soft);border-radius:20px;padding:4px 12px;font-size:12px;">プラットフォーム: —</span>
+    </div>
+    <!-- 検索・フィルタバー -->
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      <input type="text" id="sns-search" placeholder="キーワード検索..." style="flex:1;min-width:120px;padding:8px 12px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-glass);color:var(--text-main);font-size:13px;">
+      <select id="sns-filter-platform" style="padding:8px 10px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-glass);color:var(--text-main);font-size:12px;">
+        <option value="">全プラットフォーム</option>
+        <option value="twitter">Twitter/X</option>
+        <option value="reddit">Reddit</option>
+        <option value="hackernews">HackerNews</option>
+        <option value="crypto">Crypto</option>
+      </select>
+      <button id="sns-search-btn" class="btn-secondary" style="font-size:12px;padding:8px 14px;">🔍 検索</button>
+    </div>
+    <!-- アイテムグリッド -->
+    <div id="sns-items-grid" style="display:flex;flex-direction:column;gap:8px;min-height:200px;">
+      <div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px;">
+        SNS タブを選択すると自動読み込みします
+      </div>
+    </div>
+    <!-- ページネーション -->
+    <div id="sns-pagination" style="display:flex;gap:6px;justify-content:center;margin-top:12px;flex-wrap:wrap;"></div>
+    <!-- オフラインメッセージ -->
+    <div id="sns-offline-msg" style="display:none;text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">
+      ⚠️ SNS Collector (port 8900) がオフラインです。<br>
+      <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">python3 ~/root/sns-collector/collector_server.py</code> で起動してください。
+    </div>
+
+    <!-- 収益ダッシュボード -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-title">💰 収益ダッシュボード</div>
+      <div id="sns-income-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div style="flex:1;min-width:100px;background:var(--bg-glass);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:20px;font-weight:800;" id="sns-income-articles">—</div>
+          <div style="font-size:11px;color:var(--text-muted);">生成記事数</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:var(--bg-glass);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:20px;font-weight:800;" id="sns-income-month">¥—</div>
+          <div style="font-size:11px;color:var(--text-muted);">今月推定収益</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:var(--bg-glass);border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:20px;font-weight:800;" id="sns-income-stripe">¥—</div>
+          <div style="font-size:11px;color:var(--text-muted);">Stripe 入金</div>
+        </div>
+      </div>
+      <div id="sns-recent-articles" style="font-size:12px;color:var(--text-muted);">最新記事を読み込み中...</div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <a id="sns-collector-link" href="http://localhost:8900/" target="_blank" class="btn-primary" style="display:inline-block;font-size:12px;padding:8px 16px;text-decoration:none;">📡 SNS Collector を開く</a>
+        <a id="sns-payment-link" href="http://localhost:8900/pay" target="_blank" class="btn-secondary" style="display:inline-block;font-size:12px;padding:8px 16px;text-decoration:none;">💳 決済ページを開く</a>
       </div>
     </div>
   </div>
@@ -7320,7 +7394,7 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
-          version: 'v48', date: '2026-03-02',
+          version: 'v49', date: '2026-03-07',
           title: '🛠 ターミナル修正 + 報告書Excel書き戻し + Obsidian DBタブ',
           items: [
             { tag: 'fix',     text: 'ターミナルタブ: Safari popupブロック修正 (window.open同期化)、inline HTTP→HTTPS混在警告追加' },
@@ -7762,7 +7836,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v48';
+        const swVer = 'kintai-v49';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -13956,6 +14030,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         { id: 'docker',    icon: '🐳', label: 'Docker',      defaultVisible: true  },
         { id: 'terminal',  icon: '🖥', label: 'ターミナル',  defaultVisible: true  },
         { id: 'obsidian',  icon: '📓', label: 'Obsidian',     defaultVisible: true  },
+        { id: 'sns',       icon: '📡', label: 'SNS Intel',    defaultVisible: true  },
       ];
 
       // ── カスタムタブ CRUD ──────────────────────────────────────────────────
@@ -14044,7 +14119,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         });
         document.getElementById('fab-group')?.classList.toggle('hidden', tabName !== 'calendar');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); if (window._refreshDockerSysinfo) window._refreshDockerSysinfo(); if (window._miniserveCardRefresh) window._miniserveCardRefresh(); }
+        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); if (window._refreshDockerSysinfo) window._refreshDockerSysinfo(); if (window._miniserveCardRefresh) window._miniserveCardRefresh(); if (window._refreshHubSnsWidget) window._refreshHubSnsWidget(); }
         if (tabName === 'study')    renderStudy();
         if (tabName === 'project')  renderProjects();
         if (tabName === 'report')   { initReportTab(); }
@@ -14060,6 +14135,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         if (tabName === 'docker')   { if (window._initDockerTab) window._initDockerTab(); }
         if (tabName === 'terminal') { if (window._initTerminalTab) window._initTerminalTab(); }
         if (tabName === 'obsidian') { if (window._initObsidianTab) window._initObsidianTab(); }
+        if (tabName === 'sns')      { if (window._initSnsTab) window._initSnsTab(); }
       }
       window._switchTab = switchTab;
 
@@ -15712,6 +15788,166 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
 
       window._initObsidianTab = async () => {
         await _obsInit();
+      };
+    })();
+
+    /* =====================================================
+       SNS INTEL TAB
+       ===================================================== */
+    (() => {
+      const _getSnsApi = () => (window._srvBase || 'http://localhost:8899') + '/api/sns';
+      let _snsPage = 1;
+      const _snsPageSize = 20;
+
+      async function _snsFetch(sub, params = {}) {
+        const qs = new URLSearchParams(params).toString();
+        const url = `${_getSnsApi()}${sub}${qs ? '?' + qs : ''}`;
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }
+
+      function _snsCard(item) {
+        const ts = item.created_at ? new Date(item.created_at).toLocaleString('ja-JP') : '';
+        return `<div class="card" style="margin-bottom:0;padding:10px 14px;">
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${item.platform ? `<span style="font-size:10px;background:var(--bg-glass);border-radius:10px;padding:1px 7px;margin-right:4px;">${item.platform}</span>` : ''}
+                ${item.title || item.text?.substring(0, 80) || '—'}
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.url || ''}</div>
+              ${ts ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${ts}</div>` : ''}
+            </div>
+            ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener" class="btn-secondary" style="font-size:10px;padding:4px 10px;flex-shrink:0;text-decoration:none;">開く</a>` : ''}
+          </div>
+        </div>`;
+      }
+
+      async function _snsLoadItems() {
+        const grid = document.getElementById('sns-items-grid');
+        const offMsg = document.getElementById('sns-offline-msg');
+        if (!grid) return;
+        grid.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px;">読み込み中...</div>';
+        offMsg && (offMsg.style.display = 'none');
+        try {
+          const kw = document.getElementById('sns-search')?.value || '';
+          const pl = document.getElementById('sns-filter-platform')?.value || '';
+          const params = { page: _snsPage, limit: _snsPageSize };
+          if (kw) params.q = kw;
+          if (pl) params.platform = pl;
+          const data = await _snsFetch('/items', params);
+          const items = Array.isArray(data) ? data : (data.items || []);
+          if (!items.length) {
+            grid.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px;">データがありません</div>';
+            return;
+          }
+          grid.innerHTML = items.map(_snsCard).join('');
+          // ページネーション
+          const pg = document.getElementById('sns-pagination');
+          if (pg) {
+            const total = data.total || items.length;
+            const pages = Math.ceil(total / _snsPageSize);
+            pg.innerHTML = Array.from({length: Math.min(pages, 10)}, (_, i) => {
+              const p = i + 1;
+              return `<button class="btn-secondary" style="font-size:11px;padding:4px 10px;${p===_snsPage?'background:var(--accent-blue);color:#fff;':''}" data-page="${p}">${p}</button>`;
+            }).join('');
+            pg.querySelectorAll('button[data-page]').forEach(btn => {
+              btn.addEventListener('click', () => { _snsPage = +btn.dataset.page; _snsLoadItems(); });
+            });
+          }
+        } catch(e) {
+          grid.innerHTML = '';
+          if (offMsg) offMsg.style.display = 'block';
+        }
+      }
+
+      async function _snsLoadStats() {
+        try {
+          const s = await _snsFetch('/stats');
+          const dot = document.getElementById('sns-status-dot');
+          if (dot) dot.textContent = s.offline ? '⚠️ オフライン' : '🟢 接続中';
+          const total = document.getElementById('sns-chip-total');
+          const unread = document.getElementById('sns-chip-unread');
+          const platforms = document.getElementById('sns-chip-platforms');
+          if (total) total.textContent = `総件数: ${s.total ?? '—'}`;
+          if (unread) unread.textContent = `未読: ${s.unread ?? '—'}`;
+          if (platforms) platforms.textContent = `プラットフォーム: ${s.platforms ?? '—'}`;
+        } catch(_) {
+          const dot = document.getElementById('sns-status-dot');
+          if (dot) dot.textContent = '⚠️ オフライン';
+        }
+      }
+
+      async function _snsLoadIncome() {
+        try {
+          const d = await _snsFetch('/income');
+          const el = document.getElementById('sns-income-articles');
+          const em = document.getElementById('sns-income-month');
+          const es = document.getElementById('sns-income-stripe');
+          const ra = document.getElementById('sns-recent-articles');
+          if (el) el.textContent = d.articles_count ?? '—';
+          if (em) em.textContent = d.monthly_estimate ? `¥${d.monthly_estimate.toLocaleString()}` : '¥—';
+          if (es) es.textContent = d.stripe_total ? `¥${d.stripe_total.toLocaleString()}` : '¥—';
+          if (ra && d.recent_articles?.length) {
+            ra.innerHTML = d.recent_articles.map(a =>
+              `<div style="margin-bottom:4px;font-size:12px;">• <a href="${a.url||'#'}" target="_blank" rel="noopener" style="color:var(--accent-blue);text-decoration:none;">${a.title}</a> <span style="color:var(--text-muted);font-size:10px;">${a.date||''}</span></div>`
+            ).join('');
+          } else if (ra) {
+            ra.textContent = '記事なし（income_engine.py を実行してください）';
+          }
+        } catch(_) { /* income API は任意 */ }
+      }
+
+      async function _snsCollect() {
+        const btn = document.getElementById('sns-collect-btn');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ 収集中...'; }
+        try {
+          await fetch(`${_getSnsApi()}/collect`, { method: 'POST' });
+          await _snsLoadStats();
+          await _snsLoadItems();
+        } catch(e) {
+          alert('収集エラー: ' + e.message);
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = '⚡ 収集'; }
+        }
+      }
+
+      window._refreshHubSnsWidget = async () => {
+        const el = document.getElementById('hub-sns-latest');
+        if (!el) return;
+        try {
+          const r = await fetch(`${_getSnsApi()}/items?limit=5`);
+          const data = await r.json();
+          const items = Array.isArray(data) ? data : (data.items || []);
+          if (!items.length) { el.textContent = 'データがありません'; return; }
+          el.innerHTML = items.map(it =>
+            `<div style="margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              ${it.platform ? `<span style="font-size:10px;background:var(--bg-glass);border-radius:8px;padding:0 6px;margin-right:4px;">${it.platform}</span>` : ''}
+              ${it.url ? `<a href="${it.url}" target="_blank" rel="noopener" style="color:var(--accent-blue);text-decoration:none;">${it.title || it.text?.substring(0,60) || '—'}</a>` : (it.title || it.text?.substring(0,60) || '—')}
+            </div>`
+          ).join('');
+        } catch(_) {
+          el.textContent = '⚠️ SNS Collector オフライン';
+        }
+      };
+
+      window._initSnsTab = async () => {
+        // イベント初回登録
+        if (!window._snsBound) {
+          window._snsBound = true;
+          document.getElementById('sns-collect-btn')?.addEventListener('click', _snsCollect);
+          document.getElementById('sns-search-btn')?.addEventListener('click', () => { _snsPage = 1; _snsLoadItems(); });
+          document.getElementById('sns-search')?.addEventListener('keydown', e => { if (e.key === 'Enter') { _snsPage = 1; _snsLoadItems(); } });
+          document.getElementById('sns-filter-platform')?.addEventListener('change', () => { _snsPage = 1; _snsLoadItems(); });
+        }
+        // 決済リンクのベースを動的設定
+        const _sns8900 = window._srvBase?.replace(':8899', ':8900') || 'http://localhost:8900';
+        const collectorLink = document.getElementById('sns-collector-link');
+        if (collectorLink) collectorLink.href = _sns8900 + '/';
+        const payLink = document.getElementById('sns-payment-link');
+        if (payLink) payLink.href = _sns8900 + '/pay';
+        await Promise.all([_snsLoadStats(), _snsLoadItems(), _snsLoadIncome()]);
       };
     })();
 

@@ -450,6 +450,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/obsidian/read':
             self._handle_obsidian_read(params)
 
+        # ===== /api/sns/* — SNS Collector (port 8900) へのプロキシ =====
+        elif path.startswith('/api/sns/'):
+            self._handle_sns_proxy(path, parsed.query, method='GET')
+
         # ===== 静的ファイル配信 — http://localhost:8899/ で PWA を直接表示 =====
         # Safari は HTTPS(GitHub Pages) → HTTP(localhost) の混在コンテンツをブロックするため、
         # Mac では http://localhost:8899/ を直接開くことで同一オリジンになりブロックを回避できる。
@@ -549,6 +553,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
             self._handle_obsidian_delete()
         elif path == '/api/obsidian/mkdir':
             self._handle_obsidian_mkdir()
+
+        # ===== /api/sns/* — SNS Collector (port 8900) へのプロキシ =====
+        elif path.startswith('/api/sns/'):
+            self._handle_sns_proxy(path, '', method='POST')
 
         else:
             self._send_json({'error': 'Not found'}, 404)
@@ -1204,6 +1212,55 @@ class JinjerHandler(BaseHTTPRequestHandler):
         else:
             self._send_json({'url': None, 'active': False,
                              'note': 'Cloudflare Tunnel は未起動です'})
+
+    # ===== SNS Collector プロキシ ===============================================
+
+    _SNS_STATS_CACHE: dict = {}   # {'data': ..., 'ts': float}
+    _SNS_STATS_TTL   = 30         # 秒
+
+    def _handle_sns_proxy(self, path: str, query: str, method: str = 'GET'):
+        """
+        /api/sns/<sub> → http://localhost:8900/api/<sub> に転送する。
+        8900未起動時は {"error":"sns-collector offline","offline":true} を返す。
+        /api/sns/stats は 30秒キャッシュ。
+        """
+        sub = path[len('/api/sns'):]  # e.g. '/stats', '/items'
+        target_url = f'http://localhost:8900/api{sub}'
+        if query:
+            target_url += '?' + query
+
+        # stats キャッシュ
+        if sub == '/stats' and method == 'GET':
+            cached = self.__class__._SNS_STATS_CACHE
+            if cached.get('data') and time.time() - cached.get('ts', 0) < self._SNS_STATS_TTL:
+                self._send_json(cached['data'])
+                return
+
+        try:
+            if method == 'POST':
+                body_bytes = self._read_body_raw()
+                req = urllib.request.Request(target_url, data=body_bytes,
+                                             headers={'Content-Type': 'application/json'})
+            else:
+                req = urllib.request.Request(target_url)
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                raw = resp.read().decode('utf-8', errors='replace')
+            data = json.loads(raw)
+            if sub == '/stats' and method == 'GET':
+                self.__class__._SNS_STATS_CACHE = {'data': data, 'ts': time.time()}
+            self._send_json(data)
+        except urllib.error.URLError:
+            self._send_json({'error': 'sns-collector offline', 'offline': True}, 503)
+        except Exception as ex:
+            self._send_json({'error': str(ex)}, 500)
+
+    def _read_body_raw(self) -> bytes:
+        """リクエストボディを bytes で読み込む。"""
+        try:
+            length = int(self.headers.get('Content-Length', 0))
+            return self.rfile.read(length) if length > 0 else b''
+        except Exception:
+            return b''
 
     # ===== Docker 管理 =========================================================
 
