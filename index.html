@@ -4472,7 +4472,10 @@
     // サーバー死活状態 (null=未確認, true=生存, false=停止)
     let _srvAlive = null;
     // heartbeat が解決した実際のサーバーベース URL（全タブ共有）
-    window._srvBase = 'http://localhost:8899';
+    // iPhone が http://192.168.x.x:8899/ で直接アクセスしている場合はそのオリジンを初期値に使う
+    window._srvBase = (location.port === '8899' && location.hostname !== 'localhost')
+      ? location.origin
+      : 'http://localhost:8899';
 
     async function runHealthCheck() {
       // localStorage サイズ推定
@@ -5719,6 +5722,17 @@
     //   3. localStorage の _cf_tunnel_url — Cloudflare Quick Tunnel (動的URL)
     //   4. http://TailscaleIP:PORT — 旧フォールバック (Chrome on Mac only)
     async function _resolveServerUrl(port) {
+      // ── 0. 現在のページのオリジン (iPhone が http://Mac-IP:8899/ でアクセスしている場合) ──
+      // location.port が対象ポートと一致 かつ GitHub Pages でない場合、ページのオリジンを使う
+      if (location.port === String(port) && !location.hostname.includes('github.io') && location.hostname !== 'localhost') {
+        try {
+          const ctrl0 = new AbortController();
+          setTimeout(() => ctrl0.abort(), 2000);
+          const r0 = await fetch(`${location.origin}/api/health`, { signal: ctrl0.signal });
+          if (r0.ok) return location.origin;
+        } catch(_) {}
+      }
+
       // ── 1. localhost ──────────────────────────────────────────────────────────
       try {
         const ctrl = new AbortController();
@@ -15833,7 +15847,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         try {
           const kw = document.getElementById('sns-search')?.value || '';
           const pl = document.getElementById('sns-filter-platform')?.value || '';
-          const params = { page: _snsPage, limit: _snsPageSize };
+          const params = { page: _snsPage, per_page: _snsPageSize };
           if (kw) params.q = kw;
           if (pl) params.platform = pl;
           const data = await _snsFetch('/items', params);
@@ -15872,7 +15886,14 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           const platforms = document.getElementById('sns-chip-platforms');
           if (total) total.textContent = `総件数: ${s.total ?? '—'}`;
           if (unread) unread.textContent = `未読: ${s.unread ?? '—'}`;
-          if (platforms) platforms.textContent = `プラットフォーム: ${s.platforms ?? '—'}`;
+          // platforms は {crypto:87, news:206} のオブジェクト → "crypto・news・reddit" 形式で表示
+          if (platforms) {
+            const pl = s.platforms;
+            const plStr = pl && typeof pl === 'object'
+              ? Object.entries(pl).map(([k,v]) => `${k}(${v})`).join(' ・ ')
+              : (pl ?? '—');
+            platforms.textContent = `PF: ${plStr}`;
+          }
         } catch(_) {
           const dot = document.getElementById('sns-status-dot');
           if (dot) dot.textContent = '⚠️ オフライン';
@@ -15886,17 +15907,22 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           const em = document.getElementById('sns-income-month');
           const es = document.getElementById('sns-income-stripe');
           const ra = document.getElementById('sns-recent-articles');
-          if (el) el.textContent = d.articles_count ?? '—';
-          if (em) em.textContent = d.monthly_estimate ? `¥${d.monthly_estimate.toLocaleString()}` : '¥—';
-          if (es) es.textContent = d.stripe_total ? `¥${d.stripe_total.toLocaleString()}` : '¥—';
-          if (ra && d.recent_articles?.length) {
-            ra.innerHTML = d.recent_articles.map(a =>
-              `<div style="margin-bottom:4px;font-size:12px;">• <a href="${a.url||'#'}" target="_blank" rel="noopener" style="color:var(--accent-blue);text-decoration:none;">${a.title}</a> <span style="color:var(--text-muted);font-size:10px;">${a.date||''}</span></div>`
-            ).join('');
-          } else if (ra) {
-            ra.textContent = '記事なし（income_engine.py を実行してください）';
+          if (el) el.textContent = d.articles_count ?? 0;
+          if (em) em.textContent = `¥${(d.monthly_estimate ?? 0).toLocaleString()}`;
+          if (es) es.textContent = `¥${(d.stripe_total ?? 0).toLocaleString()}`;
+          if (ra) {
+            if (d.recent_articles?.length) {
+              ra.innerHTML = d.recent_articles.map(a =>
+                `<div style="margin-bottom:4px;font-size:12px;">• <a href="${a.url||'#'}" target="_blank" rel="noopener" style="color:var(--accent-blue);text-decoration:none;">${a.title}</a> <span style="color:var(--text-muted);font-size:10px;">${a.date||''}</span></div>`
+              ).join('');
+            } else {
+              ra.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">記事なし。「⚡ 収集」後に income_engine.py を実行してください。</span>';
+            }
           }
-        } catch(_) { /* income API は任意 */ }
+        } catch(_) {
+          const ra = document.getElementById('sns-recent-articles');
+          if (ra) ra.textContent = '収益データを取得できません';
+        }
       }
 
       async function _snsCollect() {
@@ -15917,7 +15943,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         const el = document.getElementById('hub-sns-latest');
         if (!el) return;
         try {
-          const r = await fetch(`${_getSnsApi()}/items?limit=5`);
+          const r = await fetch(`${_getSnsApi()}/items?per_page=5`);
           const data = await r.json();
           const items = Array.isArray(data) ? data : (data.items || []);
           if (!items.length) { el.textContent = 'データがありません'; return; }
