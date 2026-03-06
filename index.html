@@ -2185,6 +2185,16 @@
       <input type="file" id="file-jinjer" accept=".json" style="display:none">
     </div>
   </div>
+  <!-- サーバーオフライン時の誘導バナー (GitHub Pages からアクセス時) -->
+  <div id="offline-guide-banner" style="display:none;background:rgba(255,152,0,0.12);border:1px solid rgba(255,152,0,0.4);border-radius:10px;padding:10px 14px;margin:6px 10px;font-size:12px;line-height:1.7;">
+    <strong>📡 サーバーに接続できません</strong><br>
+    <span id="offline-guide-text"></span>
+    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+      <a id="offline-guide-lan-link" href="#" target="_blank" style="display:none;color:#ff9800;font-size:11px;">🏠 LAN で開く →</a>
+      <a id="offline-guide-tunnel-link" href="#" target="_blank" style="display:none;color:#ff9800;font-size:11px;">🌐 Tunnel で開く →</a>
+      <button id="offline-guide-dismiss" style="border:none;background:none;color:var(--text-muted);font-size:11px;cursor:pointer;padding:0;">✕ 閉じる</button>
+    </div>
+  </div>
   </div><!-- /page-calendar -->
 
   <!-- ===== TAB: ハブ / クイックランチャー ===== -->
@@ -2370,6 +2380,18 @@
         </div>
         <p style="font-size:10px;color:var(--text-muted);margin:4px 0 0;">ブラウザのローカルに保存されます（サーバー不要）</p>
       </details>
+    </div>
+
+    <!-- ===== 📱 iPhone アクセス / Magic Link カード ===== -->
+    <div class="card" id="iphone-access-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin-bottom:0;">📱 iPhone からアクセス</div>
+        <span id="iphone-access-status" style="font-size:11px;color:var(--text-muted);">確認中...</span>
+      </div>
+      <div id="iphone-access-body">
+        <!-- JS で動的生成 -->
+        <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">読み込み中...</div>
+      </div>
     </div>
 
     <!-- ===== miniserve ファイルサーバーカード ===== -->
@@ -4976,6 +4998,7 @@
         } catch(_) { console.error('[saveStore] 保存完全失敗'); }
       }
       idbSave(store); // 非同期ミラー（fire-and-forget）
+      store._updated_at = Date.now();
       _syncDataToServer('kintai', store); // サーバーブリッジ (非同期)
       _syncFullBackupToServer(); // フルバックアップ (60秒スロットル、非同期)
       // スナップショット: 30分に1回だけ保存（頻繁な書き込みを抑制）
@@ -5026,6 +5049,42 @@
         const data = await r.json();
         return data;
       } catch(_) { return null; }
+    }
+
+    /**
+     * _syncFromServer — サーバー復旧時にサーバーのデータをローカルにマージする。
+     * サーバーのデータの方が新しければ上書きする（last-write-wins）。
+     */
+    async function _syncFromServer() {
+      try {
+        const [kintaiData, tasksData] = await Promise.all([
+          _restoreFromServer('kintai'),
+          _restoreFromServer('tasks'),
+        ]);
+        if (kintaiData) {
+          const localStore = loadStore();
+          const serverTs = kintaiData._updated_at || 0;
+          const localTs  = localStore._updated_at  || 0;
+          if (serverTs > localTs) {
+            saveStore(kintaiData);
+            const t = new Date();
+            try { renderCalendar(t.getFullYear(), t.getMonth() + 1); } catch(_) {}
+            console.log('[sync] サーバーの勤怠データでローカルを更新しました');
+          } else {
+            // ローカルが新しい → サーバーへ push
+            _syncDataToServer('kintai', localStore);
+          }
+        }
+        if (tasksData && tasksData.tasks) {
+          const localTasks = loadTasks();
+          const serverTs = tasksData._updated_at || 0;
+          const localTs  = (localTasks._updated_at) || 0;
+          if (serverTs > localTs) {
+            localStorage.setItem(TASKS_KEY, JSON.stringify(tasksData));
+            console.log('[sync] サーバーのタスクデータでローカルを更新しました');
+          }
+        }
+      } catch(e) { console.warn('[sync] _syncFromServer エラー:', e); }
     }
 
     /* =====================================================
@@ -5764,6 +5823,21 @@
         } catch(_) {}
         // 接続失敗 → キャッシュを削除
         localStorage.removeItem('_cf_tunnel_url');
+      }
+
+      // ── 3.5. Magic Link で保存した LAN URL (同じ Wi-Fi 環境で有効) ─────────────
+      // GitHub Pages (HTTPS) から HTTP LAN は Mixed Content でブロックされるため
+      // ページのオリジンが HTTP の場合のみ試みる
+      if (location.protocol === 'http:') {
+        const cachedLanUrl = localStorage.getItem('_kintai_lan_url');
+        if (cachedLanUrl && cachedLanUrl.startsWith('http://')) {
+          try {
+            const ctrlLan = new AbortController();
+            setTimeout(() => ctrlLan.abort(), 2000);
+            const rLan = await fetch(`${cachedLanUrl}/api/health`, { signal: ctrlLan.signal });
+            if (rLan.ok) return cachedLanUrl;
+          } catch(_) {}
+        }
       }
 
       // ── 4. Tailscale IP (HTTP) ────────────────────────────────────────────────
@@ -6635,6 +6709,28 @@
             }).catch(()=>{});
           }
         } catch(_) {}
+        // ── Magic Link パース (?srv=tunnel_url&lan=lan_url) ──────────────────
+        // iPhone で QR コードをスキャンして GitHub Pages を開いた際に
+        // トンネル URL と LAN URL を自動登録する
+        try {
+          const _sp = new URLSearchParams(location.search);
+          const _srvParam = _sp.get('srv');   // CF Tunnel or HTTPS URL
+          const _lanParam = _sp.get('lan');   // LAN URL (http://192.168.x.x:8899)
+          if (_srvParam && _srvParam.startsWith('https://')) {
+            localStorage.setItem('_cf_tunnel_url', _srvParam);
+            console.log('[Magic Link] トンネルURL登録:', _srvParam);
+          }
+          if (_lanParam && _lanParam.startsWith('http://')) {
+            localStorage.setItem('_kintai_lan_url', _lanParam);
+            console.log('[Magic Link] LAN URL登録:', _lanParam);
+          }
+          // URL からパラメータを除去 (ブックマーク汚染防止)
+          if (_srvParam || _lanParam) {
+            const _cleanUrl = location.pathname + location.hash;
+            history.replaceState(null, '', _cleanUrl);
+          }
+        } catch(_) {}
+
         // 空ストレージ検出（Safari「Webサイトデータ消去」後）
         try { _checkEmptyStorageOnBoot(); } catch(_) {}
         // IDB復元（失敗しても続行）
@@ -6741,6 +6837,26 @@
         if (!dot) return;
         dot.className = 'health-dot ' + (alive ? 'health-dot-ok' : 'health-dot-error');
         if (txt) txt.textContent = `SRV: ${alive ? '✓' : '✗'}`;
+
+        // オフライン誘導バナー
+        const banner = document.getElementById('offline-guide-banner');
+        if (!banner) return;
+        if (alive) { banner.style.display = 'none'; return; }
+        const tunnel = localStorage.getItem('_cf_tunnel_url') || '';
+        const lan    = localStorage.getItem('_kintai_lan_url') || '';
+        if (!tunnel && !lan) return; // 案内する URL がなければバナーも出さない
+        const guideText = document.getElementById('offline-guide-text');
+        const lanLink   = document.getElementById('offline-guide-lan-link');
+        const tunLink   = document.getElementById('offline-guide-tunnel-link');
+        if (guideText) guideText.textContent = lan
+          ? '同じ Wi-Fi 内ならローカルサーバーに接続できます。'
+          : 'Cloudflare Tunnel 経由でどこからでも接続できます。';
+        if (lanLink && lan)   { lanLink.href  = lan;    lanLink.style.display = 'inline'; }
+        if (tunLink && tunnel){ tunLink.href  = tunnel; tunLink.style.display = 'inline'; }
+        banner.style.display = 'block';
+        document.getElementById('offline-guide-dismiss')?.addEventListener('click', () => {
+          banner.style.display = 'none';
+        }, { once: true });
       }
 
       async function _tick() {
@@ -6751,9 +6867,28 @@
           _updateSrvDot(alive);
 
           if (justRecovered) {
-            // ──── サーバー復旧: 各タブを自動リロード ────
+            // ──── サーバー復旧 ────
 
-            // 報告書タブ: バナー非表示 + データ再ロード
+            // LAN URL を localStorage に保存 (Magic Link QR 用)
+            if (window._srvBase && window._srvBase.startsWith('http://') &&
+                !window._srvBase.includes('localhost')) {
+              localStorage.setItem('_kintai_lan_url', window._srvBase);
+            }
+
+            // サーバー情報を取得して cf_tunnel_url を更新
+            fetch(`${window._srvBase}/api/server-info`, { signal: AbortSignal.timeout(3000) })
+              .then(r => r.json())
+              .then(info => {
+                if (info.tunnel_url) localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
+                if (info.lan_url) localStorage.setItem('_kintai_lan_url', info.lan_url);
+                // ハブのサーバーカードを更新
+                if (window._refreshServerInfoCard) window._refreshServerInfoCard(info);
+              }).catch(()=>{});
+
+            // 双方向データ同期: サーバー → ローカル (最新データを取得)
+            _syncFromServer().catch(()=>{});
+
+            // 各タブを自動リロード
             if (!_reportServerOk) {
               (async () => {
                 await checkReportServer();
@@ -14133,7 +14268,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         });
         document.getElementById('fab-group')?.classList.toggle('hidden', tabName !== 'calendar');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); if (window._refreshDockerSysinfo) window._refreshDockerSysinfo(); if (window._miniserveCardRefresh) window._miniserveCardRefresh(); if (window._refreshHubSnsWidget) window._refreshHubSnsWidget(); }
+        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); if (window._refreshDockerSysinfo) window._refreshDockerSysinfo(); if (window._miniserveCardRefresh) window._miniserveCardRefresh(); if (window._refreshHubSnsWidget) window._refreshHubSnsWidget(); if (window._refreshServerInfoCard) window._refreshServerInfoCard(); }
         if (tabName === 'study')    renderStudy();
         if (tabName === 'project')  renderProjects();
         if (tabName === 'report')   { initReportTab(); }
@@ -15803,6 +15938,109 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       window._initObsidianTab = async () => {
         await _obsInit();
       };
+    })();
+
+    /* =====================================================
+       iPhone アクセス / Magic Link カード
+       ===================================================== */
+    (() => {
+      const GITHUB_PAGES = 'https://yu-philia-ctrl.github.io/kintai-pwa/';
+
+      function _buildMagicLink(info) {
+        const p = new URLSearchParams();
+        if (info.tunnel_url) p.set('srv', info.tunnel_url);
+        if (info.lan_url)    p.set('lan', info.lan_url);
+        return GITHUB_PAGES + '?' + p.toString();
+      }
+
+      function _renderCard(info) {
+        const body   = document.getElementById('iphone-access-body');
+        const status = document.getElementById('iphone-access-status');
+        if (!body) return;
+
+        const tunnelOk = !!info.tunnel_url;
+        const lanOk    = !!info.lan_url;
+        if (status) status.textContent = tunnelOk ? '🟢 どこからでも接続可' : (lanOk ? '🟡 同じ Wi-Fi のみ' : '⚠️ 接続情報なし');
+
+        const magicLink = (tunnelOk || lanOk) ? _buildMagicLink(info) : null;
+
+        body.innerHTML = `
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.8;">
+            ${tunnelOk
+              ? `✅ <strong>Cloudflare Tunnel</strong> が稼働中 → どのネットワークからでも接続可能<br>
+                 <code style="font-size:10px;background:var(--bg-glass);padding:1px 5px;border-radius:4px;">${info.tunnel_url}</code>`
+              : `⚠️ Cloudflare Tunnel が未起動 → 同じ Wi-Fi 内のみ使用可能`}
+            ${lanOk
+              ? `<br>📡 <strong>LAN URL</strong>: <code style="font-size:10px;background:var(--bg-glass);padding:1px 5px;border-radius:4px;">${info.lan_url}</code>`
+              : ''}
+          </div>
+          ${magicLink ? `
+          <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+            <div id="iphone-qr-wrap" style="flex-shrink:0;width:110px;height:110px;background:var(--bg-glass);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+              <span style="font-size:11px;color:var(--text-muted);">QR生成中...</span>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:11px;font-weight:700;margin-bottom:4px;">① iPhone でこの QR をスキャン</div>
+              <div style="font-size:10px;color:var(--text-muted);line-height:1.6;">
+                GitHub Pages が開き、サーバーURLが自動登録されます。<br>
+                ${tunnelOk ? '<strong>一度スキャン後は Wi-Fi 外でも接続可能。</strong>' : 'Mac 再起動後に再スキャンしてください。'}
+              </div>
+              <button id="iphone-magic-copy-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;margin-top:6px;">📋 URLをコピー</button>
+            </div>
+          </div>` : `<div style="font-size:12px;color:var(--text-muted);">サーバーに接続後、QRコードが表示されます。</div>`}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+            ${lanOk ? `<a href="${info.lan_url}" target="_blank" class="btn-primary" style="font-size:11px;padding:6px 12px;text-decoration:none;">🏠 LAN で開く</a>` : ''}
+            ${tunnelOk ? `<a href="${info.tunnel_url}" target="_blank" class="btn-secondary" style="font-size:11px;padding:6px 12px;text-decoration:none;">🌐 Tunnel で開く</a>` : ''}
+            <a href="${GITHUB_PAGES}" target="_blank" class="btn-secondary" style="font-size:11px;padding:6px 12px;text-decoration:none;">📱 GitHub Pages</a>
+            <button id="iphone-access-refresh" class="btn-secondary" style="font-size:11px;padding:6px;">🔄</button>
+          </div>
+        `;
+
+        // QR 生成
+        if (magicLink) {
+          const wrap = document.getElementById('iphone-qr-wrap');
+          if (wrap && window.QRCode) {
+            wrap.innerHTML = '';
+            new QRCode(wrap, { text: magicLink, width: 110, height: 110,
+              colorDark: '#e6edf3', colorLight: '#0d1117' });
+          }
+        }
+
+        // ボタンイベント
+        document.getElementById('iphone-magic-copy-btn')?.addEventListener('click', () => {
+          navigator.clipboard?.writeText(magicLink || '').then(() => toast('✓ URLをコピーしました'));
+        });
+        document.getElementById('iphone-access-refresh')?.addEventListener('click', () => {
+          window._refreshServerInfoCard();
+        });
+      }
+
+      window._refreshServerInfoCard = async (cachedInfo) => {
+        if (cachedInfo && (cachedInfo.lan_url || cachedInfo.tunnel_url)) {
+          _renderCard(cachedInfo);
+          return;
+        }
+        const base = window._srvBase || 'http://localhost:8899';
+        try {
+          const r = await fetch(`${base}/api/server-info`, { signal: AbortSignal.timeout(4000) });
+          const info = await r.json();
+          if (info.tunnel_url) localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
+          if (info.lan_url)    localStorage.setItem('_kintai_lan_url', info.lan_url);
+          _renderCard(info);
+        } catch(_) {
+          // サーバーオフライン時 — localStorage のキャッシュを使って表示
+          const tunnel = localStorage.getItem('_cf_tunnel_url') || '';
+          const lan    = localStorage.getItem('_kintai_lan_url') || '';
+          _renderCard({ tunnel_url: tunnel || null, lan_url: lan || null });
+        }
+      };
+
+      // ハブタブが初回表示されたとき自動更新
+      setTimeout(() => {
+        if (document.getElementById('iphone-access-card')) {
+          window._refreshServerInfoCard();
+        }
+      }, 2000);
     })();
 
     /* =====================================================

@@ -407,6 +407,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path == '/api/tunnel-url':
             self._handle_tunnel_url()
 
+        # ===== /api/server-info — LAN IP + Tunnel URL + ポート情報をまとめて返す =====
+        elif path == '/api/server-info':
+            self._handle_server_info()
+
         # ===== /api/docker/containers — コンテナ一覧 =====
         elif path == '/api/docker/containers':
             self._handle_docker_containers()
@@ -1237,6 +1241,41 @@ class JinjerHandler(BaseHTTPRequestHandler):
         else:
             self._send_json({'url': None, 'active': False,
                              'note': 'Cloudflare Tunnel は未起動です'})
+
+    def _get_host_ip_cached(self) -> str:
+        """LAN IP を取得（host_ip.txt → socket フォールバック）。"""
+        host_ip = os.environ.get('KINTAI_HOST_IP', '').strip()
+        if not host_ip:
+            host_ip_file = DATA_DIR / 'host_ip.txt'
+            if host_ip_file.exists():
+                try:
+                    host_ip = host_ip_file.read_text().strip()
+                except Exception:
+                    pass
+        if not host_ip and not os.path.exists('/.dockerenv'):
+            try:
+                import socket as _sock
+                with _sock.socket(_sock.AF_INET, _sock.SOCK_DGRAM) as s:
+                    s.connect(('8.8.8.8', 80))
+                    host_ip = s.getsockname()[0]
+            except Exception:
+                pass
+        return host_ip
+
+    def _handle_server_info(self):
+        """LAN IP / Tunnel URL / ポート情報をまとめて返す。
+        iPhone のマジックリンク QR 生成用。"""
+        global _CF_TUNNEL_URL
+        host_ip = self._get_host_ip_cached()
+        lan_url = f'http://{host_ip}:{PORT}' if host_ip else None
+        self._send_json({
+            'lan_ip':     host_ip or None,
+            'lan_url':    lan_url,
+            'port':       PORT,
+            'tunnel_url': _CF_TUNNEL_URL or None,
+            'tunnel_active': bool(_CF_TUNNEL_URL),
+            'github_pages': 'https://yu-philia-ctrl.github.io/kintai-pwa/',
+        })
 
     # ===== SNS Collector プロキシ ===============================================
 
