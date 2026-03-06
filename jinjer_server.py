@@ -454,6 +454,12 @@ class JinjerHandler(BaseHTTPRequestHandler):
         elif path.startswith('/api/sns/'):
             self._handle_sns_proxy(path, parsed.query, method='GET')
 
+        # ===== /sns-collector — SNS Collector UI を 8899 経由で提供 (iPhone 対応) =====
+        # iPhone は localhost:8900 に直接アクセスできないため、8899 経由で提供する。
+        # SNS Collector の index.html は origin のポートで API URL を自動判定する。
+        elif path in ('/sns-collector', '/sns-collector/') or path == '/sns-collector/index.html':
+            self._send_static_abs(str(Path(__file__).parent.parent / 'sns-collector' / 'index.html'))
+
         # ===== 静的ファイル配信 — http://localhost:8899/ で PWA を直接表示 =====
         # Safari は HTTPS(GitHub Pages) → HTTP(localhost) の混在コンテンツをブロックするため、
         # Mac では http://localhost:8899/ を直接開くことで同一オリジンになりブロックを回避できる。
@@ -776,6 +782,25 @@ class JinjerHandler(BaseHTTPRequestHandler):
                 self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             else:
                 self.send_header('Cache-Control', 'max-age=3600')
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    def _send_static_abs(self, abs_path: str):
+        """絶対パスを指定して静的ファイルを配信する (SNS Collector UI 用)。"""
+        target = Path(abs_path)
+        if not target.exists() or target.is_dir():
+            self._send_json({'error': 'Not found'}, 404)
+            return
+        mime = self._MIME_MAP.get(target.suffix.lower(), 'text/html; charset=utf-8')
+        try:
+            body = target.read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', mime)
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(body)
         except Exception as e:

@@ -15942,11 +15942,20 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           document.getElementById('sns-filter-platform')?.addEventListener('change', () => { _snsPage = 1; _snsLoadItems(); });
         }
         // 決済リンクのベースを動的設定
-        const _sns8900 = window._srvBase?.replace(':8899', ':8900') || 'http://localhost:8900';
+        // _srvBase が未解決の場合、最大 8 秒待機（iPhone 初回アクセス対応）
+        if (!window._srvBase) {
+          for (let i = 0; i < 16; i++) {
+            await new Promise(r => setTimeout(r, 500));
+            if (window._srvBase) break;
+          }
+        }
+        const _base = window._srvBase || 'http://localhost:8899';
+        // 「SNS Collector を開く」→ 8899 経由の /sns-collector/ で提供 (iPhone 対応)
         const collectorLink = document.getElementById('sns-collector-link');
-        if (collectorLink) collectorLink.href = _sns8900 + '/';
+        if (collectorLink) collectorLink.href = _base + '/sns-collector/';
+        // 「決済ページ」→ 8899 プロキシ経由の pay エンドポイント
         const payLink = document.getElementById('sns-payment-link');
-        if (payLink) payLink.href = _sns8900 + '/pay';
+        if (payLink) payLink.href = _base.replace(':8899', ':8900') + '/pay';
         await Promise.all([_snsLoadStats(), _snsLoadItems(), _snsLoadIncome()]);
       };
     })();
