@@ -6752,23 +6752,32 @@
             }).catch(()=>{});
           }
         } catch(_) {}
-        // ── Magic Link パース (?srv=tunnel_url&lan=lan_url) ──────────────────
+        // ── Magic Link パース (?srv=tunnel_url&lan=lan_url&ts=tailscale_url) ──
         // iPhone で QR コードをスキャンして GitHub Pages を開いた際に
-        // トンネル URL と LAN URL を自動登録する
+        // トンネル URL / LAN URL / Tailscale URL を自動登録する
         try {
           const _sp = new URLSearchParams(location.search);
           const _srvParam = _sp.get('srv');   // CF Tunnel or HTTPS URL
-          const _lanParam = _sp.get('lan');   // LAN URL (http://192.168.x.x:8899)
+          const _lanParam = _sp.get('lan');   // LAN URL (http://hostname.local:8899)
+          const _tsParam  = _sp.get('ts');    // Tailscale URL (http://hostname.ts.net:8899)
           if (_srvParam && _srvParam.startsWith('https://')) {
             localStorage.setItem('_cf_tunnel_url', _srvParam);
-            console.log('[Magic Link] トンネルURL登録:', _srvParam);
           }
           if (_lanParam && _lanParam.startsWith('http://')) {
             localStorage.setItem('_kintai_lan_url', _lanParam);
-            console.log('[Magic Link] LAN URL登録:', _lanParam);
+          }
+          if (_tsParam && _tsParam.startsWith('http://')) {
+            localStorage.setItem('_kintai_tailscale_url', _tsParam);
+            // Tailscale IP も抽出してキャッシュ (hostname.ts.net → skip; IP形式のみ)
+            const _tsHost = new URL(_tsParam).hostname;
+            if (/^(\d{1,3}\.){3}\d{1,3}$/.test(_tsHost)) {
+              localStorage.setItem('_kintai_tailscale_ip', _tsHost);
+            } else {
+              localStorage.setItem('_kintai_tailscale_host', _tsHost);
+            }
           }
           // URL からパラメータを除去 (ブックマーク汚染防止)
-          if (_srvParam || _lanParam) {
+          if (_srvParam || _lanParam || _tsParam) {
             const _cleanUrl = location.pathname + location.hash;
             history.replaceState(null, '', _cleanUrl);
           }
@@ -7588,6 +7597,17 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v52', date: '2026-03-07',
+          title: '🔒 Tailscale接続確立 + Magic Link Tailscale URL対応',
+          items: [
+            { tag: 'fix',  text: 'Tailscaleバイナリ: Tailscale.localized (App Store版・実際に動作中) を優先使用' },
+            { tag: 'fix',  text: '_TS_BINS グローバル定数で全箇所のバイナリパスを統一管理' },
+            { tag: 'feat', text: 'Magic Link QRコードに ?ts=tailscale_url パラメータを追加' },
+            { tag: 'feat', text: 'Magic Linkパース: ?ts= を解析して _kintai_tailscale_url/host に自動キャッシュ' },
+            { tag: 'feat', text: '接続テスト確認済み: 100.65.221.66:8899 および yusukemacbook-pro.taile663f5.ts.net:8899 → 200 OK' },
+          ],
+        },
+        {
           version: 'v51', date: '2026-03-07',
           title: '🔒 Tailscale VPN接続確立 + 堅牢セキュリティシステム',
           items: [
@@ -8059,7 +8079,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v51';
+        const swVer = 'kintai-v52';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -16026,6 +16046,8 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         // mDNS URL を優先（raw IP を隠す）。なければ LAN URL
         const lanForQr = info.mdns_url || info.lan_url;
         if (lanForQr) p.set('lan', lanForQr);
+        // Tailscale URL を含める（QRスキャン後にTailscale URL も自動登録）
+        if (info.tailscale_url) p.set('ts', info.tailscale_url);
         return GITHUB_PAGES + '?' + p.toString();
       }
 

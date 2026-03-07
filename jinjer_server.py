@@ -84,6 +84,12 @@ _TS_MAC_IP   = os.environ.get('TAILSCALE_MAC_IP', '').strip()
 _TS_MAC_HOST = os.environ.get('TAILSCALE_MAC_HOST', '').strip()
 # APIトークン (SSH登録・再起動など破壊的操作を保護)
 _API_TOKEN   = os.environ.get('KINTAI_API_TOKEN', '').strip()
+# Tailscale バイナリ検索パス (App Store版 Tailscale.localized が優先)
+_TS_BINS = [
+    '/Applications/Tailscale.localized/Tailscale.app/Contents/MacOS/Tailscale',
+    '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
+    'tailscale',
+]
 
 # Cloudflare Quick Tunnel — 現在のURL を保持するグローバル変数
 _CF_TUNNEL_URL: str = ''
@@ -1114,7 +1120,7 @@ class JinjerHandler(BaseHTTPRequestHandler):
         method = 'none'
 
         # ── 方法1: serve 設定から直接取得 ──────────────────────────────────
-        ts_bins = ['/Applications/Tailscale.app/Contents/MacOS/Tailscale', 'tailscale']
+        ts_bins = _TS_BINS
         for ts_bin in ts_bins:
             try:
                 r = subprocess.run(
@@ -1154,7 +1160,7 @@ class JinjerHandler(BaseHTTPRequestHandler):
         import re as _re2
         _ipv4_re2 = _re2.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
         tailscale_ip = None
-        for ts_bin in ['/Applications/Tailscale.app/Contents/MacOS/Tailscale', 'tailscale']:
+        for ts_bin in _TS_BINS:
             try:
                 r3 = subprocess.run(
                     [ts_bin, 'ip', '-4'],
@@ -1444,7 +1450,7 @@ class JinjerHandler(BaseHTTPRequestHandler):
                 # 2. CLI から検出（フォールバック）
                 import re as _re
                 _ipv4_re = _re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
-                for ts_bin in ['/Applications/Tailscale.app/Contents/MacOS/Tailscale', 'tailscale']:
+                for ts_bin in _TS_BINS:
                     try:
                         r = subprocess.run([ts_bin, 'ip', '-4'],
                                            capture_output=True, text=True, timeout=3)
