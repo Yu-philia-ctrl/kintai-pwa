@@ -3784,9 +3784,9 @@
         <strong>② 以下の URL を Safari で開く</strong> → ブラウザ上でターミナル操作可能<br>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        <code id="ttyd-tailscale-url" style="flex:1;font-size:12px;background:var(--bg-glass);padding:8px 12px;border-radius:8px;border:1px solid var(--border-soft);word-break:break-all;user-select:all;">http://100.65.221.66:7681</code>
-        <button onclick="navigator.clipboard?.writeText(document.getElementById('ttyd-tailscale-url').textContent).then(()=>toast('📋 コピーしました'))" class="btn-secondary" style="font-size:11px;padding:6px 10px;">📋 コピー</button>
-        <button onclick="window.open(document.getElementById('ttyd-tailscale-url').textContent,'_blank')" class="btn-primary" style="font-size:11px;padding:6px 10px;">🔗 開く</button>
+        <code id="ttyd-tailscale-url-masked" style="flex:1;font-size:12px;background:var(--bg-glass);padding:8px 12px;border-radius:8px;border:1px solid var(--border-soft);">Tailscale IP:7681</code>
+        <button id="ttyd-ts-copy-btn" class="btn-secondary" style="font-size:11px;padding:6px 10px;">📋 コピー</button>
+        <button id="ttyd-ts-open-btn" class="btn-primary" style="font-size:11px;padding:6px 10px;">🔗 開く</button>
       </div>
       <div style="font-size:10px;color:var(--text-muted);margin-top:8px;line-height:1.6;">
         ⚠️ Mac・iPhone 両方で Tailscale ON が必要 ｜ Mac が起動・接続中のみ利用可能
@@ -3916,7 +3916,7 @@
         </div>
         <div style="counter-reset:guide-step;display:flex;flex-direction:column;gap:6px;">
           <div style="display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;min-width:20px;">①</span><span>iPhone で <strong>Tailscale アプリ</strong> を開いて <strong>ON</strong> にする</span></div>
-          <div style="display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;min-width:20px;">②</span><span>Safari で <code id="guide-kintai-url" style="background:var(--bg-glass);padding:2px 8px;border-radius:4px;cursor:pointer;" onclick="navigator.clipboard?.writeText(this.textContent).then(()=>toast('📋 コピー'))">http://100.65.221.66:8899</code> を開く <button onclick="navigator.clipboard?.writeText(document.getElementById('guide-kintai-url').textContent).then(()=>toast('📋 コピー'))" style="background:none;border:1px solid var(--border-soft);border-radius:4px;padding:1px 6px;font-size:10px;cursor:pointer;">📋</button></span></div>
+          <div style="display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;min-width:20px;">②</span><span>Safari で kintai サーバーを開く <button id="guide-kintai-copy-btn" class="btn-secondary" style="font-size:10px;padding:3px 8px;">📋 URLをコピー</button> <button id="guide-kintai-open-btn" class="btn-primary" style="font-size:10px;padding:3px 8px;">🔗 開く</button></span></div>
           <div style="display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;min-width:20px;">③</span><span>kintai のページが表示されれば接続成功 ✅</span></div>
         </div>
         <div style="margin-top:10px;font-size:11px;color:var(--text-muted);">
@@ -3931,7 +3931,7 @@
       <div style="font-size:12px;line-height:2;color:var(--text-muted);">
         <p style="margin:0 0 8px;">システムが応答しない・プロセスが落ちた時に iPhone から Mac を操作できます。</p>
         <div style="display:flex;flex-direction:column;gap:6px;">
-          <div style="display:flex;gap:10px;"><span style="color:var(--accent-green);font-weight:700;min-width:20px;">①</span><span>Tailscale ON → Safari で <code id="guide-ttyd-url" style="background:var(--bg-glass);padding:2px 8px;border-radius:4px;cursor:pointer;" onclick="navigator.clipboard?.writeText(this.textContent).then(()=>toast('📋 コピー'))">http://100.65.221.66:7681</code> <button onclick="navigator.clipboard?.writeText(document.getElementById('guide-ttyd-url').textContent).then(()=>toast('📋 コピー'))" style="background:none;border:1px solid var(--border-soft);border-radius:4px;padding:1px 6px;font-size:10px;cursor:pointer;">📋</button></span></div>
+          <div style="display:flex;gap:10px;"><span style="color:var(--accent-green);font-weight:700;min-width:20px;">①</span><span>Tailscale ON → Safari でターミナルを開く <button id="guide-ttyd-copy-btn" class="btn-secondary" style="font-size:10px;padding:3px 8px;">📋 URLをコピー</button> <button id="guide-ttyd-open-btn" class="btn-primary" style="font-size:10px;padding:3px 8px;">🔗 開く</button></span></div>
           <div style="display:flex;gap:10px;"><span style="color:var(--accent-green);font-weight:700;min-width:20px;">②</span><span>ブラウザ上で Mac の zsh ターミナルが使える</span></div>
         </div>
         <div style="background:var(--bg2);border-radius:8px;padding:10px;margin-top:10px;font-family:monospace;font-size:11px;line-height:2;">
@@ -7727,6 +7727,25 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v57', date: '2026-03-07',
+          title: '🔒 IPマスク表示 + ターミナルボタン修正 + CHANGELOG diffs',
+          items: [
+            { tag: 'fix',  text: 'ターミナル「開く」ボタン: about:blank→キャッシュIPから即URL生成 (Safari popup ブロック解消)' },
+            { tag: 'fix',  text: 'ttyd URL・Tailscale IP を画面上でマスク表示 (100.XX.●●.●●:7681 形式)' },
+            { tag: 'feat', text: 'CHANGELOG に diffs セクション追加: 変更ファイル・行番号・変更内容を折りたたみ表示' },
+            { tag: 'feat', text: 'ガイドタブ・ターミナルタブ: URL はボタン経由でのみアクセス (IP を画面に表示しない)' },
+          ],
+          diffs: [
+            { file: 'index.html', lines: '15901-15908', desc: 'ターミナル「開く」ボタン: about:blank廃止、キャッシュIP直接使用' },
+            { file: 'index.html', lines: '15853-15857', desc: 'ttyd-url-text: IP部分をマスク表示に変更' },
+            { file: 'index.html', lines: '15870-15875', desc: 'tailscale-terminal-status: Tailscale IP をmaskIp()でマスク' },
+            { file: 'index.html', lines: '8194-8223',   desc: 'renderChangelog(): diffs フィールドを折りたたみ表示する機能追加' },
+            { file: 'index.html', lines: '3786-3790',   desc: 'ttyd-tailscale-url カード: IP非表示、コピー/開くボタン化' },
+            { file: 'index.html', lines: '15963-15975', desc: 'initTerminalTab: 外部アクセスカードボタン初期化 (IP非表示)' },
+            { file: 'index.html', lines: '3784-3790',   desc: 'ガイドタブ kintai/ttyd URL: コピー・開くボタン化 (IP非表示)' },
+          ],
+        },
+        {
           version: 'v56', date: '2026-03-07',
           title: '📖 使い方ガイドタブ追加 + Mac スリープ防止 + ターミナル外部接続UI',
           items: [
@@ -8194,7 +8213,22 @@
       function renderChangelog() {
         const el = document.getElementById('cl-entries');
         if (!el) return;
-        el.innerHTML = CHANGELOG.map(e => `
+        el.innerHTML = CHANGELOG.map(e => {
+          const diffsHtml = (e.diffs && e.diffs.length) ? `
+            <details style="margin-top:6px;">
+              <summary style="font-size:10px;cursor:pointer;color:var(--text-muted);padding:3px 0;">
+                📂 変更ファイル (${e.diffs.length}件)
+              </summary>
+              <div style="margin-top:4px;font-family:monospace;font-size:10px;line-height:1.8;background:var(--bg2);border-radius:6px;padding:8px;">
+                ${e.diffs.map(d => `
+                  <div style="display:flex;gap:8px;align-items:baseline;">
+                    <span style="color:#88aaff;min-width:120px;word-break:break-all;">${d.file}</span>
+                    ${d.lines ? `<span style="color:var(--text-muted);min-width:60px;">L${d.lines}</span>` : ''}
+                    <span style="color:var(--text-muted);">${d.desc}</span>
+                  </div>`).join('')}
+              </div>
+            </details>` : '';
+          return `
           <div class="cl-entry">
             <div class="cl-entry-date">${e.date}</div>
             <span class="cl-entry-version">${e.version}</span>
@@ -8202,7 +8236,9 @@
             <ul class="cl-entry-items">
               ${e.items.map(it => `<li>${TAG_HTML[it.tag] || ''}${it.text}</li>`).join('')}
             </ul>
-          </div>`).join('');
+            ${diffsHtml}
+          </div>`;
+        }).join('');
       }
 
       const _LOG_PATTERNS = [
@@ -8253,7 +8289,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v56';
+        const swVer = 'kintai-v57';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -15853,7 +15889,11 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           dotEl.innerHTML = _ttydData.running
             ? '<span style="color:var(--accent-green);">● 稼働中</span>'
             : '<span style="color:#e57373;">● 停止中</span>';
-          if (urlEl) urlEl.textContent = _getTtydUrl();
+          // IP はマスク表示 (実URLはボタンクリック時のみ使用)
+          if (urlEl) {
+            const fullUrl = _getTtydUrl();
+            urlEl.textContent = fullUrl.replace(/\/\/(\d+\.\d+)\.\d+\.\d+:/, '//$1.●●.●●:');
+          }
         } catch {
           dotEl.innerHTML = '<span style="color:var(--text-muted);">— サーバー未接続</span>';
         }
@@ -15864,14 +15904,13 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           const td = await tr.json();
           if (tsEl) {
             if (td.https_url || td.http_url) {
-              const showUrl = td.https_url || td.http_url;
               const tsIp = td.tailscale_ip || '';
+              const maskedIp = typeof maskIp === 'function' ? maskIp(tsIp) : '●●●.●●.●●.●●';
               const ttydLink = tsIp ? `http://${tsIp}:${_ttydPort}` : '';
               tsEl.innerHTML =
-                `✅ 接続中 — Tailscale IP: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${tsIp}</code><br>` +
-                (td.https_url ? `🔒 HTTPS Serve: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${td.https_url}</code><br>` : '') +
-                `🔌 API (HTTP): <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${td.http_url || ''}</code>` +
-                (ttydLink ? `<br>🖥 ttyd 外部: <a href="${ttydLink}" target="_blank" rel="noopener" style="color:var(--accent-blue);">${ttydLink}</a>` : '');
+                `✅ 接続中 — Tailscale IP: <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${maskedIp}</code><br>` +
+                `🔌 API (HTTP): <span style="font-size:11px;color:var(--text-muted);">ターミナルタブの接続URLを使用</span>` +
+                (ttydLink ? `<br>🖥 ttyd: <button onclick="window.open('http://${tsIp}:${_ttydPort}','_blank')" class="btn-secondary" style="font-size:10px;padding:3px 8px;">外部ターミナルを開く</button>` : '');
               // Tailscale IPをキャッシュして ttyd URL も更新
               if (tsIp) {
                 _ttydIp = tsIp;
@@ -15898,13 +15937,14 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         }
       }
 
-      document.getElementById('ttyd-open-btn')?.addEventListener('click', async () => {
-        // Open immediately (synchronous) to avoid Safari popup blocking, then redirect
-        const win = window.open('about:blank', '_blank', 'noopener');
-        if (!_ttydIp) await refreshTtydStatus();
-        const url = _getTtydUrl();
-        if (win) win.location.href = url;
-        else window.open(url, '_blank', 'noopener');
+      document.getElementById('ttyd-open-btn')?.addEventListener('click', () => {
+        // キャッシュから即 URL を組み立て (async 不要 → Safari popup ブロック回避)
+        const ip = _ttydIp
+          || localStorage.getItem('_kintai_tailscale_ip')
+          || localStorage.getItem('_kintai_ttyd_ip_v1')
+          || '';
+        const url = ip ? `http://${ip}:${_ttydPort}` : _getTtydUrl();
+        window.open(url, '_blank');
       });
 
       document.getElementById('ttyd-open-inline-btn')?.addEventListener('click', async () => {
@@ -15955,6 +15995,18 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           if (resEl) resEl.textContent = '❌ サーバーに接続できません。ローカルサーバーが起動中か確認してください。';
         }
       });
+
+      // 外出先アクセスカードのボタン初期化 (IP は非表示 - ボタン経由でのみアクセス)
+      (() => {
+        const cachedIp = localStorage.getItem('_kintai_tailscale_ip') || _ttydIp || '';
+        const ttydFullUrl = cachedIp ? `http://${cachedIp}:${_ttydPort}` : `http://localhost:${_ttydPort}`;
+        const maskedEl = document.getElementById('ttyd-tailscale-url-masked');
+        if (maskedEl && cachedIp) maskedEl.textContent = cachedIp.replace(/(\d+\.\d+)\.\d+\.\d+/, '$1.●●.●●') + `:${_ttydPort}`;
+        document.getElementById('ttyd-ts-copy-btn')?.addEventListener('click', () =>
+          navigator.clipboard?.writeText(ttydFullUrl).then(() => toast('📋 ターミナルURLをコピーしました')));
+        document.getElementById('ttyd-ts-open-btn')?.addEventListener('click', () =>
+          window.open(ttydFullUrl, '_blank'));
+      })();
 
       window._initTerminalTab = refreshTtydStatus;
     })();
@@ -16451,12 +16503,19 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         const verEl = document.getElementById('guide-version-badge');
         if (verEl) verEl.textContent = typeof CACHE !== 'undefined' ? CACHE : (localStorage.getItem('_kintai_sw_ver') || '');
 
-        // Tailscale IP で URL を動的更新
-        const tsIp = localStorage.getItem('_kintai_tailscale_ip') || '100.65.221.66';
-        const kintaiUrl = document.getElementById('guide-kintai-url');
-        const ttydUrl   = document.getElementById('guide-ttyd-url');
-        if (kintaiUrl) kintaiUrl.textContent = `http://${tsIp}:8899`;
-        if (ttydUrl)   ttydUrl.textContent   = `http://${tsIp}:7681`;
+        // Tailscale IP で URL を動的設定 (IP は画面非表示、ボタン経由でのみアクセス)
+        const tsIp = localStorage.getItem('_kintai_tailscale_ip') || '';
+        const kintaiFullUrl = tsIp ? `http://${tsIp}:8899` : (window._srvBase || 'http://localhost:8899');
+        const ttydFullUrl   = tsIp ? `http://${tsIp}:7681` : 'http://localhost:7681';
+        // コピー・開くボタンにアクション割り当て (URL は非表示)
+        document.getElementById('guide-kintai-copy-btn')?.addEventListener('click', () =>
+          navigator.clipboard?.writeText(kintaiFullUrl).then(() => toast('📋 kintai URL をコピーしました')));
+        document.getElementById('guide-kintai-open-btn')?.addEventListener('click', () =>
+          window.open(kintaiFullUrl, '_blank'));
+        document.getElementById('guide-ttyd-copy-btn')?.addEventListener('click', () =>
+          navigator.clipboard?.writeText(ttydFullUrl).then(() => toast('📋 ターミナル URL をコピーしました')));
+        document.getElementById('guide-ttyd-open-btn')?.addEventListener('click', () =>
+          window.open(ttydFullUrl, '_blank'));
 
         // caffeinate 状態
         const cafEl = document.getElementById('guide-caffeinate-status');
