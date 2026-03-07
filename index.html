@@ -7727,6 +7727,53 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v58', date: '2026-03-07',
+          title: '🏗 システム分離(PWA/Admin) + ttyd --writable + 仕様キャッシュ + CHANGELOG コード表示',
+          items: [
+            { tag: 'feat', text: 'システム分離: GitHub Pages = 勤怠専用(pwa)、LAN/localhost = 管理システム(admin)。それぞれデフォルト表示タブが異なる' },
+            { tag: 'fix',  text: 'ttyd --writable フラグ追加 → ターミナルが操作不能だった問題を解消 (launchd plist 更新・再起動済み)' },
+            { tag: 'feat', text: '仕様タブ 構成ツリー: 取得成功時に localStorage キャッシュ保存。サーバー未接続時もキャッシュから表示' },
+            { tag: 'feat', text: 'CHANGELOG diffs: code.before / code.after フィールドで実際のコード変更を赤(削除)/緑(追加)で表示' },
+          ],
+          diffs: [
+            {
+              file: 'index.html', lines: '14465-14490', desc: '環境検出 window._KINTAI_ENV 追加 + _BUILTIN_TABS に pwaVisible フィールド追加',
+              code: {
+                before: `const _BUILTIN_TABS = [\n  { id: 'system', defaultVisible: true },\n  { id: 'docker', defaultVisible: true },\n  ...`,
+                after:  `window._KINTAI_ENV = location.hostname.includes('github.io') ? 'pwa' : 'admin';\nconst _BUILTIN_TABS = [\n  { id: 'system', defaultVisible: true, pwaVisible: false },\n  { id: 'docker', defaultVisible: true, pwaVisible: false },\n  { id: 'calendar', defaultVisible: true, pwaVisible: true },\n  ...`
+              }
+            },
+            {
+              file: 'index.html', lines: '14565-14578', desc: 'getEffectiveConfig: 環境に応じてデフォルト表示タブを切り替え',
+              code: {
+                before: `const base = saved || allTabs.map(t => ({ id: t.id, visible: t.defaultVisible ?? true }));`,
+                after:  `const isPwa = window._KINTAI_ENV === 'pwa';\nconst base = saved || allTabs.map(t => ({\n  id: t.id,\n  visible: isPwa ? (t.pwaVisible ?? t.defaultVisible ?? true)\n                 : (t.defaultVisible ?? true)\n}));`
+              }
+            },
+            {
+              file: 'index.html', lines: '9084-9120', desc: 'renderStructure: 取得成功時に localStorage._kintai_structure_cache に保存。失敗時はキャッシュ表示',
+              code: {
+                before: `pre.textContent = '(サーバー未接続 — kintai-server または miniserve を起動後に🔄を押してください)';`,
+                after:  `// Strategy 3: localStorage キャッシュを表示\nconst cached = JSON.parse(localStorage.getItem('_kintai_structure_cache') || 'null');\nif (cached && cached.text) {\n  const age = Math.round((Date.now() - cached.ts) / 60000);\n  pre.textContent = \`【キャッシュ: \${age}分前取得】\\n\\n\${cached.text}\`;\n}`
+              }
+            },
+            {
+              file: 'index.html', lines: '8213-8250', desc: 'renderChangelog: diffs[].code.before/after を赤/緑のコードブロックで表示',
+              code: {
+                before: `<span style="color:var(--text-muted);">${d.desc}</span>`,
+                after:  `<span style="color:var(--text-muted);">${d.desc}</span>\n${d.code?.before ? '- 変更前: <pre style="border-left:2px solid #e57373;">...</pre>' : ''}\n${d.code?.after  ? '+ 変更後: <pre style="border-left:2px solid #66bb6a;">...</pre>' : ''}`
+              }
+            },
+            {
+              file: 'com.kintai.ttyd.plist', lines: '23', desc: 'ttyd launchd: --writable フラグ追加でターミナル入力を許可',
+              code: {
+                before: `<string>--max-clients</string>\n<string>3</string>\n<!-- zsh を起動 -->`,
+                after:  `<string>--max-clients</string>\n<string>3</string>\n<string>--writable</string>\n<!-- zsh を起動 -->`
+              }
+            },
+          ],
+        },
+        {
           version: 'v57', date: '2026-03-07',
           title: '🔒 IPマスク表示 + ターミナルボタン修正 + CHANGELOG diffs',
           items: [
@@ -8210,6 +8257,7 @@
         db:   `<span class="cl-tag cl-tag-db">DB</span>`,
       };
 
+      function _escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
       function renderChangelog() {
         const el = document.getElementById('cl-entries');
         if (!el) return;
@@ -8221,10 +8269,22 @@
               </summary>
               <div style="margin-top:4px;font-family:monospace;font-size:10px;line-height:1.8;background:var(--bg2);border-radius:6px;padding:8px;">
                 ${e.diffs.map(d => `
-                  <div style="display:flex;gap:8px;align-items:baseline;">
-                    <span style="color:#88aaff;min-width:120px;word-break:break-all;">${d.file}</span>
-                    ${d.lines ? `<span style="color:var(--text-muted);min-width:60px;">L${d.lines}</span>` : ''}
-                    <span style="color:var(--text-muted);">${d.desc}</span>
+                  <div style="margin-bottom:8px;">
+                    <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">
+                      <span style="color:#88aaff;word-break:break-all;">${_escHtml(d.file)}</span>
+                      ${d.lines ? `<span style="color:var(--text-muted);">L${d.lines}</span>` : ''}
+                      <span style="color:var(--text-muted);">${_escHtml(d.desc)}</span>
+                    </div>
+                    ${d.code ? `
+                      ${d.code.before != null ? `
+                        <div style="font-size:9px;color:#e57373;margin:4px 0 2px;">− 変更前</div>
+                        <pre style="margin:0 0 4px;background:rgba(229,115,115,0.08);border-left:2px solid #e57373;padding:5px 8px;font-size:9px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;border-radius:0 4px 4px 0;">${_escHtml(d.code.before)}</pre>
+                      ` : ''}
+                      ${d.code.after != null ? `
+                        <div style="font-size:9px;color:#66bb6a;margin:4px 0 2px;">+ 変更後</div>
+                        <pre style="margin:0;background:rgba(102,187,106,0.08);border-left:2px solid #66bb6a;padding:5px 8px;font-size:9px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;border-radius:0 4px 4px 0;">${_escHtml(d.code.after)}</pre>
+                      ` : ''}
+                    ` : ''}
                   </div>`).join('')}
               </div>
             </details>` : '';
@@ -8289,7 +8349,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v57';
+        const swVer = 'kintai-v58';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -9081,6 +9141,7 @@
           ).join('') + '</table>';
       }
 
+      const _STRUCTURE_CACHE_KEY = '_kintai_structure_cache';
       async function renderStructure() {
         const pre = document.getElementById('spec-structure');
         if (!pre) return;
@@ -9090,7 +9151,10 @@
           const r = await fetch(`${_getApi()}/api/structure`, { signal: AbortSignal.timeout(5000) });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const d = await r.json();
-          pre.textContent = d.content || '(空)';
+          const text = d.content || '(空)';
+          pre.textContent = text;
+          // キャッシュに保存
+          try { localStorage.setItem(_STRUCTURE_CACHE_KEY, JSON.stringify({ text, ts: Date.now() })); } catch(_) {}
           return;
         } catch(_) {}
         // Strategy 2: miniserve 経由で STRUCTURE.md を直接取得
@@ -9099,8 +9163,19 @@
           const url = `http://${ip}:9000/attendance-pwa/STRUCTURE.md`;
           const r2 = await fetch(url, { signal: AbortSignal.timeout(5000) });
           if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
-          pre.textContent = await r2.text();
+          const text = await r2.text();
+          pre.textContent = text;
+          try { localStorage.setItem(_STRUCTURE_CACHE_KEY, JSON.stringify({ text, ts: Date.now() })); } catch(_) {}
           return;
+        } catch(_) {}
+        // Strategy 3: localStorage キャッシュを表示
+        try {
+          const cached = JSON.parse(localStorage.getItem(_STRUCTURE_CACHE_KEY) || 'null');
+          if (cached && cached.text) {
+            const age = Math.round((Date.now() - cached.ts) / 60000);
+            pre.textContent = `【キャッシュ: ${age}分前取得】\n\n${cached.text}`;
+            return;
+          }
         } catch(_) {}
         pre.textContent = '(サーバー未接続 — kintai-server または miniserve を起動後に🔄を押してください)';
       }
@@ -14465,28 +14540,38 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       const TAB_CFG_KEY    = '_kintai_tab_config_v1';
       const CUSTOM_TAB_KEY = '_kintai_custom_tabs_v1';
 
+      // ── 環境検出: GitHub Pages = pwa (勤怠専用), LAN/localhost = admin (管理システム) ──
+      // localStorage はオリジン別に独立しているため設定が混在しない
+      window._KINTAI_ENV = (() => {
+        const h = window.location.hostname;
+        if (h.includes('github.io') || h.includes('github.com')) return 'pwa';
+        return 'admin';
+      })();
+
       // ── 組み込みタブ定義 ──────────────────────────────────────────────────
+      // defaultVisible: admin(LAN/localhost)でのデフォルト表示
+      // pwaVisible: GitHub Pages(iPhone/外部)でのデフォルト表示
       const _BUILTIN_TABS = [
-        { id: 'calendar',  icon: '📅', label: '勤怠',    defaultVisible: true  },
-        { id: 'hub',       icon: '🚀', label: 'ハブ',    defaultVisible: true  },
-        { id: 'study',     icon: '📚', label: '学習',    defaultVisible: true  },
-        { id: 'project',   icon: '📊', label: '進捗',    defaultVisible: true  },
-        { id: 'report',    icon: '📋', label: '報告書',  defaultVisible: true  },
-        { id: 'jobs',      icon: '💼', label: '案件',    defaultVisible: true  },
-        { id: 'ai',        icon: '🤖', label: 'AI',      defaultVisible: true  },
-        { id: 'system',    icon: '🔧', label: 'システム',defaultVisible: true  },
-        { id: 'employee',  icon: '👥', label: '従業員',  defaultVisible: false },
-        { id: 'market',    icon: '📈', label: '市場価値',defaultVisible: false },
-        { id: 'db',        icon: '🗄', label: 'DB管理',  defaultVisible: true  },
-        { id: 'spec',      icon: '📁', label: '仕様',    defaultVisible: false },
-        { id: 'logs',      icon: '📋', label: 'ログ',    defaultVisible: false },
-        { id: 'perf',      icon: '⚡', label: 'パフォーマンス', defaultVisible: false },
-        { id: 'bizai',     icon: '🗂', label: '業務AI',      defaultVisible: true  },
-        { id: 'docker',    icon: '🐳', label: 'Docker',      defaultVisible: true  },
-        { id: 'terminal',  icon: '🖥', label: 'ターミナル',  defaultVisible: true  },
-        { id: 'obsidian',  icon: '📓', label: 'Obsidian',     defaultVisible: true  },
-        { id: 'sns',       icon: '📡', label: 'SNS Intel',    defaultVisible: true  },
-        { id: 'guide',     icon: '📖', label: '使い方',        defaultVisible: true  },
+        { id: 'calendar',  icon: '📅', label: '勤怠',           defaultVisible: true,  pwaVisible: true  },
+        { id: 'hub',       icon: '🚀', label: 'ハブ',           defaultVisible: true,  pwaVisible: true  },
+        { id: 'study',     icon: '📚', label: '学習',           defaultVisible: true,  pwaVisible: true  },
+        { id: 'project',   icon: '📊', label: '進捗',           defaultVisible: true,  pwaVisible: true  },
+        { id: 'report',    icon: '📋', label: '報告書',         defaultVisible: true,  pwaVisible: true  },
+        { id: 'jobs',      icon: '💼', label: '案件',           defaultVisible: true,  pwaVisible: true  },
+        { id: 'ai',        icon: '🤖', label: 'AI',             defaultVisible: true,  pwaVisible: true  },
+        { id: 'system',    icon: '🔧', label: 'システム',       defaultVisible: true,  pwaVisible: false },
+        { id: 'employee',  icon: '👥', label: '従業員',         defaultVisible: false, pwaVisible: false },
+        { id: 'market',    icon: '📈', label: '市場価値',       defaultVisible: false, pwaVisible: false },
+        { id: 'db',        icon: '🗄', label: 'DB管理',         defaultVisible: true,  pwaVisible: false },
+        { id: 'spec',      icon: '📁', label: '仕様',           defaultVisible: false, pwaVisible: false },
+        { id: 'logs',      icon: '📋', label: 'ログ',           defaultVisible: false, pwaVisible: false },
+        { id: 'perf',      icon: '⚡', label: 'パフォーマンス', defaultVisible: false, pwaVisible: false },
+        { id: 'bizai',     icon: '🗂', label: '業務AI',         defaultVisible: true,  pwaVisible: true  },
+        { id: 'docker',    icon: '🐳', label: 'Docker',         defaultVisible: true,  pwaVisible: false },
+        { id: 'terminal',  icon: '🖥', label: 'ターミナル',     defaultVisible: true,  pwaVisible: false },
+        { id: 'obsidian',  icon: '📓', label: 'Obsidian',       defaultVisible: true,  pwaVisible: false },
+        { id: 'sns',       icon: '📡', label: 'SNS Intel',      defaultVisible: true,  pwaVisible: false },
+        { id: 'guide',     icon: '📖', label: '使い方',         defaultVisible: true,  pwaVisible: true  },
       ];
 
       // ── カスタムタブ CRUD ──────────────────────────────────────────────────
@@ -14554,11 +14639,20 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       function getEffectiveConfig() {
         const allTabs = _getAllTabs();
         const saved = loadTabConfig();
-        const base = saved || allTabs.map(t => ({ id: t.id, visible: t.defaultVisible ?? true }));
+        // 未設定の場合: 環境に応じたデフォルトを使用
+        // pwa (GitHub Pages) → pwaVisible, admin (LAN/localhost) → defaultVisible
+        const isPwa = window._KINTAI_ENV === 'pwa';
+        const base = saved || allTabs.map(t => ({
+          id: t.id,
+          visible: isPwa ? (t.pwaVisible ?? t.defaultVisible ?? true) : (t.defaultVisible ?? true)
+        }));
         const knownIds = new Set(base.map(c => c.id));
         const merged = [...base];
         for (const t of allTabs) {
-          if (!knownIds.has(t.id)) merged.push({ id: t.id, visible: t.defaultVisible ?? true });
+          if (!knownIds.has(t.id)) merged.push({
+            id: t.id,
+            visible: isPwa ? (t.pwaVisible ?? t.defaultVisible ?? true) : (t.defaultVisible ?? true)
+          });
         }
         return merged;
       }
