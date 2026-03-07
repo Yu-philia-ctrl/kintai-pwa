@@ -676,6 +676,10 @@ class JinjerHandler(BaseHTTPRequestHandler):
             if not self._is_trusted_origin():
                 self._send_json({'error': '外部からのアクセスは不可'}, 403); return
             self._handle_obsidian_mkdir()
+        elif path == '/api/obsidian/sync-backup':
+            if not self._is_trusted_origin():
+                self._send_json({'error': '外部からのアクセスは不可'}, 403); return
+            self._handle_obsidian_sync_backup()
 
         # ===== /api/sns/* — SNS Collector (port 8900) へのプロキシ =====
         elif path.startswith('/api/sns/'):
@@ -1339,6 +1343,97 @@ class JinjerHandler(BaseHTTPRequestHandler):
             target = self._obs_resolve(subpath)
             target.mkdir(parents=True, exist_ok=True)
             self._send_json({'ok': True})
+        except Exception as ex:
+            self._send_json({'ok': False, 'error': str(ex)})
+
+    def _handle_obsidian_sync_backup(self):
+        """各種 kintai データを Obsidian Vault 内に .md ファイルとしてバックアップする。
+        POST body: { sources: ["server_log", "watchdog_log", "kintai_data", "tasks", "structure"] }
+        """
+        try:
+            body    = self._read_body()
+            sources = body.get('sources', [])
+            now     = _dt.now()
+            date_s  = now.strftime('%Y-%m-%d')
+            ts_s    = now.strftime('%Y-%m-%d %H:%M:%S')
+
+            written = []  # [{'path': ..., 'size_kb': ...}]
+
+            def _read_log(name, tail=500):
+                p = _HERE / 'logs' / name
+                if not p.exists():
+                    return f'(ファイルなし: {name})'
+                lines = p.read_text(encoding='utf-8', errors='replace').splitlines()
+                return '\n'.join(lines[-tail:]) if len(lines) > tail else '\n'.join(lines)
+
+            def _write_obs(subpath, content):
+                target = self._obs_resolve(subpath)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content, encoding='utf-8')
+                size_kb = round(target.stat().st_size / 1024, 1)
+                written.append({'path': subpath, 'size_kb': size_kb})
+
+            # ── server.log ──────────────────────────────────────────────
+            if 'server_log' in sources:
+                log_txt = _read_log('server.log', 500)
+                md = f'# kintai サーバーログ {date_s}\n\nバックアップ日時: {ts_s}\n\n```\n{log_txt}\n```\n'
+                _write_obs(f'kintai-backup/logs/{date_s}-server.md', md)
+
+            # ── watchdog.log ────────────────────────────────────────────
+            if 'watchdog_log' in sources:
+                log_txt = _read_log('watchdog.log', 200)
+                md = f'# kintai Watchdog ログ {date_s}\n\nバックアップ日時: {ts_s}\n\n```\n{log_txt}\n```\n'
+                _write_obs(f'kintai-backup/logs/{date_s}-watchdog.md', md)
+
+            # ── 勤怠データ ───────────────────────────────────────────────
+            if 'kintai_data' in sources:
+                store_path = _HERE / 'data' / 'kintai_store.json'
+                if store_path.exists():
+                    store = json.loads(store_path.read_text(encoding='utf-8'))
+                    ym = now.strftime('%Y-%m')
+                    lines = [f'# kintai 勤怠データ {ym}', f'\nバックアップ日時: {ts_s}\n']
+                    for date_key, day in sorted(store.items()):
+                        if not isinstance(day, dict):
+                            continue
+                        status = day.get('status', '')
+                        start  = day.get('start', '')
+                        end    = day.get('end', '')
+                        wc     = day.get('work_content', '')
+                        lines.append(f'## {date_key}')
+                        lines.append(f'- ステータス: {status}')
+                        if start: lines.append(f'- 開始: {start}')
+                        if end:   lines.append(f'- 終了: {end}')
+                        if wc:    lines.append(f'- 作業内容: {wc}')
+                        memos = day.get('memo_list', [])
+                        for m in memos:
+                            lines.append(f'- [{m.get("cat","備考")}] {m.get("text","")}')
+                        lines.append('')
+                    _write_obs(f'kintai-backup/data/kintai-{ym}.md', '\n'.join(lines))
+
+            # ── タスク ───────────────────────────────────────────────────
+            if 'tasks' in sources:
+                tasks_path = _HERE / 'data' / 'kintai_tasks.json'
+                if tasks_path.exists():
+                    tasks_data = json.loads(tasks_path.read_text(encoding='utf-8'))
+                    tasks = tasks_data if isinstance(tasks_data, list) else tasks_data.get('tasks', [])
+                    active = [t for t in tasks if not t.get('deleted')]
+                    lines  = [f'# kintai タスク {date_s}', f'\nバックアップ日時: {ts_s}\n']
+                    for t in active:
+                        done = '✅' if t.get('done') else '⬜'
+                        lines.append(f'- {done} {t.get("text","(無題)")}')
+                        if t.get('assignee'): lines.append(f'  - 担当: {t["assignee"]}')
+                        if t.get('due'):      lines.append(f'  - 期日: {t["due"]}')
+                    _write_obs(f'kintai-backup/data/tasks-{date_s}.md', '\n'.join(lines))
+
+            # ── STRUCTURE.md ─────────────────────────────────────────────
+            if 'structure' in sources:
+                struct_path = _HERE / 'STRUCTURE.md'
+                if struct_path.exists():
+                    content = struct_path.read_text(encoding='utf-8')
+                    md = f'# STRUCTURE.md バックアップ {date_s}\n\nバックアップ日時: {ts_s}\n\n```\n{content}\n```\n'
+                    _write_obs(f'kintai-backup/structure/{date_s}.md', md)
+
+            self._send_json({'ok': True, 'files': written, 'synced_at': ts_s})
         except Exception as ex:
             self._send_json({'ok': False, 'error': str(ex)})
 

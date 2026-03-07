@@ -3668,7 +3668,7 @@
     <!-- ステータスバー -->
     <div id="docker-status-bar" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;"></div>
 
-    <!-- ビュー切り替え: containers / stats / images -->
+    <!-- ビュー切り替え: containers / stats / images / logs -->
     <div style="display:flex;gap:5px;margin-bottom:10px;">
       <button class="docker-view-btn active" data-view="containers"
         style="flex:1;padding:6px 4px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-card-solid);font-size:12px;cursor:pointer;font-weight:700;">
@@ -3681,6 +3681,10 @@
       <button class="docker-view-btn" data-view="images"
         style="flex:1;padding:6px 4px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-card);font-size:12px;cursor:pointer;">
         🖼 イメージ
+      </button>
+      <button class="docker-view-btn" data-view="logs"
+        style="flex:1;padding:6px 4px;border-radius:10px;border:1px solid var(--border-soft);background:var(--bg-card);font-size:12px;cursor:pointer;">
+        📋 ログ
       </button>
     </div>
 
@@ -3697,6 +3701,36 @@
     <!-- イメージリスト -->
     <div id="docker-images-view" style="display:none;">
       <div id="docker-image-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- ログビュー -->
+    <div id="docker-logs-view" style="display:none;">
+      <!-- コントロールバー -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center;">
+        <select id="docker-log-container-sel" style="flex:1;min-width:120px;padding:6px 8px;border-radius:8px;border:1px solid var(--border-soft);background:var(--bg-card);color:var(--text-primary);font-size:12px;">
+          <option value="">— コンテナを選択 —</option>
+        </select>
+        <select id="docker-log-lines-sel" style="width:80px;padding:6px 8px;border-radius:8px;border:1px solid var(--border-soft);background:var(--bg-card);color:var(--text-primary);font-size:12px;">
+          <option value="100">100行</option>
+          <option value="300" selected>300行</option>
+          <option value="500">500行</option>
+          <option value="1000">1000行</option>
+        </select>
+        <button id="docker-log-view-refresh" class="btn-secondary" style="font-size:12px;padding:6px 10px;">🔄</button>
+      </div>
+      <!-- 検索・操作バー -->
+      <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
+        <input type="text" id="docker-log-search" placeholder="🔍 ログを検索..." style="flex:1;padding:6px 10px;border-radius:8px;border:1px solid var(--border-soft);background:var(--bg-card);color:var(--text-primary);font-size:12px;">
+        <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="docker-log-view-autorefresh" checked> 自動更新
+        </label>
+        <button id="docker-log-copy-btn" class="btn-secondary" style="font-size:12px;padding:6px 10px;" title="ログをコピー">📋</button>
+        <button id="docker-log-dl-btn" class="btn-secondary" style="font-size:12px;padding:6px 10px;" title="ダウンロード">⬇️</button>
+      </div>
+      <!-- ログ表示エリア -->
+      <pre id="docker-log-view-content"
+        style="width:100%;min-height:55vh;max-height:65vh;overflow-y:auto;padding:12px 14px;font-size:11px;font-family:'Menlo','Consolas',monospace;background:#0d1117;color:#c9d1d9;margin:0;white-space:pre-wrap;word-break:break-all;line-height:1.6;border-radius:12px;box-sizing:border-box;">コンテナを選択してください...</pre>
+      <div id="docker-log-view-status" style="font-size:10px;color:var(--text-muted);margin-top:4px;text-align:right;"></div>
     </div>
 
     <!-- ログモーダル -->
@@ -3897,6 +3931,42 @@
           Tailscale 経由でサーバーに接続してください。
         </div>
       </div>
+    </div>
+
+    <!-- 自動バックアップセクション -->
+    <div class="card" style="margin-top:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="font-size:14px;font-weight:700;">📤 Obsidian 自動バックアップ</div>
+        <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;margin-left:auto;">
+          <input type="checkbox" id="obs-backup-auto"> 30分ごとに自動同期
+        </label>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.7;">
+        kintai のログ・勤怠データ・タスクを Obsidian Vault 内の <code style="background:var(--bg-glass);padding:1px 5px;border-radius:4px;">kintai-backup/</code> フォルダに .md ファイルとして書き出します。
+      </div>
+      <!-- 同期ソース選択 -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;background:var(--bg2);padding:5px 10px;border-radius:8px;">
+          <input type="checkbox" class="obs-backup-src" value="server_log" checked> 📋 server.log
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;background:var(--bg2);padding:5px 10px;border-radius:8px;">
+          <input type="checkbox" class="obs-backup-src" value="watchdog_log" checked> 🔍 watchdog.log
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;background:var(--bg2);padding:5px 10px;border-radius:8px;">
+          <input type="checkbox" class="obs-backup-src" value="kintai_data" checked> 📅 勤怠データ
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;background:var(--bg2);padding:5px 10px;border-radius:8px;">
+          <input type="checkbox" class="obs-backup-src" value="tasks" checked> ✅ タスク
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;background:var(--bg2);padding:5px 10px;border-radius:8px;">
+          <input type="checkbox" class="obs-backup-src" value="structure"> 🗂 STRUCTURE.md
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="obs-backup-now-btn" class="btn-primary" style="font-size:13px;padding:8px 18px;">🔄 今すぐ同期</button>
+        <span id="obs-backup-status" style="font-size:11px;color:var(--text-muted);flex:1;"></span>
+      </div>
+      <div id="obs-backup-result" style="display:none;margin-top:10px;font-size:11px;font-family:monospace;background:var(--bg2);border-radius:8px;padding:10px;line-height:1.8;"></div>
     </div>
   </div>
 
@@ -7727,6 +7797,46 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v60', date: '2026-03-07',
+          title: '🐳📓 Docker ログビュー + Obsidian 自動バックアップ',
+          items: [
+            { tag: 'feat', text: 'Dockerタブ: 「📋 ログ」ビュー追加 — コンテナ選択・行数指定・検索フィルタ・5秒自動更新・コピー/ダウンロード' },
+            { tag: 'feat', text: 'Obsidianタブ: 📤 自動バックアップ機能 — server.log/watchdog.log/勤怠データ/タスク/STRUCTURE.md を Vault の kintai-backup/ フォルダに .md として書き出し' },
+            { tag: 'feat', text: 'POST /api/obsidian/sync-backup — バックアップエンドポイント追加 (jinjer_server.py)' },
+            { tag: 'feat', text: 'Obsidianタブ: 30分ごとの自動同期トグル + ソース選択チェックボックス + 書き出しファイル一覧表示' },
+          ],
+          diffs: [
+            {
+              file: 'index.html', lines: '3671-3745', desc: 'Dockerタブ HTML: ビュー切り替えに「📋 ログ」を追加、ログビューエリア (コンテナ選択・検索・コピー/DL) 追加',
+              code: {
+                before: '<!-- 3ビュー: コンテナ/統計/イメージ -->',
+                after:  '<!-- 4ビュー: コンテナ/統計/イメージ/ログ -->\n<div id="docker-logs-view">\n  <select id="docker-log-container-sel">...</select>\n  <select id="docker-log-lines-sel">100/300/500/1000行</select>\n  <input id="docker-log-search" placeholder="🔍 ログを検索...">\n  <pre id="docker-log-view-content">...</pre>\n</div>'
+              }
+            },
+            {
+              file: 'index.html', lines: '16047-16130', desc: 'Docker ログビュー JS: _loadLogsView / _fetchLogView / _applyLogSearch / 自動更新タイマー / コピー・DL',
+              code: {
+                before: 'function _loadDockerView() {\n  if (containers) ... else if (stats) ... else images;\n}',
+                after:  'function _loadDockerView() {\n  if (containers) ... else if (stats) ... else if (logs) _loadLogsView(); else images;\n}\nasync function _loadLogsView() { /* コンテナ選択 + ログ取得 */ }\nasync function _fetchLogView(cid) { /* API 呼び出し + 表示 */ }\nfunction _applyLogSearch() { /* キーワードフィルタ */ }'
+              }
+            },
+            {
+              file: 'index.html', lines: '3900-3945', desc: 'Obsidianタブ HTML: 📤 バックアップセクション (ソース選択チェックボックス + 今すぐ同期ボタン + 結果表示)',
+              code: {
+                before: '<!-- バックアップセクションなし -->',
+                after:  '<div class="card">\n  <input type="checkbox" id="obs-backup-auto"> 30分ごとに自動同期\n  <input class="obs-backup-src" value="server_log"> server.log\n  <input class="obs-backup-src" value="kintai_data"> 勤怠データ\n  <button id="obs-backup-now-btn">🔄 今すぐ同期</button>\n  <div id="obs-backup-result">...</div>\n</div>'
+              }
+            },
+            {
+              file: 'jinjer_server.py', lines: '1349-1425', desc: '_handle_obsidian_sync_backup: ログ/勤怠/タスク/STRUCTURE.md を kintai-backup/ に .md 書き出し',
+              code: {
+                before: '# sync-backup なし',
+                after:  'def _handle_obsidian_sync_backup(self):\n    sources = body["sources"]\n    # server.log → kintai-backup/logs/YYYY-MM-DD-server.md\n    # kintai_store.json → kintai-backup/data/kintai-YYYY-MM.md\n    # kintai_tasks.json → kintai-backup/data/tasks-YYYY-MM-DD.md\n    # STRUCTURE.md → kintai-backup/structure/YYYY-MM-DD.md'
+              }
+            },
+          ],
+        },
+        {
           version: 'v59', date: '2026-03-07',
           title: '🐛 v58 緊急バグ修正: CHANGELOG定数内 ReferenceError → タブ全消え解消',
           items: [
@@ -8368,7 +8478,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v59';
+        const swVer = 'kintai-v60';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -15585,6 +15695,9 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
             _dockerView === 'stats' ? '' : 'none';
           document.getElementById('docker-images-view').style.display =
             _dockerView === 'images' ? '' : 'none';
+          document.getElementById('docker-logs-view').style.display =
+            _dockerView === 'logs' ? '' : 'none';
+          if (_dockerView !== 'logs') _stopLogViewAutoRefresh();
           _loadDockerView();
         });
       });
@@ -15959,8 +16072,122 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       function _loadDockerView() {
         if (_dockerView === 'containers') _loadContainers();
         else if (_dockerView === 'stats')  _loadStats();
+        else if (_dockerView === 'logs')   _loadLogsView();
         else _loadImages();
       }
+
+      // ── ログビュー ──────────────────────────────────────────────────────
+      let _logViewTimer = null;
+      let _logViewRawText = '';
+
+      async function _loadLogsView() {
+        // コンテナ一覧をセレクタに反映
+        const sel = document.getElementById('docker-log-container-sel');
+        if (!sel) return;
+        try {
+          const r = await fetch(`${_SRV()}/api/docker/containers`, { signal: AbortSignal.timeout(8000) });
+          const data = await r.json();
+          const containers = data.containers || [];
+          const prev = sel.value;
+          sel.innerHTML = '<option value="">— コンテナを選択 —</option>'
+            + containers.map(c =>
+                `<option value="${_esc(c.id)}" data-name="${_esc(c.name)}">${_esc(c.name)} [${c.state}]</option>`
+              ).join('');
+          if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+        } catch(_) {}
+        // 選択済みコンテナがあればログ取得
+        if (sel.value) _fetchLogView(sel.value);
+      }
+
+      async function _fetchLogView(cid) {
+        const pre = document.getElementById('docker-log-view-content');
+        const status = document.getElementById('docker-log-view-status');
+        const lines = document.getElementById('docker-log-lines-sel')?.value || 300;
+        if (!pre || !cid) return;
+        try {
+          const r = await fetch(`${_SRV()}/api/docker/logs?id=${encodeURIComponent(cid)}&lines=${lines}`,
+            { signal: AbortSignal.timeout(15000) });
+          const d = await r.json();
+          _logViewRawText = d.logs || d.error || '(ログなし)';
+          _applyLogSearch();
+          const now = new Date().toLocaleTimeString('ja-JP');
+          if (status) status.textContent = `最終取得: ${now} (${lines}行)`;
+        } catch(e) {
+          if (pre) pre.textContent = `エラー: ${e.message}`;
+        }
+      }
+
+      function _applyLogSearch() {
+        const pre = document.getElementById('docker-log-view-content');
+        const q = (document.getElementById('docker-log-search')?.value || '').toLowerCase();
+        if (!pre) return;
+        if (!q) {
+          pre.textContent = _logViewRawText;
+          pre.scrollTop = pre.scrollHeight;
+          return;
+        }
+        const lines = _logViewRawText.split('\n');
+        const matched = lines.filter(l => l.toLowerCase().includes(q));
+        pre.textContent = matched.length
+          ? `[${matched.length}/${lines.length}件マッチ]\n\n${matched.join('\n')}`
+          : `"${q}" に一致するログはありません`;
+      }
+
+      function _startLogViewAutoRefresh(cid) {
+        _stopLogViewAutoRefresh();
+        _logViewTimer = setInterval(() => {
+          const ar = document.getElementById('docker-log-view-autorefresh');
+          if (ar?.checked && _dockerView === 'logs') _fetchLogView(cid);
+        }, 5000);
+      }
+
+      function _stopLogViewAutoRefresh() {
+        if (_logViewTimer) { clearInterval(_logViewTimer); _logViewTimer = null; }
+      }
+
+      // コンテナ選択
+      document.getElementById('docker-log-container-sel')?.addEventListener('change', function() {
+        _stopLogViewAutoRefresh();
+        if (this.value) {
+          _fetchLogView(this.value);
+          _startLogViewAutoRefresh(this.value);
+        } else {
+          document.getElementById('docker-log-view-content').textContent = 'コンテナを選択してください...';
+        }
+      });
+
+      // 行数変更
+      document.getElementById('docker-log-lines-sel')?.addEventListener('change', () => {
+        const cid = document.getElementById('docker-log-container-sel')?.value;
+        if (cid) _fetchLogView(cid);
+      });
+
+      // 手動更新
+      document.getElementById('docker-log-view-refresh')?.addEventListener('click', () => {
+        const cid = document.getElementById('docker-log-container-sel')?.value;
+        if (cid) _fetchLogView(cid); else _loadLogsView();
+      });
+
+      // 検索
+      document.getElementById('docker-log-search')?.addEventListener('input', _applyLogSearch);
+
+      // コピー
+      document.getElementById('docker-log-copy-btn')?.addEventListener('click', () => {
+        navigator.clipboard.writeText(_logViewRawText).then(() => toast('📋 ログをコピーしました'));
+      });
+
+      // ダウンロード
+      document.getElementById('docker-log-dl-btn')?.addEventListener('click', () => {
+        const cname = document.getElementById('docker-log-container-sel')
+          ?.selectedOptions[0]?.dataset.name || 'container';
+        const date = new Date().toISOString().slice(0,10);
+        const blob = new Blob([_logViewRawText], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `docker-${cname}-${date}.log`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
 
       window._initDockerTab = _loadDockerView;
     })();
@@ -16375,8 +16602,77 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         _obsScheduleAutoSave();
       });
 
+      // ── Obsidian 自動バックアップ ──────────────────────────────────────────
+      const _OBS_BACKUP_AUTO_KEY = '_kintai_obs_backup_auto';
+      let _obsBackupTimer = null;
+
+      async function _obsSyncBackup() {
+        const statusEl = document.getElementById('obs-backup-status');
+        const resultEl = document.getElementById('obs-backup-result');
+        const btn = document.getElementById('obs-backup-now-btn');
+        const sources = [...document.querySelectorAll('.obs-backup-src:checked')].map(c => c.value);
+        if (!sources.length) { toast('バックアップするソースを選択してください'); return; }
+        if (statusEl) statusEl.textContent = '🔄 同期中...';
+        if (btn) btn.disabled = true;
+        if (resultEl) resultEl.style.display = 'none';
+        try {
+          const r = await fetch(`${_obsBase()}/api/obsidian/sync-backup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sources }),
+            signal: AbortSignal.timeout(30000)
+          });
+          const d = await r.json();
+          if (d.ok) {
+            const now = new Date().toLocaleString('ja-JP');
+            if (statusEl) statusEl.textContent = `✅ 完了: ${now}`;
+            if (resultEl) {
+              resultEl.style.display = 'block';
+              resultEl.innerHTML = (d.files || []).map(f =>
+                `<div>✓ <span style="color:var(--accent-blue);">${f.path}</span> <span style="color:var(--text-muted);">(${f.size_kb}KB)</span></div>`
+              ).join('') || '(書き出しファイルなし)';
+            }
+            if (window._obsLoadTree) await _obsLoadTree(_obsDirStack[_obsDirStack.length - 1] || '');
+          } else {
+            if (statusEl) statusEl.textContent = `❌ エラー: ${d.error || '不明'}`;
+          }
+        } catch(e) {
+          if (statusEl) statusEl.textContent = `❌ ${e.message}`;
+        }
+        if (btn) btn.disabled = false;
+      }
+
+      function _obsBackupSchedule() {
+        _obsBackupTimerClear();
+        const enabled = document.getElementById('obs-backup-auto')?.checked;
+        try { localStorage.setItem(_OBS_BACKUP_AUTO_KEY, enabled ? '1' : '0'); } catch(_) {}
+        if (enabled) {
+          _obsBackupTimer = setInterval(_obsSyncBackup, 30 * 60 * 1000); // 30分ごと
+        }
+      }
+
+      function _obsBackupTimerClear() {
+        if (_obsBackupTimer) { clearInterval(_obsBackupTimer); _obsBackupTimer = null; }
+      }
+
+      // 自動バックアップ設定を復元
+      (() => {
+        try {
+          const saved = localStorage.getItem(_OBS_BACKUP_AUTO_KEY);
+          const cb = document.getElementById('obs-backup-auto');
+          if (cb && saved === '1') { cb.checked = true; }
+        } catch(_) {}
+      })();
+
+      document.getElementById('obs-backup-now-btn')?.addEventListener('click', _obsSyncBackup);
+      document.getElementById('obs-backup-auto')?.addEventListener('change', _obsBackupSchedule);
+
       window._initObsidianTab = async () => {
         await _obsInit();
+        // 自動バックアップが有効なら開始
+        if (document.getElementById('obs-backup-auto')?.checked && !_obsBackupTimer) {
+          _obsBackupSchedule();
+        }
       };
     })();
 
