@@ -7727,6 +7727,23 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v59', date: '2026-03-07',
+          title: '🐛 v58 緊急バグ修正: CHANGELOG定数内 ReferenceError → タブ全消え解消',
+          items: [
+            { tag: 'fix', text: 'v58 CHANGELOG diffs の code.before/after でテンプレートリテラル内に ${d.desc} を書いてしまい、定数初期化時に ReferenceError → JS全停止 → タブ消え・管理ボタン無効化' },
+            { tag: 'fix', text: '原因箇所をプレーン文字列に修正。テンプレートリテラルの code スニペット内では ${変数} を使わず [変数名] 記法に変更' },
+          ],
+          diffs: [
+            {
+              file: 'index.html', lines: '7763-7764', desc: 'CHANGELOG v58 diffs[3].code: バックティック内の ${d.desc} を文字列リテラルに変更',
+              code: {
+                before: 'before: `<span style="...">${d.desc}</span>`,\nafter:  `...\n${d.code?.before ? ... : ""}...`',
+                after:  'before: \'<span style="...">[desc]</span>\',\nafter:  \'...\n[code.before → ...]\n[code.after → ...]\''
+              }
+            },
+          ],
+        },
+        {
           version: 'v58', date: '2026-03-07',
           title: '🏗 システム分離(PWA/Admin) + ttyd --writable + 仕様キャッシュ + CHANGELOG コード表示',
           items: [
@@ -7760,8 +7777,10 @@
             {
               file: 'index.html', lines: '8213-8250', desc: 'renderChangelog: diffs[].code.before/after を赤/緑のコードブロックで表示',
               code: {
-                before: `<span style="color:var(--text-muted);">${d.desc}</span>`,
-                after:  `<span style="color:var(--text-muted);">${d.desc}</span>\n${d.code?.before ? '- 変更前: <pre style="border-left:2px solid #e57373;">...</pre>' : ''}\n${d.code?.after  ? '+ 変更後: <pre style="border-left:2px solid #66bb6a;">...</pre>' : ''}`
+                before: '<span style="color:var(--text-muted);">[desc]</span>',
+                after:  '<span style="color:var(--text-muted);">[desc]</span>\n'
+                      + '[code.before → 変更前: <pre style="border-left:2px solid #e57373;"> ... </pre>]\n'
+                      + '[code.after  → 変更後: <pre style="border-left:2px solid #66bb6a;"> ... </pre>]'
               }
             },
             {
@@ -8349,7 +8368,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v58';
+        const swVer = 'kintai-v59';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
