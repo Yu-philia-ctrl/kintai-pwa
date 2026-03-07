@@ -3776,6 +3776,22 @@
 
   <!-- ===== TAB: ターミナル ===== -->
   <div id="page-terminal" class="tab-page">
+    <!-- 外出先からのアクセス案内カード -->
+    <div class="card" style="margin-bottom:10px;border:1px solid var(--accent-green);background:rgba(0,200,100,0.04);">
+      <div class="card-title" style="color:var(--accent-green);">📱 iPhone 外出先からの操作</div>
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.9;margin-bottom:10px;">
+        <strong>① Tailscale を ON</strong> → iPhone の Tailscale アプリを起動<br>
+        <strong>② 以下の URL を Safari で開く</strong> → ブラウザ上でターミナル操作可能<br>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <code id="ttyd-tailscale-url" style="flex:1;font-size:12px;background:var(--bg-glass);padding:8px 12px;border-radius:8px;border:1px solid var(--border-soft);word-break:break-all;user-select:all;">http://100.65.221.66:7681</code>
+        <button onclick="navigator.clipboard?.writeText(document.getElementById('ttyd-tailscale-url').textContent).then(()=>toast('📋 コピーしました'))" class="btn-secondary" style="font-size:11px;padding:6px 10px;">📋 コピー</button>
+        <button onclick="window.open(document.getElementById('ttyd-tailscale-url').textContent,'_blank')" class="btn-primary" style="font-size:11px;padding:6px 10px;">🔗 開く</button>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:8px;line-height:1.6;">
+        ⚠️ Mac・iPhone 両方で Tailscale ON が必要 ｜ Mac が起動・接続中のみ利用可能
+      </div>
+    </div>
     <div class="card" style="margin-bottom:10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <div class="card-title" style="margin-bottom:0;">🖥 ブラウザ端末 <span style="font-size:10px;font-weight:400;opacity:0.7;">(ttyd)</span></div>
@@ -3880,6 +3896,117 @@
           <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">http://localhost:8899/</code> からアクセスするか、<br>
           Tailscale 経由でサーバーに接続してください。
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: 使い方ガイド ===== -->
+  <div id="page-guide" class="tab-page">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:700;">📖 使い方ガイド</div>
+      <span id="guide-version-badge" style="font-size:10px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;"></span>
+    </div>
+
+    <!-- セクション: 外出先からのアクセス -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">📱 外出先からのアクセス (Tailscale VPN)</div>
+      <div style="font-size:12px;line-height:2;color:var(--text-muted);">
+        <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:11px;">
+          ⚠️ <strong>前提</strong>: Mac が電源接続・起動中であること。Mac を閉じてもスリープしない設定済み (<code>caffeinate -si</code> 常時稼働)。
+        </div>
+        <div style="counter-reset:guide-step;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;min-width:20px;">①</span><span>iPhone で <strong>Tailscale アプリ</strong> を開いて <strong>ON</strong> にする</span></div>
+          <div style="display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;min-width:20px;">②</span><span>Safari で <code id="guide-kintai-url" style="background:var(--bg-glass);padding:2px 8px;border-radius:4px;cursor:pointer;" onclick="navigator.clipboard?.writeText(this.textContent).then(()=>toast('📋 コピー'))">http://100.65.221.66:8899</code> を開く <button onclick="navigator.clipboard?.writeText(document.getElementById('guide-kintai-url').textContent).then(()=>toast('📋 コピー'))" style="background:none;border:1px solid var(--border-soft);border-radius:4px;padding:1px 6px;font-size:10px;cursor:pointer;">📋</button></span></div>
+          <div style="display:flex;gap:10px;"><span style="color:var(--accent);font-weight:700;min-width:20px;">③</span><span>kintai のページが表示されれば接続成功 ✅</span></div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text-muted);">
+          Mac が起動していれば <strong>Wi-Fi なし・モバイル回線</strong> でも接続できます。
+        </div>
+      </div>
+    </div>
+
+    <!-- セクション: iPhone ターミナル -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">🖥 iPhone からターミナル操作 (緊急時)</div>
+      <div style="font-size:12px;line-height:2;color:var(--text-muted);">
+        <p style="margin:0 0 8px;">システムが応答しない・プロセスが落ちた時に iPhone から Mac を操作できます。</p>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;gap:10px;"><span style="color:var(--accent-green);font-weight:700;min-width:20px;">①</span><span>Tailscale ON → Safari で <code id="guide-ttyd-url" style="background:var(--bg-glass);padding:2px 8px;border-radius:4px;cursor:pointer;" onclick="navigator.clipboard?.writeText(this.textContent).then(()=>toast('📋 コピー'))">http://100.65.221.66:7681</code> <button onclick="navigator.clipboard?.writeText(document.getElementById('guide-ttyd-url').textContent).then(()=>toast('📋 コピー'))" style="background:none;border:1px solid var(--border-soft);border-radius:4px;padding:1px 6px;font-size:10px;cursor:pointer;">📋</button></span></div>
+          <div style="display:flex;gap:10px;"><span style="color:var(--accent-green);font-weight:700;min-width:20px;">②</span><span>ブラウザ上で Mac の zsh ターミナルが使える</span></div>
+        </div>
+        <div style="background:var(--bg2);border-radius:8px;padding:10px;margin-top:10px;font-family:monospace;font-size:11px;line-height:2;">
+          <div style="color:var(--text-muted);margin-bottom:4px;"># よく使うコマンド</div>
+          <div><span style="color:#88ff88;">launchctl list | grep kintai</span> <span style="color:var(--text-muted);"># 全プロセス確認</span></div>
+          <div><span style="color:#88ff88;">curl localhost:8899/api/health</span> <span style="color:var(--text-muted);"># kintai サーバー確認</span></div>
+          <div><span style="color:#ff9944;">launchctl kickstart -k gui/$(id -u)/com.kintai.server</span> <span style="color:var(--text-muted);"># 再起動</span></div>
+          <div><span style="color:#ff9944;">launchctl kickstart -k gui/$(id -u)/com.kintai.tailscale-watchdog</span> <span style="color:var(--text-muted);"># Tailscale 復旧</span></div>
+          <div><span style="color:#88aaff;">pmset -g | grep sleep</span> <span style="color:var(--text-muted);"># スリープ状態確認</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- セクション: Mac スリープ問題 -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">💤 MacBook を閉じても使い続けるには</div>
+      <div style="font-size:12px;line-height:1.9;color:var(--text-muted);">
+        <div style="background:rgba(255,200,0,0.08);border:1px solid rgba(255,200,0,0.3);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+          <strong>結論</strong>: Mac は <strong>起動している必要があります</strong>。電源接続 + スリープ防止設定で、蓋を閉じたままでも外部からアクセス可能です。
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;gap:10px;"><span style="color:#ff9944;font-weight:700;">✅</span><span><strong>電源アダプタ接続</strong> → <code>caffeinate -si</code> がスリープを防止 (launchd で常時稼働中)</span></div>
+          <div style="display:flex;gap:10px;"><span style="color:#ff9944;font-weight:700;">✅</span><span><strong>蓋を閉じても OK</strong> → システム設定 > バッテリー > 「電源アダプタ接続中は自動スリープしない」をONに</span></div>
+          <div style="display:flex;gap:10px;"><span style="color:#e57373;font-weight:700;">❌</span><span>バッテリー切れ・電源未接続でスリープ → アクセス不可</span></div>
+          <div style="display:flex;gap:10px;"><span style="color:#e57373;font-weight:700;">❌</span><span>Mac の電源を OFF → アクセス不可</span></div>
+        </div>
+        <div style="margin-top:10px;padding:8px 12px;background:var(--bg2);border-radius:8px;font-size:11px;">
+          現在: <span id="guide-caffeinate-status" style="color:var(--accent-green);">caffeinate 稼働中 ✅</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- セクション: 各タブ説明 -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">🗂 各タブの役割</div>
+      <div style="display:flex;flex-direction:column;gap:0;">
+        <div id="guide-tab-list" style="font-size:12px;line-height:1;"></div>
+      </div>
+    </div>
+
+    <!-- セクション: 最新変更 -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-title">🔄 最新の変更 <span id="guide-latest-ver" style="font-size:10px;font-weight:400;opacity:0.7;"></span></div>
+      <div id="guide-latest-changelog" style="font-size:11px;color:var(--text-muted);line-height:1.9;"></div>
+    </div>
+
+    <!-- セクション: トラブルシューティング -->
+    <div class="card">
+      <div class="card-title">🛠 トラブルシューティング</div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.9;">
+        <details style="margin-bottom:8px;">
+          <summary style="cursor:pointer;font-weight:700;padding:4px 0;">❌ kintai に繋がらない</summary>
+          <div style="margin:8px 0 0 12px;">
+            <div>① Mac の起動を確認</div>
+            <div>② Tailscale ON を確認 (Mac・iPhone 両方)</div>
+            <div>③ ターミナルで: <code style="background:var(--bg-glass);padding:1px 5px;border-radius:3px;">curl localhost:8899/api/health</code></div>
+            <div>④ ダメなら: <code style="background:var(--bg-glass);padding:1px 5px;border-radius:3px;">launchctl kickstart -k gui/$(id -u)/com.kintai.server</code></div>
+          </div>
+        </details>
+        <details style="margin-bottom:8px;">
+          <summary style="cursor:pointer;font-weight:700;padding:4px 0;">❌ Tailscale で繋がらない</summary>
+          <div style="margin:8px 0 0 12px;">
+            <div>① Mac ターミナル: <code style="background:var(--bg-glass);padding:1px 5px;border-radius:3px;">tailscale status</code></div>
+            <div>② 停止していれば: <code style="background:var(--bg-glass);padding:1px 5px;border-radius:3px;">tailscale up</code></div>
+            <div>③ watchdog 手動実行: <code style="background:var(--bg-glass);padding:1px 5px;border-radius:3px;">bash ~/root/attendance-pwa/tailscale_watchdog.sh</code></div>
+          </div>
+        </details>
+        <details>
+          <summary style="cursor:pointer;font-weight:700;padding:4px 0;">❌ Mac がスリープした (外出先でアクセス不可)</summary>
+          <div style="margin:8px 0 0 12px;">
+            <div>→ Mac に直接アクセスしてスリープ解除が必要</div>
+            <div>→ 次回から: 電源アダプタ接続を維持する</div>
+            <div>→ システム設定 > バッテリー > オプション >「電源アダプタ接続中は自動的にスリープしない」ON</div>
+          </div>
+        </details>
       </div>
     </div>
   </div>
@@ -7600,6 +7727,16 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v56', date: '2026-03-07',
+          title: '📖 使い方ガイドタブ追加 + Mac スリープ防止 + ターミナル外部接続UI',
+          items: [
+            { tag: 'feat', text: '使い方タブ(📖): 外部接続手順・ターミナル操作・各タブ説明・トラブルシューティング・最新CHANGELOG表示' },
+            { tag: 'feat', text: 'ターミナルタブ: 外出先iPhoneアクセス用カード (http://100.65.221.66:7681) 追加' },
+            { tag: 'feat', text: 'com.kintai.caffeinate launchd: caffeinate -si で Mac スリープ防止を常時維持' },
+            { tag: 'fix',  text: '仕様タブ: タブ切替時に STRUCTURE.md を常に再取得して最新状態を表示' },
+          ],
+        },
+        {
           version: 'v55', date: '2026-03-07',
           title: '🔧 Tailscale HTTP接続に切替 (HTTPS serve TLS証明書問題対処)',
           items: [
@@ -8116,7 +8253,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v55';
+        const swVer = 'kintai-v56';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -9096,8 +9233,10 @@
             if (e.target.value) showSpecFile(e.target.value);
           });
         }
+        // タブ切替時に常に struct(STRUCTURE.md)を再取得して最新状態を表示
+        _renderedPanes.delete('struct');
         const active = document.querySelector('.spec-sub-btn.active')?.dataset.pane || 'arch';
-        if (!_renderedPanes.has(active)) _switchSpecPane(active);
+        _switchSpecPane(active);
       };
     })();
 
@@ -14311,6 +14450,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         { id: 'terminal',  icon: '🖥', label: 'ターミナル',  defaultVisible: true  },
         { id: 'obsidian',  icon: '📓', label: 'Obsidian',     defaultVisible: true  },
         { id: 'sns',       icon: '📡', label: 'SNS Intel',    defaultVisible: true  },
+        { id: 'guide',     icon: '📖', label: '使い方',        defaultVisible: true  },
       ];
 
       // ── カスタムタブ CRUD ──────────────────────────────────────────────────
@@ -14416,6 +14556,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         if (tabName === 'terminal') { if (window._initTerminalTab) window._initTerminalTab(); }
         if (tabName === 'obsidian') { if (window._initObsidianTab) window._initObsidianTab(); }
         if (tabName === 'sns')      { if (window._initSnsTab) window._initSnsTab(); }
+        if (tabName === 'guide')    { if (window._initGuideTab) window._initGuideTab(); }
       }
       window._switchTab = switchTab;
 
@@ -15732,10 +15873,13 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
                 `🔌 API (HTTP): <code style="background:var(--bg-glass);padding:2px 6px;border-radius:4px;">${td.http_url || ''}</code>` +
                 (ttydLink ? `<br>🖥 ttyd 外部: <a href="${ttydLink}" target="_blank" rel="noopener" style="color:var(--accent-blue);">${ttydLink}</a>` : '');
               // Tailscale IPをキャッシュして ttyd URL も更新
-              if (tsIp && !_ttydIp) {
+              if (tsIp) {
                 _ttydIp = tsIp;
                 try { localStorage.setItem(_TTYD_IP_KEY, tsIp); } catch(_) {}
                 if (urlEl) urlEl.textContent = _getTtydUrl();
+                // 外出先アクセス用 URL も更新
+                const tsttydEl = document.getElementById('ttyd-tailscale-url');
+                if (tsttydEl) tsttydEl.textContent = `http://${tsIp}:${_ttydPort}`;
               }
               if (sshEl) {
                 const sshCmd = tsIp ? `ssh crystallization@${tsIp}` : '';
@@ -16275,6 +16419,82 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
 
       // 初期化
       setTimeout(() => window._refreshTailscaleQuickCard?.(), 3000);
+    })();
+
+    /* =====================================================
+       GUIDE TAB — 使い方ガイド
+       ===================================================== */
+    (() => {
+      const TAB_DESCS = {
+        calendar:  { icon:'📅', label:'勤怠',     desc:'日々の出退勤・休憩・作業内容を記録。月次カレンダーで一覧表示。' },
+        hub:       { icon:'🚀', label:'ハブ',     desc:'全体ダッシュボード。サーバー状態・QRコード・Tailscale接続・miniserveへのショートカット。' },
+        study:     { icon:'📚', label:'学習',     desc:'スキルアップ・学習記録。進捗トラッキング。' },
+        project:   { icon:'📊', label:'進捗',     desc:'プロジェクト・タスク管理。担当者・期日・優先度設定。' },
+        report:    { icon:'📋', label:'報告書',   desc:'月次作業報告書の作成・Excel同期。勤怠データから自動反映。' },
+        jobs:      { icon:'💼', label:'案件',     desc:'CrowdWorks・Lancers等のフリーランス案件を自動収集・表示。' },
+        ai:        { icon:'🤖', label:'AI',       desc:'Claude/ChatGPT/Gemini に質問。勤怠・システム情報へのツールアクセス付き。' },
+        system:    { icon:'🔧', label:'システム', desc:'サーバー状態・ログ・ウォッチドッグ・変更履歴(CHANGELOG)。' },
+        db:        { icon:'🗄', label:'DB管理',   desc:'勤怠・タスク・設定データのエクスポート/インポート/バックアップ。' },
+        spec:      { icon:'📁', label:'仕様',     desc:'システム構成図・API一覧・ファイルブラウザ。開発者向け詳細情報。' },
+        bizai:     { icon:'🗂', label:'業務AI',   desc:'メール作成・議事録・週報・見積書・クレーム対応など業務効率化AIツール。' },
+        docker:    { icon:'🐳', label:'Docker',   desc:'Dockerコンテナの管理・作成・起動・停止。' },
+        terminal:  { icon:'🖥', label:'ターミナル', desc:'ttyd ブラウザ端末。iPhone からも操作可能。SSH接続情報も確認可能。' },
+        obsidian:  { icon:'📓', label:'Obsidian', desc:'Obsidian Vault と連携したMarkdownエディタ。iCloud経由で同期。' },
+        sns:       { icon:'📡', label:'SNS Intel', desc:'SNSトレンド収集・アフィリエイト記事自動生成ダッシュボード。' },
+        guide:     { icon:'📖', label:'使い方',   desc:'このガイド。外部接続・ターミナル操作・各タブ説明・トラブルシューティング。' },
+        employee:  { icon:'👥', label:'従業員',   desc:'従業員データ管理（設定タブから有効化）。' },
+        market:    { icon:'📈', label:'市場価値', desc:'スキル診断・年収見積もり（設定タブから有効化）。' },
+      };
+
+      window._initGuideTab = function() {
+        // バージョンバッジ
+        const verEl = document.getElementById('guide-version-badge');
+        if (verEl) verEl.textContent = typeof CACHE !== 'undefined' ? CACHE : (localStorage.getItem('_kintai_sw_ver') || '');
+
+        // Tailscale IP で URL を動的更新
+        const tsIp = localStorage.getItem('_kintai_tailscale_ip') || '100.65.221.66';
+        const kintaiUrl = document.getElementById('guide-kintai-url');
+        const ttydUrl   = document.getElementById('guide-ttyd-url');
+        if (kintaiUrl) kintaiUrl.textContent = `http://${tsIp}:8899`;
+        if (ttydUrl)   ttydUrl.textContent   = `http://${tsIp}:7681`;
+
+        // caffeinate 状態
+        const cafEl = document.getElementById('guide-caffeinate-status');
+        if (cafEl) {
+          fetch((window._srvBase || 'http://localhost:8899') + '/api/health', { signal: AbortSignal.timeout(2000) })
+            .then(() => { cafEl.innerHTML = '<span style="color:var(--accent-green);">Mac 起動中・スリープ防止 稼働中 ✅</span>'; })
+            .catch(() => { cafEl.innerHTML = '<span style="color:#e57373;">サーバー未接続 ⚠️</span>'; });
+        }
+
+        // タブ一覧
+        const tabListEl = document.getElementById('guide-tab-list');
+        if (tabListEl) {
+          const cfg = (() => { try { return JSON.parse(localStorage.getItem('_kintai_tab_config_v1') || '[]'); } catch(_) { return []; } })();
+          const visibleIds = cfg.length ? cfg.filter(t => t.visible !== false).map(t => t.id) : Object.keys(TAB_DESCS);
+          tabListEl.innerHTML = visibleIds.map(id => {
+            const d = TAB_DESCS[id];
+            if (!d) return '';
+            return `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-soft);">
+              <span style="min-width:28px;font-size:16px;text-align:center;">${d.icon}</span>
+              <div><div style="font-weight:700;font-size:12px;">${d.label}</div><div style="font-size:11px;color:var(--text-muted);">${d.desc}</div></div>
+            </div>`;
+          }).join('');
+        }
+
+        // 最新 CHANGELOG
+        const latestEl  = document.getElementById('guide-latest-changelog');
+        const latestVer = document.getElementById('guide-latest-ver');
+        if (latestEl && typeof CHANGELOG !== 'undefined' && CHANGELOG.length) {
+          const latest = CHANGELOG[0];
+          if (latestVer) latestVer.textContent = `${latest.version} (${latest.date})`;
+          latestEl.innerHTML = `<div style="font-weight:700;margin-bottom:4px;">${latest.title}</div>` +
+            latest.items.map(item =>
+              `<div style="display:flex;gap:6px;">` +
+              `<span style="min-width:36px;font-size:10px;padding:1px 5px;border-radius:4px;height:fit-content;background:${{feat:'#1a3a1a',fix:'#3a1a1a',docs:'#1a2a3a',perf:'#2a2a1a'}[item.tag]||'var(--bg2)'};color:${{feat:'#88ff88',fix:'#ff8888',docs:'#88aaff',perf:'#ffcc44'}[item.tag]||'var(--text-muted)'};">${item.tag}</span>` +
+              `<span>${item.text}</span></div>`
+            ).join('');
+        }
+      };
     })();
 
     /* =====================================================
