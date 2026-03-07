@@ -5862,7 +5862,17 @@
       }
 
       // ── 4. Tailscale (キャッシュされたURL/IP — Wi-Fi外でも有効) ───────────────
-      // Tailscale MagicDNS hostname を優先（IPより堅牢）
+      // 4a. tailscale serve HTTPS (GitHub Pages 混在コンテンツ回避・最優先)
+      const cachedTsHttps = localStorage.getItem('_kintai_tailscale_https_url');
+      if (cachedTsHttps && cachedTsHttps.startsWith('https://')) {
+        try {
+          const ctrlTsH = new AbortController();
+          setTimeout(() => ctrlTsH.abort(), 4000);
+          const rTsH = await fetch(`${cachedTsHttps}/api/health`, { signal: ctrlTsH.signal });
+          if (rTsH.ok) return cachedTsHttps;
+        } catch(_) {}
+      }
+      // 4b. Tailscale HTTP (MagicDNS hostname)
       const cachedTsUrl = localStorage.getItem('_kintai_tailscale_url');
       if (cachedTsUrl && cachedTsUrl.startsWith('http://')) {
         try {
@@ -5872,7 +5882,7 @@
           if (rTs.ok) return cachedTsUrl;
         } catch(_) {}
       }
-      // フォールバック: キャッシュされたTailscale IP
+      // 4c. フォールバック: キャッシュされたTailscale IP
       const cachedTsIp = localStorage.getItem('_kintai_tailscale_ip');
       if (cachedTsIp && !cachedTsUrl?.includes(cachedTsIp)) {
         try {
@@ -6766,8 +6776,13 @@
           if (_lanParam && _lanParam.startsWith('http://')) {
             localStorage.setItem('_kintai_lan_url', _lanParam);
           }
-          if (_tsParam && _tsParam.startsWith('http://')) {
-            localStorage.setItem('_kintai_tailscale_url', _tsParam);
+          if (_tsParam && (_tsParam.startsWith('http://') || _tsParam.startsWith('https://'))) {
+            // tailscale serve HTTPS か HTTP かで保存先を分岐
+            if (_tsParam.startsWith('https://')) {
+              localStorage.setItem('_kintai_tailscale_https_url', _tsParam);
+            } else {
+              localStorage.setItem('_kintai_tailscale_url', _tsParam);
+            }
             // Tailscale IP も抽出してキャッシュ (hostname.ts.net → skip; IP形式のみ)
             const _tsHost = new URL(_tsParam).hostname;
             if (/^(\d{1,3}\.){3}\d{1,3}$/.test(_tsHost)) {
@@ -7597,6 +7612,19 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v53', date: '2026-03-07',
+          title: '🔒 Tailscale Serve HTTPS対応 + 外部接続テスト完全化',
+          items: [
+            { tag: 'feat', text: 'tailscale serve --bg 8899 → https://yusukemacbook-pro.taile663f5.ts.net で HTTPS アクセス可能' },
+            { tag: 'feat', text: 'server-info: tailscale_https_url / tailscale_serve_active を返す（信頼できる送信元のみ）' },
+            { tag: 'feat', text: '_cacheServerInfo(): tailscale_https_url を _kintai_tailscale_https_url にキャッシュ' },
+            { tag: 'feat', text: '_resolveServerUrl(): Step 4a で HTTPS serve URL を最優先試行' },
+            { tag: 'feat', text: 'Magic Link: tailscale_https_url を ?ts= に含める（HTTPS優先）' },
+            { tag: 'feat', text: 'Magic Linkパース: ?ts= が https:// の場合 _kintai_tailscale_https_url に保存' },
+            { tag: 'feat', text: 'Tailscale Quick Connect: HTTPS → HTTP → IP の優先順で接続先を決定' },
+          ],
+        },
+        {
           version: 'v52', date: '2026-03-07',
           title: '🔒 Tailscale接続確立 + Magic Link Tailscale URL対応',
           items: [
@@ -8079,7 +8107,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v52';
+        const swVer = 'kintai-v53';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -16046,8 +16074,9 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         // mDNS URL を優先（raw IP を隠す）。なければ LAN URL
         const lanForQr = info.mdns_url || info.lan_url;
         if (lanForQr) p.set('lan', lanForQr);
-        // Tailscale URL を含める（QRスキャン後にTailscale URL も自動登録）
-        if (info.tailscale_url) p.set('ts', info.tailscale_url);
+        // Tailscale HTTPS (serve) を優先。なければ HTTP URL
+        const tsUrl = info.tailscale_https_url || info.tailscale_url;
+        if (tsUrl) p.set('ts', tsUrl);
         return GITHUB_PAGES + '?' + p.toString();
       }
 
@@ -16122,12 +16151,15 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       }
 
       window._cacheServerInfo = function _cacheServerInfo(info) {
-        if (info.tunnel_url)     localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
-        if (info.mdns_url)       localStorage.setItem('_kintai_lan_url', info.mdns_url);
-        else if (info.lan_url)   localStorage.setItem('_kintai_lan_url', info.lan_url);
-        if (info.tailscale_ip)   localStorage.setItem('_kintai_tailscale_ip', info.tailscale_ip);
-        if (info.tailscale_url)  localStorage.setItem('_kintai_tailscale_url', info.tailscale_url);
-        if (info.tailscale_host) localStorage.setItem('_kintai_tailscale_host', info.tailscale_host);
+        if (info.tunnel_url)          localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
+        if (info.mdns_url)            localStorage.setItem('_kintai_lan_url', info.mdns_url);
+        else if (info.lan_url)        localStorage.setItem('_kintai_lan_url', info.lan_url);
+        if (info.tailscale_ip)        localStorage.setItem('_kintai_tailscale_ip', info.tailscale_ip);
+        if (info.tailscale_url)       localStorage.setItem('_kintai_tailscale_url', info.tailscale_url);
+        if (info.tailscale_host)      localStorage.setItem('_kintai_tailscale_host', info.tailscale_host);
+        // tailscale serve HTTPS URL (GitHub Pages から混在コンテンツなしに使用可能)
+        if (info.tailscale_https_url) localStorage.setItem('_kintai_tailscale_https_url', info.tailscale_https_url);
+        else                          localStorage.removeItem('_kintai_tailscale_https_url');
       };
 
       window._refreshServerInfoCard = async (cachedInfo) => {
@@ -16173,9 +16205,11 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       const TS_PORT = 8899;
 
       window._tailscaleQuickConnect = async function() {
-        const tsUrl  = localStorage.getItem('_kintai_tailscale_url') || '';
-        const tsIp   = localStorage.getItem('_kintai_tailscale_ip')  || '';
-        const target = tsUrl || (tsIp ? `http://${tsIp}:${TS_PORT}` : '');
+        // HTTPS (serve) → HTTP (MagicDNS) → HTTP (IP) の優先順
+        const tsHttps = localStorage.getItem('_kintai_tailscale_https_url') || '';
+        const tsUrl   = localStorage.getItem('_kintai_tailscale_url') || '';
+        const tsIp    = localStorage.getItem('_kintai_tailscale_ip')  || '';
+        const target  = tsHttps || tsUrl || (tsIp ? `http://${tsIp}:${TS_PORT}` : '');
         if (!target) {
           toast('⚠️ Tailscale URL が未設定です。Mac でサーバーカードを更新してください。');
           return;
@@ -16202,16 +16236,17 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         const statusEl = document.getElementById('tailscale-quick-status');
         const displayEl = document.getElementById('tailscale-url-display');
         const btn = document.getElementById('tailscale-quick-btn');
-        const tsUrl  = localStorage.getItem('_kintai_tailscale_url') || '';
-        const tsIp   = localStorage.getItem('_kintai_tailscale_ip')  || '';
-        const tsHost = localStorage.getItem('_kintai_tailscale_host') || '';
+        const tsHttps = localStorage.getItem('_kintai_tailscale_https_url') || '';
+        const tsUrl   = localStorage.getItem('_kintai_tailscale_url') || '';
+        const tsIp    = localStorage.getItem('_kintai_tailscale_ip')  || '';
+        const displayUrl = tsHttps || tsUrl || (tsIp ? `http://${tsIp}:${TS_PORT}` : '');
 
-        const hasTs = !!(tsUrl || tsIp);
-        if (statusEl) statusEl.textContent = hasTs ? '🟢 設定済み' : '⚫ 未設定';
+        const hasTs = !!(tsHttps || tsUrl || tsIp);
+        if (statusEl) statusEl.textContent = tsHttps ? '🟢 HTTPS 接続可' : (hasTs ? '🟢 HTTP 接続可' : '⚫ 未設定');
         if (displayEl) {
-          displayEl.textContent = tsUrl
-            ? `接続先: ${tsUrl}`
-            : (tsIp ? `接続先: http://${tsIp}:${TS_PORT}` : 'サーバーカードを更新するとTailscale URLが自動取得されます');
+          displayEl.textContent = displayUrl
+            ? `接続先: ${displayUrl}`
+            : 'サーバーカードを更新するとTailscale URLが自動取得されます';
         }
         if (btn) btn.style.opacity = hasTs ? '1' : '0.6';
       };

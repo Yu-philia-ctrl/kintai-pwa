@@ -80,8 +80,9 @@ def _load_dotenv():
 _load_dotenv()
 
 # Tailscale 設定 (.env から読込。CLIが使えない環境でも動作)
-_TS_MAC_IP   = os.environ.get('TAILSCALE_MAC_IP', '').strip()
-_TS_MAC_HOST = os.environ.get('TAILSCALE_MAC_HOST', '').strip()
+_TS_MAC_IP    = os.environ.get('TAILSCALE_MAC_IP', '').strip()
+_TS_MAC_HOST  = os.environ.get('TAILSCALE_MAC_HOST', '').strip()
+_TS_HTTPS_URL = os.environ.get('TAILSCALE_HTTPS_URL', '').strip()  # tailscale serve HTTPS URL
 # APIトークン (SSH登録・再起動など破壊的操作を保護)
 _API_TOKEN   = os.environ.get('KINTAI_API_TOKEN', '').strip()
 # Tailscale バイナリ検索パス (App Store版 Tailscale.localized が優先)
@@ -1437,9 +1438,11 @@ class JinjerHandler(BaseHTTPRequestHandler):
             pass
 
         # Tailscale情報 — 信頼できる送信元にのみ公開
-        ts_ip   = None
-        ts_url  = None
-        ts_host = None
+        ts_ip        = None
+        ts_url       = None  # HTTP fallback
+        ts_https_url = _TS_HTTPS_URL or None  # tailscale serve HTTPS (.envから取得)
+        ts_host      = None
+        ts_serve_active = bool(_TS_HTTPS_URL)
         if trusted:
             # 1. .env から直接取得（最も確実）
             if _TS_MAC_IP:
@@ -1463,6 +1466,30 @@ class JinjerHandler(BaseHTTPRequestHandler):
                     except Exception:
                         continue
 
+            # 3. tailscale serve status で HTTPS URL を検出
+            # JSON 構造例: {"Web": {"hostname.ts.net:443": {"Handlers": {"/": ...}}}}
+            for ts_bin in _TS_BINS:
+                try:
+                    rs = subprocess.run(
+                        [ts_bin, 'serve', 'status', '--json'],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if rs.returncode == 0 and rs.stdout.strip():
+                        sd = json.loads(rs.stdout)
+                        # Web キーから "hostname.ts.net:443" を抽出
+                        web_keys = sd.get('Web', {})
+                        for web_key in web_keys:
+                            host_part = web_key.split(':')[0]  # "hostname.ts.net"
+                            if host_part:
+                                ts_https_url = f'https://{host_part}'
+                                ts_serve_active = True
+                                if not ts_host:
+                                    ts_host = host_part
+                                break
+                        break
+                except Exception:
+                    continue
+
         result = {
             'lan_ip':          host_ip or None,
             'lan_url':         lan_url,
@@ -1475,9 +1502,11 @@ class JinjerHandler(BaseHTTPRequestHandler):
         }
         # Tailscale情報は信頼できる送信元のみに開示
         if trusted:
-            result['tailscale_ip']   = ts_ip
-            result['tailscale_url']  = ts_url
-            result['tailscale_host'] = ts_host
+            result['tailscale_ip']          = ts_ip
+            result['tailscale_url']         = ts_url          # HTTP (port 8899)
+            result['tailscale_https_url']   = ts_https_url    # HTTPS (serve) — Noneなら未設定
+            result['tailscale_serve_active']= ts_serve_active
+            result['tailscale_host']        = ts_host
         self._send_json(result)
 
     # ===== SNS Collector プロキシ ===============================================
