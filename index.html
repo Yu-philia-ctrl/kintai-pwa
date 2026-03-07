@@ -2400,18 +2400,15 @@
         <div class="card-title" style="margin-bottom:0;">🔒 Tailscale VPN 接続</div>
         <span id="tailscale-quick-status" style="font-size:11px;color:var(--text-muted);">— 確認中</span>
       </div>
-      <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.7;">
-        Wi-Fi外・モバイル回線でもこのシステムに接続できます。<br>
-        Mac・iPhone 両方でTailscaleをONにしてから接続してください。
-      </p>
+      <div id="tailscale-setup-guide" style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.8;"></div>
       <div id="tailscale-quick-body" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button id="tailscale-quick-btn" class="btn-primary" onclick="window._tailscaleQuickConnect()" style="font-size:12px;padding:8px 16px;">
           🔒 Tailscale で接続する
         </button>
         <button id="tailscale-open-app" class="btn-secondary" onclick="window.open('https://tailscale.com/download','_blank')" style="font-size:11px;padding:6px 12px;">
-          📲 Tailscale アプリ
+          📲 Tailscaleアプリ
         </button>
-        <span id="tailscale-url-display" style="font-size:10px;color:var(--text-muted);width:100%;"></span>
+        <span id="tailscale-url-display" style="font-size:10px;color:var(--text-muted);width:100%;margin-top:4px;word-break:break-all;"></span>
       </div>
     </div>
 
@@ -7612,6 +7609,17 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v54', date: '2026-03-07',
+          title: '🔒 Tailscale watchdog自動化 + ハブカード UX改善',
+          items: [
+            { tag: 'feat', text: 'tailscale_watchdog.sh: Tailscale UP + serve を5分ごとに自動確認・再起動' },
+            { tag: 'feat', text: 'com.kintai.tailscale-watchdog launchd: ログイン時・5分ごとに watchdog 実行' },
+            { tag: 'feat', text: 'ハブ Tailscaleカード: 未設定/HTTP/HTTPS 状態に応じた設定ガイドを表示' },
+            { tag: 'fix',  text: 'Tailscale Quick Connect: HTTPS→HTTP→IP 優先順で接続先 URL を表示' },
+            { tag: 'docs', text: 'TAILSCALE_SETUP_GUIDE.md: 外部接続 完全手順書を追加' },
+          ],
+        },
+        {
           version: 'v53', date: '2026-03-07',
           title: '🔒 Tailscale Serve HTTPS対応 + 外部接続テスト完全化',
           items: [
@@ -8107,7 +8115,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v53';
+        const swVer = 'kintai-v54';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -16242,11 +16250,30 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         const displayUrl = tsHttps || tsUrl || (tsIp ? `http://${tsIp}:${TS_PORT}` : '');
 
         const hasTs = !!(tsHttps || tsUrl || tsIp);
-        if (statusEl) statusEl.textContent = tsHttps ? '🟢 HTTPS 接続可' : (hasTs ? '🟢 HTTP 接続可' : '⚫ 未設定');
+        if (statusEl) statusEl.textContent = tsHttps ? '🟢 HTTPS 接続可' : (hasTs ? '🟡 HTTP 接続可' : '⚫ 未設定');
+
+        // ガイド表示
+        const guideEl = document.getElementById('tailscale-setup-guide');
+        if (guideEl) {
+          if (tsHttps) {
+            guideEl.innerHTML = `✅ <strong>外部接続準備完了</strong><br>
+              Mac・iPhone 両方でTailscale ONにすれば<br>
+              Wi-Fi外(モバイル回線)からも接続できます。`;
+          } else if (hasTs) {
+            guideEl.innerHTML = `🔧 <strong>HTTP接続のみ設定済み</strong><br>
+              ハブのQRコードをiPhoneでスキャンすると<br>
+              HTTPS接続(より安定)が設定されます。`;
+          } else {
+            guideEl.innerHTML = `📋 <strong>設定手順</strong><br>
+              ① Mac・iPhone に <a href="https://tailscale.com/download" target="_blank" style="color:var(--accent);">Tailscale</a> をインストール<br>
+              ② 同じアカウントでサインイン<br>
+              ③ このページ(Mac)のQRコードをiPhoneでスキャン<br>
+              ④ iPhone の Tailscale を ON にして外部から接続`;
+          }
+        }
+
         if (displayEl) {
-          displayEl.textContent = displayUrl
-            ? `接続先: ${displayUrl}`
-            : 'サーバーカードを更新するとTailscale URLが自動取得されます';
+          displayEl.textContent = displayUrl ? `接続先: ${displayUrl}` : '';
         }
         if (btn) btn.style.opacity = hasTs ? '1' : '0.6';
       };
