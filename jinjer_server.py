@@ -63,6 +63,28 @@ _START_TIME = time.time()           # uptime 計算用
 _cache = {}   # cache_key → { ts, data }
 CACHE_TTL = 300  # 5分
 
+# ─────────────────────────────────────────────────────────
+# .env 読み込み (起動時に一度だけ)
+# ─────────────────────────────────────────────────────────
+def _load_dotenv():
+    env_path = Path(__file__).parent / '.env'
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, _, v = line.partition('=')
+        os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+_load_dotenv()
+
+# Tailscale 設定 (.env から読込。CLIが使えない環境でも動作)
+_TS_MAC_IP   = os.environ.get('TAILSCALE_MAC_IP', '').strip()
+_TS_MAC_HOST = os.environ.get('TAILSCALE_MAC_HOST', '').strip()
+# APIトークン (SSH登録・再起動など破壊的操作を保護)
+_API_TOKEN   = os.environ.get('KINTAI_API_TOKEN', '').strip()
+
 # Cloudflare Quick Tunnel — 現在のURL を保持するグローバル変数
 _CF_TUNNEL_URL: str = ''
 
@@ -248,6 +270,63 @@ class ReuseHTTPServer(ThreadingMixIn, HTTPServer):
 class JinjerHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print(f'[jinjer_server] {fmt % args}')
+
+    # ─────────────────────────────────────────────────────────
+    # セキュリティヘルパー
+    # ─────────────────────────────────────────────────────────
+
+    def _client_ip(self) -> str:
+        """実際のクライアントIPを返す (CF-Connecting-IP / X-Real-IP / socket)。"""
+        return (
+            self.headers.get('CF-Connecting-IP') or
+            self.headers.get('X-Forwarded-For', '').split(',')[0].strip() or
+            self.headers.get('X-Real-IP') or
+            self.client_address[0]
+        )
+
+    def _is_trusted_origin(self) -> bool:
+        """
+        信頼できる送信元かどうかを判定。
+        - Cloudflare経由 (CF-Ray ヘッダーあり) → 不信頼
+        - クライアントIPが localhost / LAN / Tailscale範囲 → 信頼
+        """
+        # Cloudflare Tunnel 経由のリクエストは CF-Ray ヘッダーが付く
+        if self.headers.get('CF-Ray'):
+            return False
+        ip = self._client_ip()
+        # localhost
+        if ip in ('127.0.0.1', '::1', 'localhost'):
+            return True
+        # LAN (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+        parts = ip.split('.')
+        if len(parts) == 4:
+            try:
+                a, b = int(parts[0]), int(parts[1])
+                if a == 192 and b == 168: return True
+                if a == 10: return True
+                if a == 172 and 16 <= b <= 31: return True
+                # Tailscale CGNAT (100.64.0.0/10)
+                if a == 100 and 64 <= b <= 127: return True
+            except ValueError:
+                pass
+        return False
+
+    def _check_api_token(self) -> bool:
+        """
+        APIトークンによる認証チェック。
+        - 信頼済みオリジン → トークン不要
+        - 外部リクエスト → X-Kintai-Token ヘッダーまたは ?token= パラメータが必要
+        """
+        if self._is_trusted_origin():
+            return True
+        if not _API_TOKEN:
+            return False  # トークン未設定なら外部からの破壊的操作を全てブロック
+        req_token = (
+            self.headers.get('X-Kintai-Token') or
+            parse_qs(urlparse(self.path).query).get('token', [''])[0]
+        )
+        import hmac
+        return hmac.compare_digest(req_token, _API_TOKEN)
 
     def _send_json(self, data, status=200):
         body = json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8')
@@ -489,14 +568,20 @@ class JinjerHandler(BaseHTTPRequestHandler):
 
         # ===== /api/kintai-data — カレンダーデータ保存 =====
         if path == '/api/kintai-data':
+            if not self._is_trusted_origin():
+                self._send_json({'error': '外部からのデータ書き込みは不可'}, 403); return
             self._handle_data_post(KINTAI_DATA_FILE)
 
         # ===== /api/tasks-data — タスクデータ保存 =====
         elif path == '/api/tasks-data':
+            if not self._is_trusted_origin():
+                self._send_json({'error': '外部からのデータ書き込みは不可'}, 403); return
             self._handle_data_post(TASKS_DATA_FILE)
 
         # ===== /api/backup/full — フルバックアップ保存 =====
         elif path == '/api/backup/full':
+            if not self._is_trusted_origin():
+                self._send_json({'error': '外部からのバックアップ書き込みは不可'}, 403); return
             self._handle_full_backup_post()
 
         # ===== /api/reports/sync =====
@@ -544,14 +629,20 @@ class JinjerHandler(BaseHTTPRequestHandler):
 
         # ===== /api/system/restart =====
         elif path == '/api/system/restart':
+            if not self._check_api_token():
+                self._send_json({'error': '認証が必要です (X-Kintai-Token)'}, 401); return
             self._handle_system_restart()
 
         # ===== /api/backup/now — 手動 iCloud バックアップ実行 =====
         elif path == '/api/backup/now':
+            if not self._check_api_token():
+                self._send_json({'error': '認証が必要です (X-Kintai-Token)'}, 401); return
             self._handle_backup_now()
 
         # ===== /api/backup/restore — バックアップから kintai データを復元 =====
         elif path == '/api/backup/restore':
+            if not self._check_api_token():
+                self._send_json({'error': '認証が必要です (X-Kintai-Token)'}, 401); return
             self._handle_backup_restore()
 
         # ===== /api/memo-log — 勤怠メモをサーバーログに保存 =====
@@ -563,12 +654,20 @@ class JinjerHandler(BaseHTTPRequestHandler):
             self._handle_ssh_add_pubkey()
 
         elif path == '/api/obsidian/config':
+            if not self._is_trusted_origin():
+                self._send_json({'error': '外部からのアクセスは不可'}, 403); return
             self._handle_obsidian_config_post()
         elif path == '/api/obsidian/write':
+            if not self._is_trusted_origin():
+                self._send_json({'error': '外部からのアクセスは不可'}, 403); return
             self._handle_obsidian_write()
         elif path == '/api/obsidian/delete':
+            if not self._is_trusted_origin():
+                self._send_json({'error': '外部からのアクセスは不可'}, 403); return
             self._handle_obsidian_delete()
         elif path == '/api/obsidian/mkdir':
+            if not self._is_trusted_origin():
+                self._send_json({'error': '外部からのアクセスは不可'}, 403); return
             self._handle_obsidian_mkdir()
 
         # ===== /api/sns/* — SNS Collector (port 8900) へのプロキシ =====
@@ -795,6 +894,19 @@ class JinjerHandler(BaseHTTPRequestHandler):
                 self.send_header('Cache-Control', 'max-age=3600')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('X-Frame-Options', 'SAMEORIGIN')
+            # HTML ページには Content-Security-Policy を付与
+            if target.suffix.lower() == '.html':
+                self.send_header('Content-Security-Policy',
+                    "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: "
+                    "https://api.anthropic.com https://api.openai.com "
+                    "https://generativelanguage.googleapis.com "
+                    "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net "
+                    "https://unpkg.com https://fonts.googleapis.com "
+                    "https://fonts.gstatic.com; "
+                    "connect-src * blob:; "
+                    "img-src * data: blob:; "
+                    "frame-src 'self' http://localhost:7681 http://*.local:7681 http://100.*:7681;"
+                )
             self.end_headers()
             self.wfile.write(body)
         except Exception as e:
@@ -1294,13 +1406,17 @@ class JinjerHandler(BaseHTTPRequestHandler):
 
     def _handle_server_info(self):
         """LAN IP / Tunnel URL / Tailscale / mDNS / ポート情報をまとめて返す。
-        iPhone のマジックリンク QR 生成用。"""
+        iPhone のマジックリンク QR 生成用。
+        Tailscale情報は信頼できる送信元（localhost/LAN/Tailscale）にのみ返す。
+        Cloudflare Tunnel 経由のリクエストにはTailscale情報を含めない（情報漏洩防止）。
+        """
         global _CF_TUNNEL_URL
+        trusted = self._is_trusted_origin()
+
         host_ip = self._get_host_ip_cached()
         lan_url = f'http://{host_ip}:{PORT}' if host_ip else None
 
         # mDNS URL — raw IP を隠すため Bonjour ホスト名を使用
-        # scutil --get LocalHostName が最も信頼できる（例: yusukenoMacBook-Pro）
         mdns_url = lan_url  # フォールバック
         try:
             r_mdns = subprocess.run(
@@ -1314,41 +1430,49 @@ class JinjerHandler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
-        # Tailscale IP を検出（App Store 版 → Homebrew 版の順に試す）
-        import re as _re
-        _ipv4_re = _re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
-        ts_ip  = None
-        ts_url = None
-        ts_bins = [
-            '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
-            'tailscale',
-        ]
-        for ts_bin in ts_bins:
-            try:
-                r = subprocess.run(
-                    [ts_bin, 'ip', '-4'],
-                    capture_output=True, text=True, timeout=3
-                )
-                if r.returncode == 0:
-                    ip = r.stdout.strip().splitlines()[0].strip()
-                    if ip and _ipv4_re.match(ip):
-                        ts_ip  = ip
-                        ts_url = f'http://{ip}:{PORT}'
-                        break
-            except Exception:
-                continue
+        # Tailscale情報 — 信頼できる送信元にのみ公開
+        ts_ip   = None
+        ts_url  = None
+        ts_host = None
+        if trusted:
+            # 1. .env から直接取得（最も確実）
+            if _TS_MAC_IP:
+                ts_ip   = _TS_MAC_IP
+                ts_host = _TS_MAC_HOST or None
+                ts_url  = f'http://{_TS_MAC_HOST or _TS_MAC_IP}:{PORT}'
+            else:
+                # 2. CLI から検出（フォールバック）
+                import re as _re
+                _ipv4_re = _re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
+                for ts_bin in ['/Applications/Tailscale.app/Contents/MacOS/Tailscale', 'tailscale']:
+                    try:
+                        r = subprocess.run([ts_bin, 'ip', '-4'],
+                                           capture_output=True, text=True, timeout=3)
+                        if r.returncode == 0:
+                            ip = r.stdout.strip().splitlines()[0].strip()
+                            if ip and _ipv4_re.match(ip):
+                                ts_ip  = ip
+                                ts_url = f'http://{ip}:{PORT}'
+                                break
+                    except Exception:
+                        continue
 
-        self._send_json({
-            'lan_ip':        host_ip or None,
-            'lan_url':       lan_url,
-            'mdns_url':      mdns_url,
-            'tailscale_ip':  ts_ip,
-            'tailscale_url': ts_url,
-            'port':          PORT,
-            'tunnel_url':    _CF_TUNNEL_URL or None,
-            'tunnel_active': bool(_CF_TUNNEL_URL),
-            'github_pages':  'https://yu-philia-ctrl.github.io/kintai-pwa/',
-        })
+        result = {
+            'lan_ip':          host_ip or None,
+            'lan_url':         lan_url,
+            'mdns_url':        mdns_url,
+            'port':            PORT,
+            'tunnel_url':      _CF_TUNNEL_URL or None,
+            'tunnel_active':   bool(_CF_TUNNEL_URL),
+            'github_pages':    'https://yu-philia-ctrl.github.io/kintai-pwa/',
+            'trusted_origin':  trusted,
+        }
+        # Tailscale情報は信頼できる送信元のみに開示
+        if trusted:
+            result['tailscale_ip']   = ts_ip
+            result['tailscale_url']  = ts_url
+            result['tailscale_host'] = ts_host
+        self._send_json(result)
 
     # ===== SNS Collector プロキシ ===============================================
 

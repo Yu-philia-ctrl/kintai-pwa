@@ -2394,6 +2394,27 @@
       </div>
     </div>
 
+    <!-- ===== Tailscale VPN クイック接続カード ===== -->
+    <div class="card" id="tailscale-quick-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin-bottom:0;">🔒 Tailscale VPN 接続</div>
+        <span id="tailscale-quick-status" style="font-size:11px;color:var(--text-muted);">— 確認中</span>
+      </div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.7;">
+        Wi-Fi外・モバイル回線でもこのシステムに接続できます。<br>
+        Mac・iPhone 両方でTailscaleをONにしてから接続してください。
+      </p>
+      <div id="tailscale-quick-body" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button id="tailscale-quick-btn" class="btn-primary" onclick="window._tailscaleQuickConnect()" style="font-size:12px;padding:8px 16px;">
+          🔒 Tailscale で接続する
+        </button>
+        <button id="tailscale-open-app" class="btn-secondary" onclick="window.open('https://tailscale.com/download','_blank')" style="font-size:11px;padding:6px 12px;">
+          📲 Tailscale アプリ
+        </button>
+        <span id="tailscale-url-display" style="font-size:10px;color:var(--text-muted);width:100%;"></span>
+      </div>
+    </div>
+
     <!-- ===== miniserve ファイルサーバーカード ===== -->
     <div class="card" id="miniserve-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -5840,20 +5861,31 @@
         }
       }
 
-      // ── 4. Tailscale IP (localStorage キャッシュ) ─────────────────────────────
-      const cachedTsIp = localStorage.getItem('_kintai_tailscale_ip');
-      if (cachedTsIp) {
+      // ── 4. Tailscale (キャッシュされたURL/IP — Wi-Fi外でも有効) ───────────────
+      // Tailscale MagicDNS hostname を優先（IPより堅牢）
+      const cachedTsUrl = localStorage.getItem('_kintai_tailscale_url');
+      if (cachedTsUrl && cachedTsUrl.startsWith('http://')) {
         try {
           const ctrlTs = new AbortController();
           setTimeout(() => ctrlTs.abort(), 3000);
-          const rTs = await fetch(`http://${cachedTsIp}:${port}/api/health`, { signal: ctrlTs.signal });
-          if (rTs.ok) return `http://${cachedTsIp}:${port}`;
+          const rTs = await fetch(`${cachedTsUrl}/api/health`, { signal: ctrlTs.signal });
+          if (rTs.ok) return cachedTsUrl;
+        } catch(_) {}
+      }
+      // フォールバック: キャッシュされたTailscale IP
+      const cachedTsIp = localStorage.getItem('_kintai_tailscale_ip');
+      if (cachedTsIp && !cachedTsUrl?.includes(cachedTsIp)) {
+        try {
+          const ctrlTsIp = new AbortController();
+          setTimeout(() => ctrlTsIp.abort(), 3000);
+          const rTsIp = await fetch(`http://${cachedTsIp}:${port}/api/health`, { signal: ctrlTsIp.signal });
+          if (rTsIp.ok) return `http://${cachedTsIp}:${port}`;
         } catch(_) {}
       }
 
       // ── 4.5. Tailscale IP (設定の sens.tsMac) ────────────────────────────────
       const sens = await loadSensitiveData();
-      if (sens.tsMac && sens.tsMac !== cachedTsIp) {
+      if (sens.tsMac) {
         try {
           const ctrl2 = new AbortController();
           setTimeout(() => ctrl2.abort(), 2000);
@@ -6889,14 +6921,11 @@
               localStorage.setItem('_kintai_lan_url', window._srvBase);
             }
 
-            // サーバー情報を取得して cf_tunnel_url / tailscale_ip を更新
+            // サーバー情報を取得して tunnel/tailscale キャッシュを更新
             fetch(`${window._srvBase}/api/server-info`, { signal: AbortSignal.timeout(3000) })
               .then(r => r.json())
               .then(info => {
-                if (info.tunnel_url)    localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
-                if (info.mdns_url)      localStorage.setItem('_kintai_lan_url', info.mdns_url);
-                else if (info.lan_url)  localStorage.setItem('_kintai_lan_url', info.lan_url);
-                if (info.tailscale_ip)  localStorage.setItem('_kintai_tailscale_ip', info.tailscale_ip);
+                if (window._cacheServerInfo) window._cacheServerInfo(info);
                 // ハブのサーバーカードを更新
                 if (window._refreshServerInfoCard) window._refreshServerInfoCard(info);
               }).catch(()=>{});
@@ -7559,6 +7588,22 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v51', date: '2026-03-07',
+          title: '🔒 Tailscale VPN接続確立 + 堅牢セキュリティシステム',
+          items: [
+            { tag: 'security', text: '信頼済みオリジン検証: Cloudflare Tunnel経由リクエストにはTailscale情報を非開示（CF-Rayヘッダー検出）' },
+            { tag: 'security', text: 'APIトークン認証: restart/backup/SSH登録など破壊的操作を外部アクセスから保護（X-Kintai-Token）' },
+            { tag: 'security', text: 'Obsidianファイル書き込み(write/delete/mkdir)を信頼オリジン外からブロック' },
+            { tag: 'security', text: 'kintai/tasksデータ書き込みを外部からブロック（データ改ざん防止）' },
+            { tag: 'security', text: 'Content-Security-PolicyヘッダーをHTML応答に付与（XSS対策）' },
+            { tag: 'feat',     text: 'Tailscale .env設定: TAILSCALE_MAC_IP/HOST, TAILSCALE_IPHONE_IP を読込（CLI不要）' },
+            { tag: 'feat',     text: 'server-info: tailscale_url(MagicDNS hostname優先)をキャッシュ → _kintai_tailscale_url' },
+            { tag: 'feat',     text: 'Tailscale VPNクイック接続カード: ハブに追加。接続確認後に自動遷移' },
+            { tag: 'feat',     text: '_resolveServerUrl(): _kintai_tailscale_url(hostname) → _kintai_tailscale_ip の順で試行' },
+            { tag: 'feat',     text: '_cacheServerInfo(): tunnel/LAN/Tailscale情報を一括キャッシュするグローバル関数' },
+          ],
+        },
+        {
           version: 'v50', date: '2026-03-07',
           title: '🔒 セキュリティ強化 + Tailscale VPN + mDNS URL',
           items: [
@@ -8014,7 +8059,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v50';
+        const swVer = 'kintai-v51';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -14297,7 +14342,7 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         });
         document.getElementById('fab-group')?.classList.toggle('hidden', tabName !== 'calendar');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); if (window._refreshDockerSysinfo) window._refreshDockerSysinfo(); if (window._miniserveCardRefresh) window._miniserveCardRefresh(); if (window._refreshHubSnsWidget) window._refreshHubSnsWidget(); if (window._refreshServerInfoCard) window._refreshServerInfoCard(); }
+        if (tabName === 'hub')      { renderLauncher(); renderTailscaleCard(); if (window._refreshDbStatus) window._refreshDbStatus(); if (window._refreshDockerSysinfo) window._refreshDockerSysinfo(); if (window._miniserveCardRefresh) window._miniserveCardRefresh(); if (window._refreshHubSnsWidget) window._refreshHubSnsWidget(); if (window._refreshServerInfoCard) window._refreshServerInfoCard(); if (window._refreshTailscaleQuickCard) window._refreshTailscaleQuickCard(); }
         if (tabName === 'study')    renderStudy();
         if (tabName === 'project')  renderProjects();
         if (tabName === 'report')   { initReportTab(); }
@@ -16054,12 +16099,18 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         });
       }
 
+      window._cacheServerInfo = function _cacheServerInfo(info) {
+        if (info.tunnel_url)     localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
+        if (info.mdns_url)       localStorage.setItem('_kintai_lan_url', info.mdns_url);
+        else if (info.lan_url)   localStorage.setItem('_kintai_lan_url', info.lan_url);
+        if (info.tailscale_ip)   localStorage.setItem('_kintai_tailscale_ip', info.tailscale_ip);
+        if (info.tailscale_url)  localStorage.setItem('_kintai_tailscale_url', info.tailscale_url);
+        if (info.tailscale_host) localStorage.setItem('_kintai_tailscale_host', info.tailscale_host);
+      };
+
       window._refreshServerInfoCard = async (cachedInfo) => {
         if (cachedInfo && (cachedInfo.lan_url || cachedInfo.tunnel_url || cachedInfo.mdns_url)) {
-          if (cachedInfo.tunnel_url)    localStorage.setItem('_cf_tunnel_url', cachedInfo.tunnel_url);
-          if (cachedInfo.mdns_url)      localStorage.setItem('_kintai_lan_url', cachedInfo.mdns_url);
-          else if (cachedInfo.lan_url)  localStorage.setItem('_kintai_lan_url', cachedInfo.lan_url);
-          if (cachedInfo.tailscale_ip)  localStorage.setItem('_kintai_tailscale_ip', cachedInfo.tailscale_ip);
+          _cacheServerInfo(cachedInfo);
           _renderCard(cachedInfo);
           return;
         }
@@ -16067,20 +16118,20 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         try {
           const r = await fetch(`${base}/api/server-info`, { signal: AbortSignal.timeout(4000) });
           const info = await r.json();
-          if (info.tunnel_url)    localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
-          if (info.mdns_url)      localStorage.setItem('_kintai_lan_url', info.mdns_url);
-          else if (info.lan_url)  localStorage.setItem('_kintai_lan_url', info.lan_url);
-          if (info.tailscale_ip)  localStorage.setItem('_kintai_tailscale_ip', info.tailscale_ip);
+          _cacheServerInfo(info);
           _renderCard(info);
         } catch(_) {
           // サーバーオフライン時 — localStorage のキャッシュを使って表示
-          const tunnel = localStorage.getItem('_cf_tunnel_url') || '';
-          const lan    = localStorage.getItem('_kintai_lan_url') || '';
-          const tsIp   = localStorage.getItem('_kintai_tailscale_ip') || '';
+          const tunnel  = localStorage.getItem('_cf_tunnel_url') || '';
+          const lan     = localStorage.getItem('_kintai_lan_url') || '';
+          const tsUrl   = localStorage.getItem('_kintai_tailscale_url') || '';
+          const tsIp    = localStorage.getItem('_kintai_tailscale_ip') || '';
+          const tsHost  = localStorage.getItem('_kintai_tailscale_host') || '';
           _renderCard({
-            tunnel_url: tunnel || null,
-            lan_url:    lan    || null,
-            tailscale_url: tsIp ? `http://${tsIp}:8899` : null,
+            tunnel_url:     tunnel  || null,
+            lan_url:        lan     || null,
+            tailscale_url:  tsUrl   || (tsIp ? `http://${tsIp}:8899` : null),
+            tailscale_host: tsHost  || null,
           });
         }
       };
@@ -16091,6 +16142,60 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
           window._refreshServerInfoCard();
         }
       }, 2000);
+    })();
+
+    /* =====================================================
+       TAILSCALE クイック接続カード
+       ===================================================== */
+    (() => {
+      const TS_PORT = 8899;
+
+      window._tailscaleQuickConnect = async function() {
+        const tsUrl  = localStorage.getItem('_kintai_tailscale_url') || '';
+        const tsIp   = localStorage.getItem('_kintai_tailscale_ip')  || '';
+        const target = tsUrl || (tsIp ? `http://${tsIp}:${TS_PORT}` : '');
+        if (!target) {
+          toast('⚠️ Tailscale URL が未設定です。Mac でサーバーカードを更新してください。');
+          return;
+        }
+        // 接続確認してから遷移
+        const btn = document.getElementById('tailscale-quick-btn');
+        if (btn) { btn.disabled = true; btn.textContent = '接続確認中...'; }
+        try {
+          const ctrl = new AbortController();
+          setTimeout(() => ctrl.abort(), 4000);
+          const r = await fetch(`${target}/api/health`, { signal: ctrl.signal });
+          if (r.ok) {
+            window.location.href = target + '/';
+          } else {
+            toast('⚠️ Tailscale サーバーに接続できません。Mac と iPhone のTailscaleがONか確認してください。');
+          }
+        } catch(e) {
+          toast('⚠️ 接続失敗。Tailscale VPNがONか確認してください。');
+        }
+        if (btn) { btn.disabled = false; btn.textContent = '🔒 Tailscale で接続する'; }
+      };
+
+      window._refreshTailscaleQuickCard = async function() {
+        const statusEl = document.getElementById('tailscale-quick-status');
+        const displayEl = document.getElementById('tailscale-url-display');
+        const btn = document.getElementById('tailscale-quick-btn');
+        const tsUrl  = localStorage.getItem('_kintai_tailscale_url') || '';
+        const tsIp   = localStorage.getItem('_kintai_tailscale_ip')  || '';
+        const tsHost = localStorage.getItem('_kintai_tailscale_host') || '';
+
+        const hasTs = !!(tsUrl || tsIp);
+        if (statusEl) statusEl.textContent = hasTs ? '🟢 設定済み' : '⚫ 未設定';
+        if (displayEl) {
+          displayEl.textContent = tsUrl
+            ? `接続先: ${tsUrl}`
+            : (tsIp ? `接続先: http://${tsIp}:${TS_PORT}` : 'サーバーカードを更新するとTailscale URLが自動取得されます');
+        }
+        if (btn) btn.style.opacity = hasTs ? '1' : '0.6';
+      };
+
+      // 初期化
+      setTimeout(() => window._refreshTailscaleQuickCard?.(), 3000);
     })();
 
     /* =====================================================
