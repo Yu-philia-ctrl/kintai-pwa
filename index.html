@@ -5858,18 +5858,19 @@
         }
       }
 
-      // ── 4. Tailscale (キャッシュされたURL/IP — Wi-Fi外でも有効) ───────────────
-      // 4a. tailscale serve HTTPS (GitHub Pages 混在コンテンツ回避・最優先)
-      const cachedTsHttps = localStorage.getItem('_kintai_tailscale_https_url');
-      if (cachedTsHttps && cachedTsHttps.startsWith('https://')) {
+      // ── 4. Tailscale HTTP (Wi-Fi外でも有効 — Tailscale VPN ON 必須) ──────────
+      // 注: tailscale serve HTTPS はフリープランで TLS 証明書取得不可のため無効
+      // 4a. Tailscale IP (直接・最も確実 — MagicDNS 不要)
+      const cachedTsIp = localStorage.getItem('_kintai_tailscale_ip');
+      if (cachedTsIp) {
         try {
-          const ctrlTsH = new AbortController();
-          setTimeout(() => ctrlTsH.abort(), 4000);
-          const rTsH = await fetch(`${cachedTsHttps}/api/health`, { signal: ctrlTsH.signal });
-          if (rTsH.ok) return cachedTsHttps;
+          const ctrlTsIp = new AbortController();
+          setTimeout(() => ctrlTsIp.abort(), 3000);
+          const rTsIp = await fetch(`http://${cachedTsIp}:${port}/api/health`, { signal: ctrlTsIp.signal });
+          if (rTsIp.ok) return `http://${cachedTsIp}:${port}`;
         } catch(_) {}
       }
-      // 4b. Tailscale HTTP (MagicDNS hostname)
+      // 4b. Tailscale MagicDNS hostname (DNS 解決が必要)
       const cachedTsUrl = localStorage.getItem('_kintai_tailscale_url');
       if (cachedTsUrl && cachedTsUrl.startsWith('http://')) {
         try {
@@ -5877,16 +5878,6 @@
           setTimeout(() => ctrlTs.abort(), 3000);
           const rTs = await fetch(`${cachedTsUrl}/api/health`, { signal: ctrlTs.signal });
           if (rTs.ok) return cachedTsUrl;
-        } catch(_) {}
-      }
-      // 4c. フォールバック: キャッシュされたTailscale IP
-      const cachedTsIp = localStorage.getItem('_kintai_tailscale_ip');
-      if (cachedTsIp && !cachedTsUrl?.includes(cachedTsIp)) {
-        try {
-          const ctrlTsIp = new AbortController();
-          setTimeout(() => ctrlTsIp.abort(), 3000);
-          const rTsIp = await fetch(`http://${cachedTsIp}:${port}/api/health`, { signal: ctrlTsIp.signal });
-          if (rTsIp.ok) return `http://${cachedTsIp}:${port}`;
         } catch(_) {}
       }
 
@@ -7609,6 +7600,16 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v55', date: '2026-03-07',
+          title: '🔧 Tailscale HTTP接続に切替 (HTTPS serve TLS証明書問題対処)',
+          items: [
+            { tag: 'fix', text: 'tailscale serve HTTPS を停止 (フリープランでTLS証明書取得不可)' },
+            { tag: 'fix', text: '_resolveServerUrl: Tailscale IP直接接続を最優先 (DNS不要・最確実)' },
+            { tag: 'fix', text: 'Tailscale Quick Connect: IP直接接続 → MagicDNS の優先順に変更' },
+            { tag: 'fix', text: 'ハブカード: 接続先URL(http://100.65.221.66:8899)を明示表示' },
+          ],
+        },
+        {
           version: 'v54', date: '2026-03-07',
           title: '🔒 Tailscale watchdog自動化 + ハブカード UX改善',
           items: [
@@ -8115,7 +8116,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v54';
+        const swVer = 'kintai-v55';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -16213,11 +16214,10 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       const TS_PORT = 8899;
 
       window._tailscaleQuickConnect = async function() {
-        // HTTPS (serve) → HTTP (MagicDNS) → HTTP (IP) の優先順
-        const tsHttps = localStorage.getItem('_kintai_tailscale_https_url') || '';
-        const tsUrl   = localStorage.getItem('_kintai_tailscale_url') || '';
-        const tsIp    = localStorage.getItem('_kintai_tailscale_ip')  || '';
-        const target  = tsHttps || tsUrl || (tsIp ? `http://${tsIp}:${TS_PORT}` : '');
+        // Tailscale IP (直接) → MagicDNS の優先順 (HTTPS serve は TLS 証明書問題で無効)
+        const tsIp  = localStorage.getItem('_kintai_tailscale_ip')  || '';
+        const tsUrl = localStorage.getItem('_kintai_tailscale_url') || '';
+        const target = (tsIp ? `http://${tsIp}:${TS_PORT}` : '') || tsUrl;
         if (!target) {
           toast('⚠️ Tailscale URL が未設定です。Mac でサーバーカードを更新してください。');
           return;
@@ -16244,31 +16244,26 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         const statusEl = document.getElementById('tailscale-quick-status');
         const displayEl = document.getElementById('tailscale-url-display');
         const btn = document.getElementById('tailscale-quick-btn');
-        const tsHttps = localStorage.getItem('_kintai_tailscale_https_url') || '';
         const tsUrl   = localStorage.getItem('_kintai_tailscale_url') || '';
         const tsIp    = localStorage.getItem('_kintai_tailscale_ip')  || '';
-        const displayUrl = tsHttps || tsUrl || (tsIp ? `http://${tsIp}:${TS_PORT}` : '');
+        const displayUrl = (tsIp ? `http://${tsIp}:${TS_PORT}` : '') || tsUrl;
 
-        const hasTs = !!(tsHttps || tsUrl || tsIp);
-        if (statusEl) statusEl.textContent = tsHttps ? '🟢 HTTPS 接続可' : (hasTs ? '🟡 HTTP 接続可' : '⚫ 未設定');
+        const hasTs = !!(tsUrl || tsIp);
+        if (statusEl) statusEl.textContent = hasTs ? '🟢 接続可 (Tailscale ON 必須)' : '⚫ 未設定';
 
         // ガイド表示
         const guideEl = document.getElementById('tailscale-setup-guide');
         if (guideEl) {
-          if (tsHttps) {
-            guideEl.innerHTML = `✅ <strong>外部接続準備完了</strong><br>
-              Mac・iPhone 両方でTailscale ONにすれば<br>
-              Wi-Fi外(モバイル回線)からも接続できます。`;
-          } else if (hasTs) {
-            guideEl.innerHTML = `🔧 <strong>HTTP接続のみ設定済み</strong><br>
-              ハブのQRコードをiPhoneでスキャンすると<br>
-              HTTPS接続(より安定)が設定されます。`;
+          if (hasTs) {
+            guideEl.innerHTML = `✅ <strong>外部接続 準備完了</strong><br>
+              iPhone で Tailscale を ON にして以下の URL を Safari で開いてください:<br>
+              <code style="background:var(--bg2);padding:2px 6px;border-radius:3px;font-size:10px;">http://${tsIp || '100.65.221.66'}:${TS_PORT}</code>`;
           } else {
-            guideEl.innerHTML = `📋 <strong>設定手順</strong><br>
-              ① Mac・iPhone に <a href="https://tailscale.com/download" target="_blank" style="color:var(--accent);">Tailscale</a> をインストール<br>
+            guideEl.innerHTML = `📋 <strong>初回設定手順</strong><br>
+              ① iPhone に <a href="https://tailscale.com/download" target="_blank" style="color:var(--accent);">Tailscaleアプリ</a> をインストール<br>
               ② 同じアカウントでサインイン<br>
-              ③ このページ(Mac)のQRコードをiPhoneでスキャン<br>
-              ④ iPhone の Tailscale を ON にして外部から接続`;
+              ③ Mac でハブの QR コードをスキャン<br>
+              ④ iPhone の Tailscale を ON → 上記 URL でアクセス`;
           }
         }
 
