@@ -65,6 +65,11 @@ CACHE_TTL = 300  # 5分
 
 # Cloudflare Quick Tunnel — 現在のURL を保持するグローバル変数
 _CF_TUNNEL_URL: str = ''
+
+# SSH 公開鍵追加レートリミット: {client_ip: [timestamp, ...]}
+_SSH_RATE: dict = {}
+_SSH_RATE_MAX    = 5   # 10分間の最大試行回数
+_SSH_RATE_WINDOW = 600 # 秒
 _CF_TUNNEL_PROC = None
 # ===== iCloud Drive パス定義 =====
 # `:root` フォルダ = iCloud Drive のルート（Mac/iPhone 両方からアクセス可能）
@@ -252,6 +257,7 @@ class JinjerHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('X-Content-Type-Options', 'nosniff')
         self.end_headers()
         self.wfile.write(body)
 
@@ -261,6 +267,7 @@ class JinjerHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'text/plain; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('X-Content-Type-Options', 'nosniff')
         self.end_headers()
         self.wfile.write(body)
 
@@ -786,6 +793,8 @@ class JinjerHandler(BaseHTTPRequestHandler):
                 self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             else:
                 self.send_header('Cache-Control', 'max-age=3600')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('X-Frame-Options', 'SAMEORIGIN')
             self.end_headers()
             self.wfile.write(body)
         except Exception as e:
@@ -993,50 +1002,59 @@ class JinjerHandler(BaseHTTPRequestHandler):
         method = 'none'
 
         # ── 方法1: serve 設定から直接取得 ──────────────────────────────────
-        try:
-            r = subprocess.run(
-                ['tailscale', 'serve', 'status', '--json'],
-                capture_output=True, text=True, timeout=5
-            )
-            if r.returncode == 0 and r.stdout.strip():
-                data = json.loads(r.stdout)
-                # SelfDNS フィールドから HTTPS URL を構築
-                dns = (data.get('Self', {}).get('DNSName', '') or '').rstrip('.')
-                if dns:
-                    https_url = f'https://{dns}'
-                    method = 'serve-status'
-        except Exception:
-            pass
+        ts_bins = ['/Applications/Tailscale.app/Contents/MacOS/Tailscale', 'tailscale']
+        for ts_bin in ts_bins:
+            try:
+                r = subprocess.run(
+                    [ts_bin, 'serve', 'status', '--json'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if r.returncode == 0 and r.stdout.strip():
+                    data = json.loads(r.stdout)
+                    dns = (data.get('Self', {}).get('DNSName', '') or '').rstrip('.')
+                    if dns:
+                        https_url = f'https://{dns}'
+                        method = 'serve-status'
+                        break
+            except Exception:
+                continue
 
         # ── 方法2: tailscale status からホスト名を取得 ────────────────────
         if not https_url:
-            try:
-                r2 = subprocess.run(
-                    ['tailscale', 'status', '--json'],
-                    capture_output=True, text=True, timeout=5
-                )
-                if r2.returncode == 0 and r2.stdout.strip():
-                    data2 = json.loads(r2.stdout)
-                    dns2 = (data2.get('Self', {}).get('DNSName', '') or '').rstrip('.')
-                    if dns2:
-                        https_url = f'https://{dns2}'
-                        method = 'status'
-            except Exception:
-                pass
+            for ts_bin in ts_bins:
+                try:
+                    r2 = subprocess.run(
+                        [ts_bin, 'status', '--json'],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if r2.returncode == 0 and r2.stdout.strip():
+                        data2 = json.loads(r2.stdout)
+                        dns2 = (data2.get('Self', {}).get('DNSName', '') or '').rstrip('.')
+                        if dns2:
+                            https_url = f'https://{dns2}'
+                            method = 'status'
+                            break
+                except Exception:
+                    continue
 
         # ── 方法3: tailscale ip -4 でIPアドレスを直接取得 ──────────────────
+        # App Store 版 → Homebrew 版の順に試す (有効な IPv4 のみ採用)
+        import re as _re2
+        _ipv4_re2 = _re2.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
         tailscale_ip = None
-        try:
-            r3 = subprocess.run(
-                ['tailscale', 'ip', '-4'],
-                capture_output=True, text=True, timeout=5
-            )
-            if r3.returncode == 0:
-                ip = r3.stdout.strip().splitlines()[0].strip()
-                if ip:
-                    tailscale_ip = ip
-        except Exception:
-            pass
+        for ts_bin in ['/Applications/Tailscale.app/Contents/MacOS/Tailscale', 'tailscale']:
+            try:
+                r3 = subprocess.run(
+                    [ts_bin, 'ip', '-4'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if r3.returncode == 0:
+                    ip = r3.stdout.strip().splitlines()[0].strip()
+                    if ip and _ipv4_re2.match(ip):
+                        tailscale_ip = ip
+                        break
+            except Exception:
+                continue
 
         http_url = f'http://{tailscale_ip}:8899' if tailscale_ip else None
 
@@ -1207,6 +1225,18 @@ class JinjerHandler(BaseHTTPRequestHandler):
 
     def _handle_ssh_add_pubkey(self):
         """iPhone (iSH 等) の SSH 公開鍵を authorized_keys に追加する。"""
+        # レートリミット: クライアント IP ごとに 10分間で最大 5 回まで
+        global _SSH_RATE
+        client_ip = (self.headers.get('X-Forwarded-For') or
+                     self.headers.get('X-Real-IP') or
+                     self.client_address[0])
+        now = time.time()
+        attempts = [t for t in _SSH_RATE.get(client_ip, []) if now - t < _SSH_RATE_WINDOW]
+        if len(attempts) >= _SSH_RATE_MAX:
+            self._send_json({'ok': False, 'error': 'レートリミット超過。10分後に再試行してください。'}, 429)
+            return
+        attempts.append(now)
+        _SSH_RATE[client_ip] = attempts
         try:
             body   = self._read_body()
             pubkey = str(body.get('pubkey') or '').strip()
@@ -1263,18 +1293,61 @@ class JinjerHandler(BaseHTTPRequestHandler):
         return host_ip
 
     def _handle_server_info(self):
-        """LAN IP / Tunnel URL / ポート情報をまとめて返す。
+        """LAN IP / Tunnel URL / Tailscale / mDNS / ポート情報をまとめて返す。
         iPhone のマジックリンク QR 生成用。"""
         global _CF_TUNNEL_URL
         host_ip = self._get_host_ip_cached()
         lan_url = f'http://{host_ip}:{PORT}' if host_ip else None
+
+        # mDNS URL — raw IP を隠すため Bonjour ホスト名を使用
+        # scutil --get LocalHostName が最も信頼できる（例: yusukenoMacBook-Pro）
+        mdns_url = lan_url  # フォールバック
+        try:
+            r_mdns = subprocess.run(
+                ['scutil', '--get', 'LocalHostName'],
+                capture_output=True, text=True, timeout=3
+            )
+            if r_mdns.returncode == 0:
+                local_hostname = r_mdns.stdout.strip()
+                if local_hostname:
+                    mdns_url = f'http://{local_hostname}.local:{PORT}'
+        except Exception:
+            pass
+
+        # Tailscale IP を検出（App Store 版 → Homebrew 版の順に試す）
+        import re as _re
+        _ipv4_re = _re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
+        ts_ip  = None
+        ts_url = None
+        ts_bins = [
+            '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
+            'tailscale',
+        ]
+        for ts_bin in ts_bins:
+            try:
+                r = subprocess.run(
+                    [ts_bin, 'ip', '-4'],
+                    capture_output=True, text=True, timeout=3
+                )
+                if r.returncode == 0:
+                    ip = r.stdout.strip().splitlines()[0].strip()
+                    if ip and _ipv4_re.match(ip):
+                        ts_ip  = ip
+                        ts_url = f'http://{ip}:{PORT}'
+                        break
+            except Exception:
+                continue
+
         self._send_json({
-            'lan_ip':     host_ip or None,
-            'lan_url':    lan_url,
-            'port':       PORT,
-            'tunnel_url': _CF_TUNNEL_URL or None,
+            'lan_ip':        host_ip or None,
+            'lan_url':       lan_url,
+            'mdns_url':      mdns_url,
+            'tailscale_ip':  ts_ip,
+            'tailscale_url': ts_url,
+            'port':          PORT,
+            'tunnel_url':    _CF_TUNNEL_URL or None,
             'tunnel_active': bool(_CF_TUNNEL_URL),
-            'github_pages': 'https://yu-philia-ctrl.github.io/kintai-pwa/',
+            'github_pages':  'https://yu-philia-ctrl.github.io/kintai-pwa/',
         })
 
     # ===== SNS Collector プロキシ ===============================================

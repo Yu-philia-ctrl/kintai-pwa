@@ -5840,9 +5840,20 @@
         }
       }
 
-      // ── 4. Tailscale IP (HTTP) ────────────────────────────────────────────────
+      // ── 4. Tailscale IP (localStorage キャッシュ) ─────────────────────────────
+      const cachedTsIp = localStorage.getItem('_kintai_tailscale_ip');
+      if (cachedTsIp) {
+        try {
+          const ctrlTs = new AbortController();
+          setTimeout(() => ctrlTs.abort(), 3000);
+          const rTs = await fetch(`http://${cachedTsIp}:${port}/api/health`, { signal: ctrlTs.signal });
+          if (rTs.ok) return `http://${cachedTsIp}:${port}`;
+        } catch(_) {}
+      }
+
+      // ── 4.5. Tailscale IP (設定の sens.tsMac) ────────────────────────────────
       const sens = await loadSensitiveData();
-      if (sens.tsMac) {
+      if (sens.tsMac && sens.tsMac !== cachedTsIp) {
         try {
           const ctrl2 = new AbortController();
           setTimeout(() => ctrl2.abort(), 2000);
@@ -6844,15 +6855,18 @@
         if (alive) { banner.style.display = 'none'; return; }
         const tunnel = localStorage.getItem('_cf_tunnel_url') || '';
         const lan    = localStorage.getItem('_kintai_lan_url') || '';
-        if (!tunnel && !lan) return; // 案内する URL がなければバナーも出さない
+        const tsIp   = localStorage.getItem('_kintai_tailscale_ip') || '';
+        const tsUrl  = tsIp ? `http://${tsIp}:8899` : '';
+        if (!tunnel && !lan && !tsUrl) return; // 案内する URL がなければバナーも出さない
         const guideText = document.getElementById('offline-guide-text');
         const lanLink   = document.getElementById('offline-guide-lan-link');
         const tunLink   = document.getElementById('offline-guide-tunnel-link');
-        if (guideText) guideText.textContent = lan
-          ? '同じ Wi-Fi 内ならローカルサーバーに接続できます。'
-          : 'Cloudflare Tunnel 経由でどこからでも接続できます。';
-        if (lanLink && lan)   { lanLink.href  = lan;    lanLink.style.display = 'inline'; }
-        if (tunLink && tunnel){ tunLink.href  = tunnel; tunLink.style.display = 'inline'; }
+        if (guideText) guideText.textContent = tunnel
+          ? 'Cloudflare Tunnel 経由でどこからでも接続できます。'
+          : (tsUrl ? 'Tailscale VPN 経由で接続できます。' : '同じ Wi-Fi 内ならローカルサーバーに接続できます。');
+        const bestLan = tsUrl || lan;
+        if (lanLink && bestLan) { lanLink.href  = bestLan; lanLink.style.display = 'inline'; }
+        if (tunLink && tunnel)  { tunLink.href  = tunnel;  tunLink.style.display = 'inline'; }
         banner.style.display = 'block';
         document.getElementById('offline-guide-dismiss')?.addEventListener('click', () => {
           banner.style.display = 'none';
@@ -6875,12 +6889,14 @@
               localStorage.setItem('_kintai_lan_url', window._srvBase);
             }
 
-            // サーバー情報を取得して cf_tunnel_url を更新
+            // サーバー情報を取得して cf_tunnel_url / tailscale_ip を更新
             fetch(`${window._srvBase}/api/server-info`, { signal: AbortSignal.timeout(3000) })
               .then(r => r.json())
               .then(info => {
-                if (info.tunnel_url) localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
-                if (info.lan_url) localStorage.setItem('_kintai_lan_url', info.lan_url);
+                if (info.tunnel_url)    localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
+                if (info.mdns_url)      localStorage.setItem('_kintai_lan_url', info.mdns_url);
+                else if (info.lan_url)  localStorage.setItem('_kintai_lan_url', info.lan_url);
+                if (info.tailscale_ip)  localStorage.setItem('_kintai_tailscale_ip', info.tailscale_ip);
                 // ハブのサーバーカードを更新
                 if (window._refreshServerInfoCard) window._refreshServerInfoCard(info);
               }).catch(()=>{});
@@ -7543,6 +7559,19 @@
     (function initSystemTab() {
       const CHANGELOG = [
         {
+          version: 'v50', date: '2026-03-07',
+          title: '🔒 セキュリティ強化 + Tailscale VPN + mDNS URL',
+          items: [
+            { tag: 'security', text: 'SSH公開鍵登録 (/api/ssh/add-pubkey): IPベースのレートリミット追加（10分間5回まで）' },
+            { tag: 'security', text: 'セキュリティヘッダー追加: X-Content-Type-Options: nosniff、X-Frame-Options: SAMEORIGIN' },
+            { tag: 'feat',     text: 'Tailscale VPN対応: App Store Tailscale自動検出、tailscale_ip/tailscale_urlをserver-infoに追加' },
+            { tag: 'feat',     text: 'mDNS URL: raw IPアドレスの代わりにhostname.local形式を使用（IPアドレスを隠蔽）' },
+            { tag: 'feat',     text: '_resolveServerUrl()にTailscale IPステップ追加（localStorage _kintai_tailscale_ipからキャッシュ試行）' },
+            { tag: 'feat',     text: 'ハブカード: Tailscale URL表示・LAN接続にmDNS URL使用・Magic LinkもmDNS URLで生成' },
+            { tag: 'feat',     text: 'オフラインバナー: Tailscale VPN URL優先表示（Tunnel > Tailscale > LAN の優先順位）' },
+          ],
+        },
+        {
           version: 'v49', date: '2026-03-07',
           title: '🛠 ターミナル修正 + 報告書Excel書き戻し + Obsidian DBタブ',
           items: [
@@ -7985,7 +8014,7 @@
       function renderSysinfo() {
         const el = document.getElementById('cl-sysinfo');
         if (!el) return;
-        const swVer = 'kintai-v49';
+        const swVer = 'kintai-v50';
         let lsTotal = 0;
         for (const k of Object.keys(localStorage)) lsTotal += (localStorage.getItem(k) || '').length;
         const store = loadStore();
@@ -15949,7 +15978,9 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       function _buildMagicLink(info) {
         const p = new URLSearchParams();
         if (info.tunnel_url) p.set('srv', info.tunnel_url);
-        if (info.lan_url)    p.set('lan', info.lan_url);
+        // mDNS URL を優先（raw IP を隠す）。なければ LAN URL
+        const lanForQr = info.mdns_url || info.lan_url;
+        if (lanForQr) p.set('lan', lanForQr);
         return GITHUB_PAGES + '?' + p.toString();
       }
 
@@ -15959,8 +15990,12 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         if (!body) return;
 
         const tunnelOk = !!info.tunnel_url;
-        const lanOk    = !!info.lan_url;
-        if (status) status.textContent = tunnelOk ? '🟢 どこからでも接続可' : (lanOk ? '🟡 同じ Wi-Fi のみ' : '⚠️ 接続情報なし');
+        const tsOk     = !!info.tailscale_url;
+        const lanOk    = !!(info.mdns_url || info.lan_url);
+        const displayLan = info.mdns_url || info.lan_url; // mDNS 優先
+        const anyRemote = tunnelOk || tsOk;
+        if (status) status.textContent = tunnelOk ? '🟢 どこからでも接続可'
+          : (tsOk ? '🟢 Tailscale VPN 接続可' : (lanOk ? '🟡 同じ Wi-Fi のみ' : '⚠️ 接続情報なし'));
 
         const magicLink = (tunnelOk || lanOk) ? _buildMagicLink(info) : null;
 
@@ -15970,8 +16005,11 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
               ? `✅ <strong>Cloudflare Tunnel</strong> が稼働中 → どのネットワークからでも接続可能<br>
                  <code style="font-size:10px;background:var(--bg-glass);padding:1px 5px;border-radius:4px;">${info.tunnel_url}</code>`
               : `⚠️ Cloudflare Tunnel が未起動 → 同じ Wi-Fi 内のみ使用可能`}
+            ${tsOk
+              ? `<br>🔒 <strong>Tailscale VPN</strong>: <code style="font-size:10px;background:var(--bg-glass);padding:1px 5px;border-radius:4px;">${info.tailscale_url}</code>`
+              : ''}
             ${lanOk
-              ? `<br>📡 <strong>LAN URL</strong>: <code style="font-size:10px;background:var(--bg-glass);padding:1px 5px;border-radius:4px;">${info.lan_url}</code>`
+              ? `<br>📡 <strong>LAN</strong>: <code style="font-size:10px;background:var(--bg-glass);padding:1px 5px;border-radius:4px;">${displayLan}</code>`
               : ''}
           </div>
           ${magicLink ? `
@@ -15983,13 +16021,14 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
               <div style="font-size:11px;font-weight:700;margin-bottom:4px;">① iPhone でこの QR をスキャン</div>
               <div style="font-size:10px;color:var(--text-muted);line-height:1.6;">
                 GitHub Pages が開き、サーバーURLが自動登録されます。<br>
-                ${tunnelOk ? '<strong>一度スキャン後は Wi-Fi 外でも接続可能。</strong>' : 'Mac 再起動後に再スキャンしてください。'}
+                ${anyRemote ? '<strong>一度スキャン後は Wi-Fi 外でも接続可能。</strong>' : 'Mac 再起動後に再スキャンしてください。'}
               </div>
               <button id="iphone-magic-copy-btn" class="btn-secondary" style="font-size:11px;padding:4px 10px;margin-top:6px;">📋 URLをコピー</button>
             </div>
           </div>` : `<div style="font-size:12px;color:var(--text-muted);">サーバーに接続後、QRコードが表示されます。</div>`}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
-            ${lanOk ? `<a href="${info.lan_url}" target="_blank" class="btn-primary" style="font-size:11px;padding:6px 12px;text-decoration:none;">🏠 LAN で開く</a>` : ''}
+            ${lanOk ? `<a href="${displayLan}" target="_blank" class="btn-primary" style="font-size:11px;padding:6px 12px;text-decoration:none;">🏠 LAN で開く</a>` : ''}
+            ${tsOk  ? `<a href="${info.tailscale_url}" target="_blank" class="btn-secondary" style="font-size:11px;padding:6px 12px;text-decoration:none;">🔒 Tailscale</a>` : ''}
             ${tunnelOk ? `<a href="${info.tunnel_url}" target="_blank" class="btn-secondary" style="font-size:11px;padding:6px 12px;text-decoration:none;">🌐 Tunnel で開く</a>` : ''}
             <a href="${GITHUB_PAGES}" target="_blank" class="btn-secondary" style="font-size:11px;padding:6px 12px;text-decoration:none;">📱 GitHub Pages</a>
             <button id="iphone-access-refresh" class="btn-secondary" style="font-size:11px;padding:6px;">🔄</button>
@@ -16016,7 +16055,11 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
       }
 
       window._refreshServerInfoCard = async (cachedInfo) => {
-        if (cachedInfo && (cachedInfo.lan_url || cachedInfo.tunnel_url)) {
+        if (cachedInfo && (cachedInfo.lan_url || cachedInfo.tunnel_url || cachedInfo.mdns_url)) {
+          if (cachedInfo.tunnel_url)    localStorage.setItem('_cf_tunnel_url', cachedInfo.tunnel_url);
+          if (cachedInfo.mdns_url)      localStorage.setItem('_kintai_lan_url', cachedInfo.mdns_url);
+          else if (cachedInfo.lan_url)  localStorage.setItem('_kintai_lan_url', cachedInfo.lan_url);
+          if (cachedInfo.tailscale_ip)  localStorage.setItem('_kintai_tailscale_ip', cachedInfo.tailscale_ip);
           _renderCard(cachedInfo);
           return;
         }
@@ -16024,14 +16067,21 @@ ${hasShoe ? `<path d="M24 218 Q18 226 19 230 Q30 235 43 230 Q49 226 48 219 L40 2
         try {
           const r = await fetch(`${base}/api/server-info`, { signal: AbortSignal.timeout(4000) });
           const info = await r.json();
-          if (info.tunnel_url) localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
-          if (info.lan_url)    localStorage.setItem('_kintai_lan_url', info.lan_url);
+          if (info.tunnel_url)    localStorage.setItem('_cf_tunnel_url', info.tunnel_url);
+          if (info.mdns_url)      localStorage.setItem('_kintai_lan_url', info.mdns_url);
+          else if (info.lan_url)  localStorage.setItem('_kintai_lan_url', info.lan_url);
+          if (info.tailscale_ip)  localStorage.setItem('_kintai_tailscale_ip', info.tailscale_ip);
           _renderCard(info);
         } catch(_) {
           // サーバーオフライン時 — localStorage のキャッシュを使って表示
           const tunnel = localStorage.getItem('_cf_tunnel_url') || '';
           const lan    = localStorage.getItem('_kintai_lan_url') || '';
-          _renderCard({ tunnel_url: tunnel || null, lan_url: lan || null });
+          const tsIp   = localStorage.getItem('_kintai_tailscale_ip') || '';
+          _renderCard({
+            tunnel_url: tunnel || null,
+            lan_url:    lan    || null,
+            tailscale_url: tsIp ? `http://${tsIp}:8899` : null,
+          });
         }
       };
 
